@@ -6,7 +6,7 @@ import { rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 // Mock prettier
-jest.mock('../generator/utils/templates', () => ({
+jest.mock('../utils/templates', () => ({
   formatCode: jest.fn((code: string) => Promise.resolve(code)),
 }));
 
@@ -54,7 +54,7 @@ describe('Generated Code Validation', () => {
       // Verify structure
       expect(typesContent).toContain('import { Schema } from "effect"');
       expect(typesContent).toContain(
-        'import { columnType, generated, getSchemas } from "prisma-effect-kysely"',
+        'import { columnType, generated, getSchemas } from "prisma-effect-kysely/kysely"',
       );
 
       // Verify no type assertions (look for " as SomeType" pattern, not just words containing "as")

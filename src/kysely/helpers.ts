@@ -8,17 +8,13 @@ import {
   Updateable,
 } from 'kysely';
 
-import { Effect, pipe } from 'effect';
-import { NoResultError } from 'kysely';
-import {
-  DatabaseError,
-  NotFoundError,
-  QueryError,
-  QueryParseError,
-} from './error';
+/**
+ * Runtime helpers for Kysely schema integration
+ * These are imported by generated code
+ */
 
-export const ColumnTypeId = Symbol.for('effect-kysely/ColumnTypeId');
-export const GeneratedId = Symbol.for('effect-kysely/GeneratedId');
+export const ColumnTypeId = Symbol.for('/ColumnTypeId');
+export const GeneratedId = Symbol.for('/GeneratedId');
 
 interface ColumnTypeSchemas<SType, SEncoded, IType, IEncoded, UType, UEncoded> {
   selectSchema: S.Schema<SType, SEncoded>;
@@ -32,6 +28,10 @@ interface GeneratedSchemas<SType, SEncoded> {
   updateSchema: S.Schema<SType, SEncoded>;
 }
 
+/**
+ * Mark a field as having different types for select/insert/update
+ * Used for ID fields with @default (read-only)
+ */
 export const columnType = <SType, SEncoded, IType, IEncoded, UType, UEncoded>(
   selectSchema: S.Schema<SType, SEncoded>,
   insertSchema: S.Schema<IType, IEncoded>,
@@ -55,9 +55,13 @@ export const columnType = <SType, SEncoded, IType, IEncoded, UType, UEncoded>(
   return S.make(AST.annotations(S.Never.ast, { [ColumnTypeId]: schemas }));
 };
 
+/**
+ * Mark a field as database-generated (optional on insert)
+ * Used for fields with @default
+ */
 export const generated = <SType, SEncoded>(
   schema: S.Schema<SType, SEncoded>,
-): S.Schema<SType | undefined, SEncoded | undefined> => {
+) => {
   const schemas: GeneratedSchemas<SType, SEncoded> = {
     selectSchema: schema,
     insertSchema: S.Union(schema, S.Undefined),
@@ -66,6 +70,9 @@ export const generated = <SType, SEncoded>(
   return S.make(AST.annotations(S.Never.ast, { [GeneratedId]: schemas }));
 };
 
+/**
+ * Create selectable schema from base schema
+ */
 export const selectable = <Type, Encoded>(
   schema: S.Schema<Type, Encoded>,
 ): S.Schema<Selectable<Type>, Selectable<Encoded>> => {
@@ -82,6 +89,9 @@ export const selectable = <Type, Encoded>(
   );
 };
 
+/**
+ * Create insertable schema from base schema
+ */
 export const insertable = <Type, Encoded>(
   schema: S.Schema<Type, Encoded>,
 ): S.Schema<Insertable<Type>, Insertable<Encoded>> => {
@@ -109,9 +119,10 @@ export const insertable = <Type, Encoded>(
   return S.make(res);
 };
 
-export const updateable = <Type, Encoded>(
-  schema: S.Schema<Type, Encoded>,
-): S.Schema<Updateable<Type>, Updateable<Encoded>> => {
+/**
+ * Create updateable schema from base schema
+ */
+export const updateable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
     return S.make(ast);
@@ -143,9 +154,13 @@ export interface Schemas<Type, Encoded> {
   Updateable: S.Schema<Updateable<Type>, Updateable<Encoded>>;
 }
 
+/**
+ * Generate all operational schemas (Selectable/Insertable/Updateable) from base schema
+ * Used in generated code
+ */
 export const getSchemas = <Type, Encoded>(
   baseSchema: S.Schema<Type, Encoded>,
-): Schemas<Type, Encoded> => ({
+) => ({
   Selectable: selectable(baseSchema),
   Insertable: insertable(baseSchema),
   Updateable: updateable(baseSchema),
@@ -169,11 +184,13 @@ type AnyColumnTypeSchemas = ColumnTypeSchemas<
 const extractParametersFromTypeLiteral = (
   ast: AST.TypeLiteral,
   schemaType: keyof AnyColumnTypeSchemas,
-): AST.PropertySignature[] => {
+) => {
   return ast.propertySignatures
     .map((prop: AST.PropertySignature) => {
       if (isColumnType(prop.type)) {
-        const schemas = prop.type.annotations[ColumnTypeId] as AnyColumnTypeSchemas;
+        const schemas = prop.type.annotations[
+          ColumnTypeId
+        ] as AnyColumnTypeSchemas;
         return new AST.PropertySignature(
           prop.name,
           schemas[schemaType].ast,
@@ -183,7 +200,10 @@ const extractParametersFromTypeLiteral = (
         );
       }
       if (isGeneratedType(prop.type)) {
-        const schemas = prop.type.annotations[GeneratedId] as GeneratedSchemas<unknown, unknown>;
+        const schemas = prop.type.annotations[GeneratedId] as GeneratedSchemas<
+          unknown,
+          unknown
+        >;
         return new AST.PropertySignature(
           prop.name,
           schemas[schemaType].ast,
@@ -209,13 +229,11 @@ interface GeneratedTypeAST extends AST.Declaration {
   };
 }
 
-const isColumnType = (ast: AST.AST): ast is ColumnTypeAST =>
-  ColumnTypeId in ast.annotations;
+const isColumnType = (ast: AST.AST) => ColumnTypeId in ast.annotations;
 
-const isGeneratedType = (ast: AST.AST): ast is GeneratedTypeAST =>
-  GeneratedId in ast.annotations;
+const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
 
-const isOptionalType = (ast: AST.AST): boolean => {
+const isOptionalType = (ast: AST.AST) => {
   if (!AST.isUnion(ast)) {
     return false;
   }
@@ -231,87 +249,4 @@ const isNullType = (ast: AST.AST) =>
   Object.entries(ast.annotations).find(
     ([sym, value]) =>
       sym === AST.IdentifierAnnotationId.toString() && value === 'null',
-  );
-
-type QueryFn<I, O> = (input: I) => Promise<O>;
-
-export const withEncoder =
-  <IEncoded, IType, O>({
-    encoder,
-    query,
-  }: {
-    encoder: S.Schema<IType, IEncoded>;
-    query: QueryFn<IEncoded, O>;
-  }) =>
-  (input: IType): Effect.Effect<O, DatabaseError, never> =>
-    Effect.gen(function* () {
-      const encoded: IEncoded = yield* encode(encoder, input);
-      return yield* toEffect(query, encoded);
-    });
-
-export const withDecoder =
-  <OEncoded, OType>({
-    decoder,
-    query,
-  }: {
-    decoder: S.Schema<OType, OEncoded>;
-    query: QueryFn<undefined, OEncoded>;
-  }) =>
-  (): Effect.Effect<OType, DatabaseError, never> =>
-    Effect.gen(function* () {
-      const res: OEncoded = yield* toEffect(query, undefined);
-      return yield* decode(decoder, res);
-    });
-
-export const withCodec =
-  <IEncoded, IType, OEncoded, OType>({
-    encoder,
-    decoder,
-    query,
-  }: {
-    encoder: S.Schema<IType, IEncoded>;
-    decoder: S.Schema<OType, OEncoded>;
-    query: QueryFn<IEncoded, OEncoded>;
-  }) =>
-  (input: IType): Effect.Effect<OType, DatabaseError, never> =>
-    Effect.gen(function* () {
-      const encoded: IEncoded = yield* encode(encoder, input);
-      const res: OEncoded = yield* toEffect(query, encoded);
-      return yield* decode(decoder, res);
-    });
-
-const toEffect = <I, O>(query: QueryFn<I, O>, input: I) =>
-  Effect.tryPromise({
-    try: () => query(input),
-    catch: (error): DatabaseError => {
-      if (error instanceof NoResultError) {
-        return new NotFoundError();
-      }
-
-      if (error instanceof Error) {
-        return new QueryError({ message: error.message, cause: error });
-      }
-
-      return new QueryError({ message: String(error), cause: error });
-    },
-  });
-
-const encode = <IEncoded, IType>(
-  inputSchema: S.Schema<IType, IEncoded>,
-  input: IType,
-) =>
-  pipe(
-    input,
-    S.encode(inputSchema),
-    Effect.mapError((parseError) => new QueryParseError({ parseError })),
-  );
-
-const decode = <OEncoded, OType>(
-  outputSchema: S.Schema<OType, OEncoded>,
-  encoded: OEncoded,
-) =>
-  pipe(
-    encoded,
-    S.decode(outputSchema),
-    Effect.mapError((parseError) => new QueryParseError({ parseError })),
   );

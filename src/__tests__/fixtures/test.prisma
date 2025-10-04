@@ -43,8 +43,8 @@ model AllTypes {
   /// @db.Uuid
   tenant_id String
 
-  // UUID Detection - Strategy 3: Default value
-  session_id String @default(dbgenerated("gen_random_uuid()"))
+  // UUID Detection - Strategy 1: Native type with default
+  session_id String @db.Uuid @default(dbgenerated("gen_random_uuid()"))
 
   // All Prisma scalar types
   stringField    String

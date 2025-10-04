@@ -1,5 +1,5 @@
 /**
- * Generated: 2025-10-04T04:59:11.219Z
+ * Generated: 2025-10-04T06:47:17.361Z
  * DO NOT EDIT MANUALLY
  */
 
@@ -32,17 +32,17 @@ export const _AllTypes = Schema.Struct({
   mappedWithDefault: Schema.propertySignature(generated(Schema.Number)).pipe(
     Schema.fromKey('mapped_default')
   ),
-  optionalBigInt: Schema.Union(Schema.BigInt, Schema.Undefined),
-  optionalBool: Schema.Union(Schema.Boolean, Schema.Undefined),
-  optionalBytes: Schema.Union(Schema.Uint8Array, Schema.Undefined),
-  optionalDate: Schema.Union(Schema.Date, Schema.Undefined),
-  optionalDecimal: Schema.Union(Schema.String, Schema.Undefined),
-  optionalFloat: Schema.Union(Schema.Number, Schema.Undefined),
-  optionalInt: Schema.Union(Schema.Number, Schema.Undefined),
-  optionalJson: Schema.Union(Schema.Unknown, Schema.Undefined),
-  optionalRole: Schema.Union(Role, Schema.Undefined),
-  optionalStatus: Schema.Union(Status, Schema.Undefined),
-  optionalString: Schema.Union(Schema.String, Schema.Undefined),
+  optionalBigInt: Schema.UndefinedOr(Schema.BigInt),
+  optionalBool: Schema.UndefinedOr(Schema.Boolean),
+  optionalBytes: Schema.UndefinedOr(Schema.Uint8Array),
+  optionalDate: Schema.UndefinedOr(Schema.Date),
+  optionalDecimal: Schema.UndefinedOr(Schema.String),
+  optionalFloat: Schema.UndefinedOr(Schema.Number),
+  optionalInt: Schema.UndefinedOr(Schema.Number),
+  optionalJson: Schema.UndefinedOr(Schema.Unknown),
+  optionalRole: Schema.UndefinedOr(Role),
+  optionalStatus: Schema.UndefinedOr(Status),
+  optionalString: Schema.UndefinedOr(Schema.String),
   role: Role,
   roleArray: Schema.Array(Role),
   session_id: generated(Schema.UUID),
@@ -90,7 +90,7 @@ export type CompositeIdModelUpdate = Schema.Schema.Type<typeof CompositeIdModel.
 // Employee Base Schema
 export const _Employee = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-  managerId: Schema.Union(Schema.UUID, Schema.Undefined),
+  managerId: Schema.UndefinedOr(Schema.UUID),
   name: Schema.String,
 });
 
@@ -103,7 +103,7 @@ export type EmployeeUpdate = Schema.Schema.Type<typeof Employee.Updateable>;
 // Post Base Schema
 export const _Post = Schema.Struct({
   authorId: Schema.UUID,
-  content: Schema.Union(Schema.String, Schema.Undefined),
+  content: Schema.UndefinedOr(Schema.String),
   createdAt: generated(Schema.Date),
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   published: generated(Schema.Boolean),
