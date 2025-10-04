@@ -54,7 +54,7 @@ describe('Generated Code Validation', () => {
       // Verify structure
       expect(typesContent).toContain('import { Schema } from "effect"');
       expect(typesContent).toContain(
-        'import { columnType, generated, getSchemas } from "prisma-effect-kysely/kysely"',
+        'import { columnType, generated, getSchemas } from "prisma-effect-kysely"',
       );
 
       // Verify no type assertions (look for " as SomeType" pattern, not just words containing "as")

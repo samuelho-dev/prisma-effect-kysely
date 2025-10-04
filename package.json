@@ -13,10 +13,6 @@
     ".": {
       "types": "./dist/generator/index.d.ts",
       "require": "./dist/generator/index.js"
-    },
-    "./kysely": {
-      "types": "./dist/kysely/helpers.d.ts",
-      "require": "./dist/kysely/helpers.js"
     }
   },
   "files": [

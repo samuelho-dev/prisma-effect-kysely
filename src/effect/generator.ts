@@ -77,7 +77,7 @@ export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
 
     const imports = [
       `import { Schema } from "effect";`,
-      `import { columnType, generated, getSchemas } from "prisma-effect-kysely/kysely";`,
+      `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {
