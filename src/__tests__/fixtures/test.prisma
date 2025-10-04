@@ -10,6 +10,11 @@ generator test_client {
   provider = "prisma-client-js"
 }
 
+generator effect_kysely {
+  provider = "prisma-effect-kysely"
+  output   = "../generated"
+}
+
 // ============================================================================
 // ENUMS - Testing enum generation and @map handling
 // ============================================================================

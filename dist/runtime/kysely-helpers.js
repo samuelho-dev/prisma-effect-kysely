@@ -33,13 +33,14 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.withCodec = exports.withDecoder = exports.withEncoder = exports.getSchemas = exports.updateable = exports.insertable = exports.selectable = exports.generated = exports.columnType = exports.ColumnTypeId = void 0;
+exports.withCodec = exports.withDecoder = exports.withEncoder = exports.getSchemas = exports.updateable = exports.insertable = exports.selectable = exports.generated = exports.columnType = exports.GeneratedId = exports.ColumnTypeId = void 0;
 const AST = __importStar(require("effect/SchemaAST"));
 const S = __importStar(require("effect/Schema"));
 const effect_1 = require("effect");
 const kysely_1 = require("kysely");
 const error_1 = require("./error");
 exports.ColumnTypeId = Symbol.for('effect-kysely/ColumnTypeId');
+exports.GeneratedId = Symbol.for('effect-kysely/GeneratedId');
 const columnType = (selectSchema, insertSchema, updateSchema) => {
     const schemas = {
         selectSchema,
@@ -49,7 +50,14 @@ const columnType = (selectSchema, insertSchema, updateSchema) => {
     return S.make(AST.annotations(S.Never.ast, { [exports.ColumnTypeId]: schemas }));
 };
 exports.columnType = columnType;
-const generated = (schema) => (0, exports.columnType)(schema, S.Union(schema, S.Undefined), schema);
+const generated = (schema) => {
+    const schemas = {
+        selectSchema: schema,
+        insertSchema: S.Union(schema, S.Undefined),
+        updateSchema: schema,
+    };
+    return S.make(AST.annotations(S.Never.ast, { [exports.GeneratedId]: schemas }));
+};
 exports.generated = generated;
 const selectable = (schema) => {
     const { ast } = schema;
@@ -88,15 +96,20 @@ exports.getSchemas = getSchemas;
 const extractParametersFromTypeLiteral = (ast, schemaType) => {
     return ast.propertySignatures
         .map((prop) => {
-        if (!isColumnType(prop.type)) {
-            return prop;
+        if (isColumnType(prop.type)) {
+            const schemas = prop.type.annotations[exports.ColumnTypeId];
+            return new AST.PropertySignature(prop.name, schemas[schemaType].ast, prop.isOptional, prop.isReadonly, prop.annotations);
         }
-        const schemas = prop.type.annotations[exports.ColumnTypeId];
-        return new AST.PropertySignature(prop.name, schemas[schemaType].ast, prop.isOptional, prop.isReadonly, prop.annotations);
+        if (isGeneratedType(prop.type)) {
+            const schemas = prop.type.annotations[exports.GeneratedId];
+            return new AST.PropertySignature(prop.name, schemas[schemaType].ast, prop.isOptional, prop.isReadonly, prop.annotations);
+        }
+        return prop;
     })
         .filter((prop) => prop.type._tag !== 'NeverKeyword');
 };
 const isColumnType = (ast) => exports.ColumnTypeId in ast.annotations;
+const isGeneratedType = (ast) => exports.GeneratedId in ast.annotations;
 const isOptionalType = (ast) => {
     if (!AST.isUnion(ast)) {
         return false;

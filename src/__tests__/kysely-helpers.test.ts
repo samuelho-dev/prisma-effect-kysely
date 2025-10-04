@@ -45,8 +45,8 @@ describe('Kysely Helpers', () => {
     it('should create a schema that allows undefined during insert', () => {
       const schema = generated(Schema.Number);
 
-      // Verify schema has ColumnTypeId annotation
-      const symbolKey = Symbol.for('effect-kysely/ColumnTypeId');
+      // Verify schema has GeneratedId annotation
+      const symbolKey = Symbol.for('effect-kysely/GeneratedId');
       expect(symbolKey in schema.ast.annotations).toBe(true);
 
       // Verify it returns a schema with proper structure

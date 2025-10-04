@@ -18,11 +18,18 @@ import {
 } from './error';
 
 export const ColumnTypeId = Symbol.for('effect-kysely/ColumnTypeId');
+export const GeneratedId = Symbol.for('effect-kysely/GeneratedId');
 
 interface ColumnTypeSchemas<SType, SEncoded, IType, IEncoded, UType, UEncoded> {
   selectSchema: S.Schema<SType, SEncoded>;
   insertSchema: S.Schema<IType, IEncoded>;
   updateSchema: S.Schema<UType, UEncoded>;
+}
+
+interface GeneratedSchemas<SType, SEncoded> {
+  selectSchema: S.Schema<SType, SEncoded>;
+  insertSchema: S.Schema<SType | undefined, SEncoded | undefined>;
+  updateSchema: S.Schema<SType, SEncoded>;
 }
 
 export const columnType = <SType, SEncoded, IType, IEncoded, UType, UEncoded>(
@@ -50,8 +57,14 @@ export const columnType = <SType, SEncoded, IType, IEncoded, UType, UEncoded>(
 
 export const generated = <SType, SEncoded>(
   schema: S.Schema<SType, SEncoded>,
-): S.Schema<Generated<SType>, Generated<SEncoded>> =>
-  columnType(schema, S.Union(schema, S.Undefined), schema);
+): S.Schema<SType | undefined, SEncoded | undefined> => {
+  const schemas: GeneratedSchemas<SType, SEncoded> = {
+    selectSchema: schema,
+    insertSchema: S.Union(schema, S.Undefined),
+    updateSchema: schema,
+  };
+  return S.make(AST.annotations(S.Never.ast, { [GeneratedId]: schemas }));
+};
 
 export const selectable = <Type, Encoded>(
   schema: S.Schema<Type, Encoded>,
@@ -159,17 +172,27 @@ const extractParametersFromTypeLiteral = (
 ): AST.PropertySignature[] => {
   return ast.propertySignatures
     .map((prop: AST.PropertySignature) => {
-      if (!isColumnType(prop.type)) {
-        return prop;
+      if (isColumnType(prop.type)) {
+        const schemas = prop.type.annotations[ColumnTypeId] as AnyColumnTypeSchemas;
+        return new AST.PropertySignature(
+          prop.name,
+          schemas[schemaType].ast,
+          prop.isOptional,
+          prop.isReadonly,
+          prop.annotations,
+        );
       }
-      const schemas = prop.type.annotations[ColumnTypeId] as AnyColumnTypeSchemas;
-      return new AST.PropertySignature(
-        prop.name,
-        schemas[schemaType].ast,
-        prop.isOptional,
-        prop.isReadonly,
-        prop.annotations,
-      );
+      if (isGeneratedType(prop.type)) {
+        const schemas = prop.type.annotations[GeneratedId] as GeneratedSchemas<unknown, unknown>;
+        return new AST.PropertySignature(
+          prop.name,
+          schemas[schemaType].ast,
+          prop.isOptional,
+          prop.isReadonly,
+          prop.annotations,
+        );
+      }
+      return prop;
     })
     .filter((prop: AST.PropertySignature) => prop.type._tag !== 'NeverKeyword');
 };
@@ -180,8 +203,17 @@ interface ColumnTypeAST extends AST.Declaration {
   };
 }
 
+interface GeneratedTypeAST extends AST.Declaration {
+  readonly annotations: {
+    readonly [GeneratedId]: GeneratedSchemas<unknown, unknown>;
+  };
+}
+
 const isColumnType = (ast: AST.AST): ast is ColumnTypeAST =>
   ColumnTypeId in ast.annotations;
+
+const isGeneratedType = (ast: AST.AST): ast is GeneratedTypeAST =>
+  GeneratedId in ast.annotations;
 
 const isOptionalType = (ast: AST.AST): boolean => {
   if (!AST.isUnion(ast)) {

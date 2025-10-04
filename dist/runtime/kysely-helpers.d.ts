@@ -1,10 +1,11 @@
 import * as S from 'effect/Schema';
-import { ColumnType, Generated, Insertable, Selectable, Updateable } from 'kysely';
+import { ColumnType, Insertable, Selectable, Updateable } from 'kysely';
 import { Effect } from 'effect';
 import { DatabaseError } from './error';
 export declare const ColumnTypeId: unique symbol;
+export declare const GeneratedId: unique symbol;
 export declare const columnType: <SType, SEncoded, IType, IEncoded, UType, UEncoded>(selectSchema: S.Schema<SType, SEncoded>, insertSchema: S.Schema<IType, IEncoded>, updateSchema: S.Schema<UType, UEncoded>) => S.Schema<ColumnType<SType, IType, UType>, ColumnType<SEncoded, IEncoded, UEncoded>>;
-export declare const generated: <SType, SEncoded>(schema: S.Schema<SType, SEncoded>) => S.Schema<Generated<SType>, Generated<SEncoded>>;
+export declare const generated: <SType, SEncoded>(schema: S.Schema<SType, SEncoded>) => S.Schema<SType | undefined, SEncoded | undefined>;
 export declare const selectable: <Type, Encoded>(schema: S.Schema<Type, Encoded>) => S.Schema<Selectable<Type>, Selectable<Encoded>>;
 export declare const insertable: <Type, Encoded>(schema: S.Schema<Type, Encoded>) => S.Schema<Insertable<Type>, Insertable<Encoded>>;
 export declare const updateable: <Type, Encoded>(schema: S.Schema<Type, Encoded>) => S.Schema<Updateable<Type>, Updateable<Encoded>>;
