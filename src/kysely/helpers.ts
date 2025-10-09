@@ -1,70 +1,93 @@
-import * as AST from "effect/SchemaAST";
-import * as S from "effect/Schema";
+import * as AST from 'effect/SchemaAST';
+import * as S from 'effect/Schema';
 import {
   ColumnType,
   Generated,
   Insertable,
   Selectable,
   Updateable,
-} from "kysely";
+} from 'kysely';
 
 /**
  * Runtime helpers for Kysely schema integration
  * These are imported by generated code
  */
 
-export const ColumnTypeId = Symbol.for("/ColumnTypeId");
-export const GeneratedId = Symbol.for("/GeneratedId");
+export const ColumnTypeId = Symbol.for('/ColumnTypeId');
+export const GeneratedId = Symbol.for('/GeneratedId');
 
-interface ColumnTypeSchemas<SType, SEncoded, IType, IEncoded, UType, UEncoded> {
-  selectSchema: S.Schema<SType, SEncoded>;
-  insertSchema: S.Schema<IType, IEncoded>;
-  updateSchema: S.Schema<UType, UEncoded>;
+interface ColumnTypeSchemas<
+  SType,
+  SEncoded,
+  SR,
+  IType,
+  IEncoded,
+  IR,
+  UType,
+  UEncoded,
+  UR,
+> {
+  selectSchema: S.Schema<SType, SEncoded, SR>;
+  insertSchema: S.Schema<IType, IEncoded, IR>;
+  updateSchema: S.Schema<UType, UEncoded, UR>;
 }
 
-interface GeneratedSchemas<SType, SEncoded> {
-  selectSchema: S.Schema<SType, SEncoded>;
-  insertSchema: S.Schema<SType | undefined, SEncoded | undefined>;
-  updateSchema: S.Schema<SType, SEncoded>;
+interface GeneratedSchemas<SType, SEncoded, R> {
+  selectSchema: S.Schema<SType, SEncoded, R>;
+  insertSchema: S.Schema<SType | undefined, SEncoded | undefined, R>;
+  updateSchema: S.Schema<SType, SEncoded, R>;
 }
 
 /**
  * Mark a field as having different types for select/insert/update
  * Used for ID fields with @default (read-only)
  */
-export const columnType = <SType, SEncoded, IType, IEncoded, UType, UEncoded>(
-  selectSchema: S.Schema<SType, SEncoded>,
-  insertSchema: S.Schema<IType, IEncoded>,
-  updateSchema: S.Schema<UType, UEncoded>,
+export const columnType = <
+  SType,
+  SEncoded,
+  SR,
+  IType,
+  IEncoded,
+  IR,
+  UType,
+  UEncoded,
+  UR,
+>(
+  selectSchema: S.Schema<SType, SEncoded, SR>,
+  insertSchema: S.Schema<IType, IEncoded, IR>,
+  updateSchema: S.Schema<UType, UEncoded, UR>,
 ) => {
   const schemas: ColumnTypeSchemas<
     SType,
     SEncoded,
+    SR,
     IType,
     IEncoded,
+    IR,
     UType,
-    UEncoded
+    UEncoded,
+    UR
   > = {
     selectSchema,
     insertSchema,
     updateSchema,
   };
-  return S.make(AST.annotations(S.Never.ast, { [ColumnTypeId]: schemas }));
+  return selectSchema.annotations({ [ColumnTypeId]: schemas });
 };
 
 /**
  * Mark a field as database-generated (optional on insert)
  * Used for fields with @default
  */
-export const generated = <SType, SEncoded>(
-  schema: S.Schema<SType, SEncoded>,
+export const generated = <SType, SEncoded, R>(
+  schema: S.Schema<SType, SEncoded, R>,
 ) => {
-  const schemas: GeneratedSchemas<SType, SEncoded> = {
+  const schemas: GeneratedSchemas<SType, SEncoded, R> = {
     selectSchema: schema,
     insertSchema: S.Union(schema, S.Undefined),
     updateSchema: schema,
   };
-  return S.make(AST.annotations(S.Never.ast, { [GeneratedId]: schemas }));
+  return schema.annotations({ [GeneratedId]: schemas });
 };
 
 /**
@@ -77,7 +100,7 @@ export const selectable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
   }
   return S.make(
     new AST.TypeLiteral(
-      extractParametersFromTypeLiteral(ast, "selectSchema"),
+      extractParametersFromTypeLiteral(ast, 'selectSchema'),
       ast.indexSignatures,
       ast.annotations,
     ),
@@ -93,7 +116,7 @@ export const insertable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
     return S.make(ast);
   }
 
-  const extracted = extractParametersFromTypeLiteral(ast, "insertSchema");
+  const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
 
   const res = new AST.TypeLiteral(
     extracted.map(
@@ -121,7 +144,7 @@ export const updateable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
     return S.make(ast);
   }
 
-  const extracted = extractParametersFromTypeLiteral(ast, "updateSchema");
+  const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
 
   const res = new AST.TypeLiteral(
     extracted.map(
@@ -160,12 +183,15 @@ export const getSchemas = <Type, Encoded>(
 });
 
 export interface GetTypes<T extends Schemas<unknown, unknown>> {
-  Selectable: S.Schema.Type<T["Selectable"]>;
-  Insertable: S.Schema.Type<T["Insertable"]>;
-  Updateable: S.Schema.Type<T["Updateable"]>;
+  Selectable: S.Schema.Type<T['Selectable']>;
+  Insertable: S.Schema.Type<T['Insertable']>;
+  Updateable: S.Schema.Type<T['Updateable']>;
 }
 
 type AnyColumnTypeSchemas = ColumnTypeSchemas<
+  unknown,
+  unknown,
+  unknown,
   unknown,
   unknown,
   unknown,
@@ -195,6 +221,7 @@ const extractParametersFromTypeLiteral = (
       if (isGeneratedType(prop.type)) {
         const schemas = prop.type.annotations[GeneratedId] as GeneratedSchemas<
           unknown,
+          unknown,
           unknown
         >;
         return new AST.PropertySignature(
@@ -207,20 +234,8 @@ const extractParametersFromTypeLiteral = (
       }
       return prop;
     })
-    .filter((prop: AST.PropertySignature) => prop.type._tag !== "NeverKeyword");
+    .filter((prop: AST.PropertySignature) => prop.type._tag !== 'NeverKeyword');
 };
-
-interface ColumnTypeAST extends AST.Declaration {
-  readonly annotations: {
-    readonly [ColumnTypeId]: AnyColumnTypeSchemas;
-  };
-}
-
-interface GeneratedTypeAST extends AST.Declaration {
-  readonly annotations: {
-    readonly [GeneratedId]: GeneratedSchemas<unknown, unknown>;
-  };
-}
 
 const isColumnType = (ast: AST.AST) => ColumnTypeId in ast.annotations;
 
@@ -241,5 +256,5 @@ const isNullType = (ast: AST.AST) =>
   AST.isLiteral(ast) &&
   Object.entries(ast.annotations).find(
     ([sym, value]) =>
-      sym === AST.IdentifierAnnotationId.toString() && value === "null",
+      sym === AST.IdentifierAnnotationId.toString() && value === 'null',
   );

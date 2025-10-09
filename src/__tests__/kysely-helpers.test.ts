@@ -10,8 +10,8 @@ describe("Kysely Helpers", () => {
       const symbolKey = Symbol.for("/ColumnTypeId");
       expect(symbolKey in schema.ast.annotations).toBe(true);
 
-      // Verify AST structure
-      expect(schema.ast._tag).toBe("NeverKeyword");
+      // Verify AST structure - should preserve the select schema's type (NumberKeyword)
+      expect(schema.ast._tag).toBe("NumberKeyword");
       expect(typeof schema.pipe).toBe("function");
     });
 
@@ -45,8 +45,8 @@ describe("Kysely Helpers", () => {
       const symbolKey = Symbol.for("/GeneratedId");
       expect(symbolKey in schema.ast.annotations).toBe(true);
 
-      // Verify it returns a schema with proper structure
-      expect(schema.ast._tag).toBe("NeverKeyword");
+      // Verify it returns a schema with proper structure - should preserve the original schema's type (NumberKeyword)
+      expect(schema.ast._tag).toBe("NumberKeyword");
       expect(typeof schema.pipe).toBe("function");
     });
   });

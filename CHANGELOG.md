@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-10-09
+
+### Fixed
+
+- **Effect Schema Compatibility** - Fixed `generated()` and `columnType()` helpers to preserve type information instead of using `S.Never.ast`
+  - Updated helpers to use `.annotations()` method following Effect Schema best practices
+  - Added R (Requirements) type parameter to preserve context/requirements through schema transformations
+  - Fixes compatibility with Effect 3.18.4 where `never` type was propagating through all generated types
+  - No breaking changes - all existing functionality preserved
+
+### Technical Details
+
+The previous implementation used `S.make(AST.annotations(S.Never.ast, {...}))` which created schemas with `never` as the Requirements parameter. This caused TypeScript errors with Effect 3.18.4. The fix uses `schema.annotations({...})` instead, which preserves the original schema's type signature (`Schema<SType, SEncoded, R>`) while attaching custom metadata. This follows the official Effect Schema documentation pattern for adding annotations without changing the schema's type.
+
+**Changed files:**
+- `src/kysely/helpers.ts`: Updated `columnType()` and `generated()` functions
+- `src/__tests__/kysely-helpers.test.ts`: Updated test assertions to match new behavior
+
+[1.3.1]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.3.0...v1.3.1
+
 ## [1.3.0] - 2025-10-09
 
 ### Fixed
