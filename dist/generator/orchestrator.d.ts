@@ -1,4 +1,4 @@
-import type { GeneratorOptions } from '@prisma/generator-helper';
+import type { GeneratorOptions } from "@prisma/generator-helper";
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema
  * Uses domain-driven generators: Prisma → Effect → Kysely

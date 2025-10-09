@@ -5,38 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.1] - 2025-10-09
+## [1.4.0] - 2025-10-09
 
-### Fixed
+### Changed
 
-- **Effect Schema Compatibility** - Fixed `generated()` and `columnType()` helpers to preserve type information instead of using `S.Never.ast`
-  - Updated helpers to use `.annotations()` method following Effect Schema best practices
-  - Added R (Requirements) type parameter to preserve context/requirements through schema transformations
-  - Fixes compatibility with Effect 3.18.4 where `never` type was propagating through all generated types
-  - No breaking changes - all existing functionality preserved
+- **Naming Standardization** - All exported schemas and types now use PascalCase regardless of Prisma model naming convention
+  - Fixes inconsistent naming when models use snake_case (e.g., `session_model_preference`)
+  - Generated exports: `SessionModelPreference`, `SessionModelPreferenceSelect`, etc. (instead of `session_model_preferenceSelect`)
+  - Internal base schemas preserve original names with underscore prefix (e.g., `_session_model_preference`)
+  - Applies to operational schemas and all type exports (Select, Insert, Update, Encoded variants)
+
+### Added
+
+- New `toPascalCase()` utility function for consistent TypeScript identifier generation
+- Comprehensive tests for naming conversion (handles snake_case, kebab-case, camelCase, PascalCase)
+- Test fixture `session_model_preference` to verify snake_case handling
 
 ### Technical Details
 
-The previous implementation used `S.make(AST.annotations(S.Never.ast, {...}))` which created schemas with `never` as the Requirements parameter. This caused TypeScript errors with Effect 3.18.4. The fix uses `schema.annotations({...})` instead, which preserves the original schema's type signature (`Schema<SType, SEncoded, R>`) while attaching custom metadata. This follows the official Effect Schema documentation pattern for adding annotations without changing the schema's type.
+The generator now converts all model names to PascalCase when creating TypeScript exports using the new `toPascalCase()` utility. This ensures consistent, idiomatic TypeScript naming while preserving the original Prisma model names for internal schemas. The conversion handles snake_case, kebab-case, camelCase, and mixed formats.
+
+**Impact**: Projects using snake_case model names will see different export names (breaking change for those projects). Projects using PascalCase models (recommended Prisma convention) will see no changes.
 
 **Changed files:**
-- `src/kysely/helpers.ts`: Updated `columnType()` and `generated()` functions
-- `src/__tests__/kysely-helpers.test.ts`: Updated test assertions to match new behavior
+- `src/utils/naming.ts`: New naming utility
+- `src/effect/generator.ts`: Updated to use PascalCase for all exports
+- `src/__tests__/fixtures/test.prisma`: Added snake_case test model
+- `src/__tests__/naming.test.ts`: New tests for naming utility
+- `src/__tests__/generator.test.ts`: Added naming standardization tests
 
-[1.3.1]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.3.0...v1.3.1
+[1.4.0]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.3.1...v1.4.0
 
-## [1.3.0] - 2025-10-09
+## [1.3.0] - 2025-01-09
 
-### Fixed
+### Added
 
-- **TypeScript TS2742 Error** - Added `@prisma/dmmf@^6.17.0` as a direct dependency to resolve "The inferred type of X cannot be named without a reference to .pnpm/@prisma+dmmf" error
-  - This was a pnpm-specific issue where transitive dependencies weren't accessible for TypeScript declaration generation
-  - No code changes required - purely a dependency resolution fix
-  - Makes the package portable across npm, pnpm, and yarn
+- **Encoded type exports** - Generator now exports database-encoded types alongside application types
+  - `{Model}SelectEncoded` - Database-encoded type for `Schema.Schema.Encoded<typeof Model.Selectable>`
+  - `{Model}InsertEncoded` - Database-encoded type for `Schema.Schema.Encoded<typeof Model.Insertable>`
+  - `{Model}UpdateEncoded` - Database-encoded type for `Schema.Schema.Encoded<typeof Model.Updateable>`
+- Comprehensive test coverage for Encoded type exports
 
-### Technical Details
+### Changed
 
-TypeScript couldn't generate portable type declarations because `@prisma/dmmf` was only available as a transitive dependency through `@prisma/generator-helper`. By adding it as a direct dependency, the DMMF types are now accessible to TypeScript's declaration generator, allowing proper `.d.ts` file generation without referencing internal pnpm paths.
+- `generateTypeExports()` method now generates both Application and Encoded type exports
+- Queries layer can now use proper Encoded types instead of `any` workarounds
+
+### Why This Matters
+
+Effect Schema has bidirectional transformations:
+- **Application types** (`Schema.Schema.Type`) - Decoded types with `Date` objects (for repository layer)
+- **Database types** (`Schema.Schema.Encoded`) - Encoded types with ISO strings (for queries layer)
+
+Previously, only Application types were exported, forcing queries to use `any` types. Now both sides of the transformation are properly typed.
+
+**Example Usage:**
+```typescript
+import { agentInsertEncoded } from '@libs/types';
+
+// Queries layer - uses Encoded types (ISO strings)
+insert: (rowData: agentInsertEncoded) => db.insertInto('agent').values(rowData)
+
+// Repository layer - uses Application types (Date objects)
+const input: CreateAgentInput = { /* ... Date objects ... */ };
+const encoded = Schema.encode(AgentSchemas.Insertable)(input); // Encoded to ISO strings
+```
 
 [1.3.0]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.2.1...v1.3.0
 

@@ -23,7 +23,7 @@ class GeneratorOrchestrator {
     validateOutputPath(options) {
         const outputPath = options.generator.output?.value;
         if (!outputPath) {
-            throw new Error('Prisma Effect Generator: output path not configured.\n' +
+            throw new Error("Prisma Effect Generator: output path not configured.\n" +
                 'Add "output" to your generator block in schema.prisma');
         }
         return outputPath;
@@ -50,7 +50,7 @@ class GeneratorOrchestrator {
     async generateEnums() {
         const enums = this.prismaGen.getEnums();
         const content = this.effectGen.generateEnums(enums);
-        await this.fileManager.writeFile('enums.ts', content);
+        await this.fileManager.writeFile("enums.ts", content);
     }
     /**
      * Generate types.ts file
@@ -76,26 +76,26 @@ ${kyselyFields}
             const typeExports = this.effectGen.generateTypeExports(model);
             return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
         })
-            .join('\n\n');
+            .join("\n\n");
         // Generate DB interface
         const dbInterface = this.kyselyGen.generateDBInterface(models);
         const content = `${header}\n\n${modelSchemas}\n\n${dbInterface}`;
-        await this.fileManager.writeFile('types.ts', content);
+        await this.fileManager.writeFile("types.ts", content);
     }
     /**
      * Generate index.ts file
      */
     async generateIndex() {
         const content = this.kyselyGen.generateIndexFile();
-        await this.fileManager.writeFile('index.ts', content);
+        await this.fileManager.writeFile("index.ts", content);
     }
     /**
      * Log generation start with stats
      */
     logStart(options) {
-        const modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith('_')).length;
+        const modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith("_")).length;
         const enumCount = options.dmmf.datamodel.enums.length;
-        console.log('[Prisma Effect Kysely Generator] Starting generation...');
+        console.log("[Prisma Effect Kysely Generator] Starting generation...");
         console.log(`[Effect Generator] Processing ${modelCount} models, ${enumCount} enums`);
     }
     /**

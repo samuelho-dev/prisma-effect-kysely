@@ -466,4 +466,64 @@ describe("Prisma Effect Schema Generator - E2E", () => {
       expect(indexContent).toContain('export * from "./types"');
     });
   });
+
+  describe("Naming Standardization", () => {
+    let typesContent: string;
+
+    beforeEach(async () => {
+      const options: GeneratorOptions = {
+        generator: { output: { value: testOutputPath } },
+        dmmf,
+      } as GeneratorOptions;
+
+      const orchestrator = new GeneratorOrchestrator(options);
+      await orchestrator.generate(options);
+      typesContent = readFileSync(join(testOutputPath, "types.ts"), "utf-8");
+    });
+
+    it("should convert snake_case model names to PascalCase for exports", () => {
+      // Base schema should keep original name with underscore prefix
+      expect(typesContent).toMatch(
+        /export const _session_model_preference = Schema\.Struct/,
+      );
+
+      // Operational schema should use PascalCase
+      expect(typesContent).toMatch(
+        /export const SessionModelPreference = getSchemas\(_session_model_preference\)/,
+      );
+    });
+
+    it("should generate PascalCase type exports for snake_case models", () => {
+      // Type exports should use PascalCase
+      expect(typesContent).toContain(
+        "export type SessionModelPreferenceSelect = Schema.Schema.Type<typeof SessionModelPreference.Selectable>",
+      );
+      expect(typesContent).toContain(
+        "export type SessionModelPreferenceInsert = Schema.Schema.Type<typeof SessionModelPreference.Insertable>",
+      );
+      expect(typesContent).toContain(
+        "export type SessionModelPreferenceUpdate = Schema.Schema.Type<typeof SessionModelPreference.Updateable>",
+      );
+    });
+
+    it("should generate PascalCase encoded type exports for snake_case models", () => {
+      // Encoded type exports should also use PascalCase
+      expect(typesContent).toContain(
+        "export type SessionModelPreferenceSelectEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Selectable>",
+      );
+      expect(typesContent).toContain(
+        "export type SessionModelPreferenceInsertEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Insertable>",
+      );
+      expect(typesContent).toContain(
+        "export type SessionModelPreferenceUpdateEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Updateable>",
+      );
+    });
+
+    it("should not affect PascalCase model names", () => {
+      // Existing PascalCase models should remain unchanged
+      expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
+      expect(typesContent).toContain("export type UserSelect");
+      expect(typesContent).toContain("export type UserInsert");
+    });
+  });
 });

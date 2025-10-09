@@ -193,3 +193,19 @@ model AnnotationTest {
 
   createdAt DateTime @default(now())
 }
+
+// ============================================================================
+// NAMING STANDARDIZATION - Testing PascalCase conversion
+// ============================================================================
+
+model session_model_preference {
+  id           String   @id @db.Uuid @default(dbgenerated("gen_random_uuid()"))
+  user_id      String   @db.Uuid
+  theme        String
+  language     String   @default("en")
+  notifications Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("session_preferences")
+}

@@ -2,6 +2,7 @@ import type { DMMF } from "@prisma/generator-helper";
 import { generateEnumsFile } from "./enum";
 import { buildFieldType } from "./type";
 import { getFieldDbName } from "../prisma/type";
+import { toPascalCase } from "../utils/naming";
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -40,7 +41,7 @@ ${fieldDefinitions}
    */
   generateOperationalSchemas(model: DMMF.Model) {
     const baseSchemaName = `_${model.name}`;
-    const operationalSchemaName = model.name;
+    const operationalSchemaName = toPascalCase(model.name);
 
     return `export const ${operationalSchemaName} = getSchemas(${baseSchemaName});`;
   }
@@ -49,7 +50,7 @@ ${fieldDefinitions}
    * Generate TypeScript type exports
    */
   generateTypeExports(model: DMMF.Model) {
-    const name = model.name;
+    const name = toPascalCase(model.name);
 
     // Application-side types (decoded - for repository layer)
     const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;

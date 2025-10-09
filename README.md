@@ -65,6 +65,12 @@ export const User = Schema.Struct({
 export type User = Schema.Schema.Type<typeof User>;
 ```
 
+**Naming Convention**: All exported schemas and types use PascalCase, regardless of the Prisma model naming convention:
+- Model `User` → `User`, `UserSelect`, `UserInsert`
+- Model `session_preference` → `SessionPreference`, `SessionPreferenceSelect`, `SessionPreferenceInsert`
+
+This ensures consistent TypeScript identifier naming while preserving the original model names for internal schemas.
+
 ### index.ts
 
 Re-exports all generated types for easy importing
