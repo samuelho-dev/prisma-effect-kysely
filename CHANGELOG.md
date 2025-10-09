@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-10-08
+
+### Changed
+- Updated peer dependency to support Kysely ^0.28.0 (0.28.x versions)
+- Updated dev dependency to Kysely 0.28.7 for testing
+- No breaking changes to generated code or exported API
+
+### Technical Details
+- All Kysely imports are type-only (`ColumnType`, `Generated`, `Selectable`, `Insertable`, `Updateable`)
+- No runtime Kysely code usage ensures compatibility across versions
+- Comprehensive test suite validates compatibility with Kysely 0.28.x
+
+[1.2.0]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.1.0...v1.2.0
+
 ## [1.0.2] - 2025-10-03
 
 ### Note
