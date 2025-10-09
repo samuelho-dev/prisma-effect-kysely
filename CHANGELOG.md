@@ -5,14 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-10-08
+
+- Bump prisma 6.17
+
 ## [1.2.0] - 2025-10-08
 
 ### Changed
+
 - Updated peer dependency to support Kysely ^0.28.0 (0.28.x versions)
 - Updated dev dependency to Kysely 0.28.7 for testing
 - No breaking changes to generated code or exported API
 
 ### Technical Details
+
 - All Kysely imports are type-only (`ColumnType`, `Generated`, `Selectable`, `Insertable`, `Updateable`)
 - No runtime Kysely code usage ensures compatibility across versions
 - Comprehensive test suite validates compatibility with Kysely 0.28.x
@@ -22,10 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.2] - 2025-10-03
 
 ### Note
+
 **Temporary release due to npm 24-hour republish restriction.**
 This version will be unpublished and superseded by v1.0.0 within 24 hours.
 
 ### Fixed
+
 - Export configuration to allow importing runtime helpers from main package entry point
 - Clean dependency tree with minimal deprecation warnings
 
