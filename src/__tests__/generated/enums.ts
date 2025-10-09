@@ -3,12 +3,12 @@
  * DO NOT EDIT MANUALLY
  */
 
-import { Schema } from 'effect';
+import { Schema } from "effect";
 
-export const Role = Schema.Literal('ADMIN', 'GUEST', 'USER');
+export const Role = Schema.Literal("ADMIN", "GUEST", "USER");
 
 export type Role = Schema.Schema.Type<typeof Role>;
 
-export const Status = Schema.Literal('active', 'inactive', 'pending');
+export const Status = Schema.Literal("active", "inactive", "pending");
 
 export type Status = Schema.Schema.Type<typeof Status>;

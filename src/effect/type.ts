@@ -1,26 +1,26 @@
-import type { DMMF } from '@prisma/generator-helper';
+import type { DMMF } from "@prisma/generator-helper";
 import {
   isUuidField,
   isListField,
   isRequiredField,
   hasDefaultValue,
-} from '../prisma/type';
-import { extractEffectTypeOverride } from '../utils/annotations';
+} from "../prisma/type";
+import { extractEffectTypeOverride } from "../utils/annotations";
 
 /**
  * Prisma scalar type mapping to Effect Schema types
  * Uses const assertion to avoid type guards
  */
 const PRISMA_SCALAR_MAP = {
-  String: 'Schema.String',
-  Int: 'Schema.Number',
-  Float: 'Schema.Number',
-  BigInt: 'Schema.BigInt',
-  Decimal: 'Schema.String', // For precision
-  Boolean: 'Schema.Boolean',
-  DateTime: 'Schema.Date',
-  Json: 'Schema.Unknown', // Safe unknown type
-  Bytes: 'Schema.Uint8Array',
+  String: "Schema.String",
+  Int: "Schema.Number",
+  Float: "Schema.Number",
+  BigInt: "Schema.BigInt",
+  Decimal: "Schema.String", // For precision
+  Boolean: "Schema.Boolean",
+  DateTime: "Schema.Date",
+  Json: "Schema.Unknown", // Safe unknown type
+  Bytes: "Schema.Uint8Array",
 } as const;
 
 /**
@@ -35,8 +35,8 @@ export function mapFieldToEffectType(field: DMMF.Field, dmmf: DMMF.Document) {
   }
 
   // PRIORITY 2: Handle String type with UUID detection
-  if (field.type === 'String' && isUuidField(field)) {
-    return 'Schema.UUID';
+  if (field.type === "String" && isUuidField(field)) {
+    return "Schema.UUID";
   }
 
   // PRIORITY 3: Handle scalar types with const assertion lookup
@@ -53,7 +53,7 @@ export function mapFieldToEffectType(field: DMMF.Field, dmmf: DMMF.Document) {
   }
 
   // PRIORITY 5: Fallback to Unknown
-  return 'Schema.Unknown';
+  return "Schema.Unknown";
 }
 
 /**

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-10-09
+
+### Fixed
+
+- **TypeScript TS2742 Error** - Added `@prisma/dmmf@^6.17.0` as a direct dependency to resolve "The inferred type of X cannot be named without a reference to .pnpm/@prisma+dmmf" error
+  - This was a pnpm-specific issue where transitive dependencies weren't accessible for TypeScript declaration generation
+  - No code changes required - purely a dependency resolution fix
+  - Makes the package portable across npm, pnpm, and yarn
+
+### Technical Details
+
+TypeScript couldn't generate portable type declarations because `@prisma/dmmf` was only available as a transitive dependency through `@prisma/generator-helper`. By adding it as a direct dependency, the DMMF types are now accessible to TypeScript's declaration generator, allowing proper `.d.ts` file generation without referencing internal pnpm paths.
+
+[1.3.0]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.2.1...v1.3.0
+
 ## [1.2.1] - 2025-10-08
 
 - Bump prisma 6.17

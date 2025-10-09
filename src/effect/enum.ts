@@ -1,5 +1,5 @@
-import type { DMMF } from '@prisma/generator-helper';
-import { getEnumValueDbName } from '../prisma/enum';
+import type { DMMF } from "@prisma/generator-helper";
+import { getEnumValueDbName } from "../prisma/enum";
 
 /**
  * Generate Effect Schema Literal enum code
@@ -10,7 +10,7 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
       const value = getEnumValueDbName(v);
       return `"${value}"`;
     })
-    .join(', ');
+    .join(", ");
 
   const enumName = enumDef.name;
 
@@ -30,7 +30,7 @@ export function generateEnumsFile(enums: readonly DMMF.DatamodelEnum[]) {
 
   const imports = `import { Schema } from "effect";`;
 
-  const enumSchemas = Array.from(enums).map(generateEnumSchema).join('\n\n');
+  const enumSchemas = Array.from(enums).map(generateEnumSchema).join("\n\n");
 
   return `${header}\n\n${imports}\n\n${enumSchemas}`;
 }

@@ -1,6 +1,6 @@
-import type { DMMF } from '@prisma/generator-helper';
-import * as PrismaEnum from './enum';
-import * as PrismaType from './type';
+import type { DMMF } from "@prisma/generator-helper";
+import * as PrismaEnum from "./enum";
+import * as PrismaType from "./type";
 
 /**
  * Prisma domain generator - orchestrates DMMF parsing and extraction
@@ -12,14 +12,14 @@ export class PrismaGenerator {
   /**
    * Get all enums from DMMF
    */
-  getEnums(): readonly DMMF.DatamodelEnum[] {
+  getEnums() {
     return PrismaEnum.extractEnums(this.dmmf);
   }
 
   /**
    * Get all models from DMMF (filtered and sorted)
    */
-  getModels(): readonly DMMF.Model[] {
+  getModels() {
     const filtered = PrismaType.filterInternalModels(
       this.dmmf.datamodel.models,
     );
@@ -29,7 +29,7 @@ export class PrismaGenerator {
   /**
    * Get schema fields for a model (filtered and sorted)
    */
-  getModelFields(model: DMMF.Model): readonly DMMF.Field[] {
+  getModelFields(model: DMMF.Model) {
     const filtered = PrismaType.filterSchemaFields(model.fields);
     return PrismaType.sortFields(filtered);
   }

@@ -1,5 +1,5 @@
-import type { DMMF } from '@prisma/generator-helper';
-import { hasDefaultValue, isIdField, getFieldDbName } from '../prisma/type';
+import type { DMMF } from "@prisma/generator-helper";
+import { hasDefaultValue, isIdField, getFieldDbName } from "../prisma/type";
 
 /**
  * Determine if field needs Kysely columnType wrapper
@@ -44,10 +44,7 @@ export function applyMapDirective(fieldType: string, field: DMMF.Field) {
  * Build complete field type with Kysely helpers and @map
  * Order: base type � Kysely helpers � @map wrapper
  */
-export function buildKyselyFieldType(
-  baseFieldType: string,
-  field: DMMF.Field,
-) {
+export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field) {
   // Step 1: Apply Kysely helpers (domain transformation)
   let fieldType = applyKyselyHelpers(baseFieldType, field);
 
@@ -72,7 +69,7 @@ export function generateDBInterfaceEntry(model: DMMF.Model) {
 export function generateDBInterface(models: readonly DMMF.Model[]) {
   const tableEntries = Array.from(models)
     .map(generateDBInterfaceEntry)
-    .join('\n');
+    .join("\n");
 
   return `// Kysely Database Interface
 export interface DB {

@@ -4,8 +4,8 @@
  */
 
 import { Schema } from 'effect';
-import { columnType, generated, getSchemas } from 'prisma-effect-kysely';
 import { Role, Status } from './enums';
+import { columnType, generated, getSchemas } from '../../kysely/helpers';
 
 // AllTypes Base Schema
 export const _AllTypes = Schema.Struct({
@@ -28,9 +28,11 @@ export const _AllTypes = Schema.Struct({
   intField: Schema.Number,
   jsonArray: Schema.Array(Schema.Unknown),
   jsonField: Schema.Unknown,
-  mappedField: Schema.propertySignature(Schema.String).pipe(Schema.fromKey('db_mapped_field')),
+  mappedField: Schema.propertySignature(Schema.String).pipe(
+    Schema.fromKey('db_mapped_field'),
+  ),
   mappedWithDefault: Schema.propertySignature(generated(Schema.Number)).pipe(
-    Schema.fromKey('mapped_default')
+    Schema.fromKey('mapped_default'),
   ),
   optionalBigInt: Schema.UndefinedOr(Schema.BigInt),
   optionalBool: Schema.UndefinedOr(Schema.Boolean),
@@ -83,9 +85,15 @@ export const _CompositeIdModel = Schema.Struct({
 
 export const CompositeIdModel = getSchemas(_CompositeIdModel);
 
-export type CompositeIdModelSelect = Schema.Schema.Type<typeof CompositeIdModel.Selectable>;
-export type CompositeIdModelInsert = Schema.Schema.Type<typeof CompositeIdModel.Insertable>;
-export type CompositeIdModelUpdate = Schema.Schema.Type<typeof CompositeIdModel.Updateable>;
+export type CompositeIdModelSelect = Schema.Schema.Type<
+  typeof CompositeIdModel.Selectable
+>;
+export type CompositeIdModelInsert = Schema.Schema.Type<
+  typeof CompositeIdModel.Insertable
+>;
+export type CompositeIdModelUpdate = Schema.Schema.Type<
+  typeof CompositeIdModel.Updateable
+>;
 
 // Employee Base Schema
 export const _Employee = Schema.Struct({

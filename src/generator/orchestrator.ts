@@ -1,8 +1,8 @@
-import type { GeneratorOptions } from '@prisma/generator-helper';
-import { FileManager } from '../utils/file-manager';
-import { PrismaGenerator } from '../prisma/generator';
-import { EffectGenerator } from '../effect/generator';
-import { KyselyGenerator } from '../kysely/generator';
+import type { GeneratorOptions } from "@prisma/generator-helper";
+import { FileManager } from "../utils/file-manager";
+import { PrismaGenerator } from "../prisma/generator";
+import { EffectGenerator } from "../effect/generator";
+import { KyselyGenerator } from "../kysely/generator";
 
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema
@@ -31,7 +31,7 @@ export class GeneratorOrchestrator {
 
     if (!outputPath) {
       throw new Error(
-        'Prisma Effect Generator: output path not configured.\n' +
+        "Prisma Effect Generator: output path not configured.\n" +
           'Add "output" to your generator block in schema.prisma',
       );
     }
@@ -65,7 +65,7 @@ export class GeneratorOrchestrator {
   private async generateEnums() {
     const enums = this.prismaGen.getEnums();
     const content = this.effectGen.generateEnums(enums);
-    await this.fileManager.writeFile('enums.ts', content);
+    await this.fileManager.writeFile("enums.ts", content);
   }
 
   /**
@@ -98,13 +98,13 @@ ${kyselyFields}
 
         return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
       })
-      .join('\n\n');
+      .join("\n\n");
 
     // Generate DB interface
     const dbInterface = this.kyselyGen.generateDBInterface(models);
 
     const content = `${header}\n\n${modelSchemas}\n\n${dbInterface}`;
-    await this.fileManager.writeFile('types.ts', content);
+    await this.fileManager.writeFile("types.ts", content);
   }
 
   /**
@@ -112,7 +112,7 @@ ${kyselyFields}
    */
   private async generateIndex() {
     const content = this.kyselyGen.generateIndexFile();
-    await this.fileManager.writeFile('index.ts', content);
+    await this.fileManager.writeFile("index.ts", content);
   }
 
   /**
@@ -120,11 +120,11 @@ ${kyselyFields}
    */
   private logStart(options: GeneratorOptions) {
     const modelCount = options.dmmf.datamodel.models.filter(
-      (m) => !m.name.startsWith('_'),
+      (m) => !m.name.startsWith("_"),
     ).length;
     const enumCount = options.dmmf.datamodel.enums.length;
 
-    console.log('[Prisma Effect Kysely Generator] Starting generation...');
+    console.log("[Prisma Effect Kysely Generator] Starting generation...");
     console.log(
       `[Effect Generator] Processing ${modelCount} models, ${enumCount} enums`,
     );

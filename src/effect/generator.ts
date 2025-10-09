@@ -1,7 +1,7 @@
-import type { DMMF } from '@prisma/generator-helper';
-import { generateEnumsFile } from './enum';
-import { buildFieldType } from './type';
-import { getFieldDbName } from '../prisma/type';
+import type { DMMF } from "@prisma/generator-helper";
+import { generateEnumsFile } from "./enum";
+import { buildFieldType } from "./type";
+import { getFieldDbName } from "../prisma/type";
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -25,7 +25,7 @@ export class EffectGenerator {
         const fieldType = buildFieldType(field, this.dmmf);
         return `  ${field.name}: ${fieldType}`;
       })
-      .join(',\n');
+      .join(",\n");
 
     const baseSchemaName = `_${model.name}`;
 
@@ -50,9 +50,19 @@ ${fieldDefinitions}
    */
   generateTypeExports(model: DMMF.Model) {
     const name = model.name;
-    return `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
+
+    // Application-side types (decoded - for repository layer)
+    const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
 export type ${name}Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
 export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
+
+    // Database-side encoded types (for queries layer)
+    const encodedTypes = `
+export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
+export type ${name}InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
+export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
+
+    return applicationTypes + encodedTypes;
   }
 
   /**
@@ -81,10 +91,10 @@ export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
     ];
 
     if (hasEnums) {
-      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(', ');
+      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(", ");
       imports.push(`import { ${enumNames} } from "./enums";`);
     }
 
-    return `${header}\n\n${imports.join('\n')}`;
+    return `${header}\n\n${imports.join("\n")}`;
   }
 }
