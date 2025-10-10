@@ -12,14 +12,14 @@ export class PrismaGenerator {
   /**
    * Get all enums from DMMF
    */
-  getEnums() {
+  getEnums(): readonly DMMF.DatamodelEnum[] {
     return PrismaEnum.extractEnums(this.dmmf);
   }
 
   /**
    * Get all models from DMMF (filtered and sorted)
    */
-  getModels() {
+  getModels(): readonly DMMF.Model[] {
     const filtered = PrismaType.filterInternalModels(
       this.dmmf.datamodel.models,
     );
@@ -29,7 +29,7 @@ export class PrismaGenerator {
   /**
    * Get schema fields for a model (filtered and sorted)
    */
-  getModelFields(model: DMMF.Model) {
+  getModelFields(model: DMMF.Model): readonly DMMF.Field[] {
     const filtered = PrismaType.filterSchemaFields(model.fields);
     return PrismaType.sortFields(filtered);
   }
