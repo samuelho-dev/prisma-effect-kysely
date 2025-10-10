@@ -41,7 +41,7 @@ ${fieldDefinitions}
    */
   generateOperationalSchemas(model: DMMF.Model) {
     const baseSchemaName = `_${model.name}`;
-    const operationalSchemaName = model.name;
+    const operationalSchemaName = toPascalCase(model.name);
 
     return `export const ${operationalSchemaName} = getSchemas(${baseSchemaName});`;
   }
@@ -50,7 +50,7 @@ ${fieldDefinitions}
    * Generate TypeScript type exports
    */
   generateTypeExports(model: DMMF.Model) {
-    const name = model.name;
+    const name = toPascalCase(model.name);
 
     // Application-side types (decoded - for repository layer)
     const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
@@ -93,11 +93,9 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
 
     if (hasEnums) {
       const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(', ');
-      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(', ');
       imports.push(`import { ${enumNames} } from "./enums";`);
     }
 
-    return `${header}\n\n${imports.join('\n')}`;
     return `${header}\n\n${imports.join('\n')}`;
   }
 }
