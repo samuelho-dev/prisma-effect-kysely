@@ -5,35 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.2] - 2025-10-10
+## [1.4.3] - 2025-10-10
 
 ### Fixed
 
-- **TypeScript Type Inference** - Fixed type inference for `selectable()`, `insertable()`, and `updateable()` helper functions
-  - Added explicit return type annotations to all three transformation functions
-  - TypeScript compiler can now correctly infer `Schema<Selectable<Type>, Selectable<Encoded>, R>` instead of `Schema<unknown, unknown, never>`
-  - Resolves type inference failures in strict mode when using generated schemas
-  - Added type assertions with `R` parameter preservation for Effect context propagation
+- **Declaration File Type Preservation** - Fixed type inference when using compiled `.d.ts` files
+  - Added explicit return type annotations to `selectable()`, `insertable()`, and `updateable()` helper functions
+  - Added explicit return type annotation to `getSchemas()` function
+  - Ensures TypeScript preserves `Selectable<Type>`, `Insertable<Type>`, and `Updateable<Type>` mapped types in declaration files
+  - Resolves type inference failures when consuming libraries use dist/ paths instead of source paths
+  - Fixes `Schema.Schema.Type<>` resolving to `unknown` when types are accessed from compiled declarations
 
 ### Technical Details
 
-**Problem**: TypeScript's type inference failed for the three helper functions (`selectable`, `insertable`, `updateable`) because AST transformations using `S.asSchema(S.make(new AST.TypeLiteral(...)))` are opaque to the type system. Without explicit return type annotations, TypeScript inferred the widest possible type: `Schema<unknown, unknown, never>`.
+**Problem**: When TypeScript compiled helper functions to `.d.ts` files, the return types of AST transformation functions (`selectable()`, `insertable()`, `updateable()`) were inferred as `S.Schema<unknown, unknown, never>` instead of preserving the Kysely mapped types. This caused downstream type resolution to fail when consumers used compiled declaration files (dist/ paths) instead of source files.
 
-**Solution**: Added explicit return type annotations with default type parameters:
-```typescript
-export const selectable = <Type, Encoded = Type, R = never>(
-  schema: S.Schema<Type, Encoded, R>
-): S.Schema<Selectable<Type>, Selectable<Encoded>, R> => {
-  // ... implementation with type assertions
-};
-```
+**Solution**: Added explicit return type annotations with type assertions to all helper functions:
+- `selectable()` → `: S.Schema<Selectable<Type>, Selectable<Encoded>, never>`
+- `insertable()` → `: S.Schema<Insertable<Type>, Insertable<Encoded>, never>`
+- `updateable()` → `: S.Schema<Updateable<Type>, Updateable<Encoded>, never>`
+- `getSchemas()` → `: Schemas<Type, Encoded>`
 
-**Impact**: Projects using `prisma-effect-kysely` v1.4.1 or earlier with TypeScript strict mode enabled experienced type inference errors where generated types resolved to `unknown`. This prevented proper type checking in analytics functions and other code consuming the generated types. This release resolves those errors by providing explicit type annotations that document the runtime transformation behavior.
+**Impact**: Projects using prisma-effect-kysely with TypeScript path aliases pointing to `dist/` directories (compiled output) will now have proper type inference. Generated types like `EmbeddingOperationSelect` will resolve to proper object types instead of `unknown`.
+
+**Testing**: Added comprehensive test suite (`declaration-inference.test.ts`) with 7 tests validating type preservation in compiled declarations, following TDD principles (Red-Green-Refactor).
 
 **Changed files:**
-- `src/kysely/helpers.ts`: Added return type annotations to `selectable()`, `insertable()`, `updateable()` (lines 96, 117, 147)
+- `src/kysely/helpers.ts`: Added return type annotations (4 functions)
+- `src/__tests__/declaration-inference.test.ts`: New test suite (260 lines)
 
-[1.4.2]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.4.1...v1.4.2
+[1.4.3]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.4.1...v1.4.3
 
 ## [1.4.1] - 2025-10-09
 
