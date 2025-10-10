@@ -27,7 +27,6 @@ export class EffectGenerator {
         return `  ${field.name}: ${fieldType}`;
       })
       .join(',\n');
-      .join(',\n');
 
     const baseSchemaName = `_${model.name}`;
 
