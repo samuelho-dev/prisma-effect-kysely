@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2025-10-10
+
+### Fixed
+
+- **TypeScript Type Inference** - Fixed type inference for `selectable()`, `insertable()`, and `updateable()` helper functions
+  - Added explicit return type annotations to all three transformation functions
+  - TypeScript compiler can now correctly infer `Schema<Selectable<Type>, Selectable<Encoded>, R>` instead of `Schema<unknown, unknown, never>`
+  - Resolves type inference failures in strict mode when using generated schemas
+  - Added type assertions with `R` parameter preservation for Effect context propagation
+
+### Technical Details
+
+**Problem**: TypeScript's type inference failed for the three helper functions (`selectable`, `insertable`, `updateable`) because AST transformations using `S.asSchema(S.make(new AST.TypeLiteral(...)))` are opaque to the type system. Without explicit return type annotations, TypeScript inferred the widest possible type: `Schema<unknown, unknown, never>`.
+
+**Solution**: Added explicit return type annotations with default type parameters:
+```typescript
+export const selectable = <Type, Encoded = Type, R = never>(
+  schema: S.Schema<Type, Encoded, R>
+): S.Schema<Selectable<Type>, Selectable<Encoded>, R> => {
+  // ... implementation with type assertions
+};
+```
+
+**Impact**: Projects using `prisma-effect-kysely` v1.4.1 or earlier with TypeScript strict mode enabled experienced type inference errors where generated types resolved to `unknown`. This prevented proper type checking in analytics functions and other code consuming the generated types. This release resolves those errors by providing explicit type annotations that document the runtime transformation behavior.
+
+**Changed files:**
+- `src/kysely/helpers.ts`: Added return type annotations to `selectable()`, `insertable()`, `updateable()` (lines 96, 117, 147)
+
+[1.4.2]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.4.1...v1.4.2
+
 ## [1.4.1] - 2025-10-09
 
 ### Fixed
