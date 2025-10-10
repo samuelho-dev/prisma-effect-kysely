@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2025-10-09
+
+### Fixed
+
+- **TypeScript Type Compatibility** - Fixed `SchemaClass` to `Schema` conversion issues
+  - Added `S.asSchema()` wrapper to `selectable()`, `insertable()`, and `updateable()` helper functions
+  - Ensures generated schemas return `S.Schema<A, I, R>` interface instead of `S.SchemaClass<A, I, R>`
+  - Resolves TypeScript compilation errors when passing schemas to Effect's decode functions
+  - Uses Effect's official identity function for zero-runtime overhead type conversion
+
+- **Build Portability** - Fixed TypeScript TS2742 errors for portable type inference
+  - Added explicit return type annotations to DMMF utility functions
+  - Functions affected: `extractEnums()`, `getEnums()`, `getModels()`, `getModelFields()`, `filterInternalModels()`, `filterSchemaFields()`, `sortModels()`, `sortFields()`
+  - Ensures generated `.d.ts` files are portable across different TypeScript projects
+
+### Technical Details
+
+**Problem**: Effect Schema's `S.make()` returns `SchemaClass` for fluent API support, but TypeScript cannot structurally verify it implements the `Schema` interface due to constructor signature differences. This caused compilation errors when passing generated schemas to Effect's decode functions.
+
+**Solution**: Wrapped all `S.make()` calls with `S.asSchema()`, Effect's official identity function that converts `SchemaClass` → `Schema` at the type level only (zero runtime cost).
+
+**Impact**: Projects using `prisma-effect-kysely` v1.4.0 or earlier may have experienced TypeScript compilation errors when using `Schema.decode()` or `Schema.decodeUnknownSync()`. This release resolves those errors without requiring any code changes in consuming projects.
+
+**Changed files:**
+- `src/kysely/helpers.ts`: Added `S.asSchema()` wrappers (6 locations)
+- `src/prisma/enum.ts`: Added return type annotation
+- `src/prisma/generator.ts`: Added return type annotations (3 methods)
+- `src/prisma/type.ts`: Added return type annotations (4 functions)
+
+[1.4.1]: https://github.com/samuelho-dev/prisma-effect-kysely/compare/v1.4.0...v1.4.1
+
 ## [1.4.0] - 2025-10-09
 
 ### Changed

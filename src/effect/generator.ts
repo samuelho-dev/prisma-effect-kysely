@@ -1,8 +1,8 @@
-import type { DMMF } from "@prisma/generator-helper";
-import { generateEnumsFile } from "./enum";
-import { buildFieldType } from "./type";
-import { getFieldDbName } from "../prisma/type";
-import { toPascalCase } from "../utils/naming";
+import type { DMMF } from '@prisma/generator-helper';
+import { generateEnumsFile } from './enum';
+import { buildFieldType } from './type';
+import { getFieldDbName } from '../prisma/type';
+import { toPascalCase } from '../utils/naming';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -26,7 +26,7 @@ export class EffectGenerator {
         const fieldType = buildFieldType(field, this.dmmf);
         return `  ${field.name}: ${fieldType}`;
       })
-      .join(",\n");
+      .join(',\n');
 
     const baseSchemaName = `_${model.name}`;
 
@@ -92,10 +92,10 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
     ];
 
     if (hasEnums) {
-      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(", ");
+      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(', ');
       imports.push(`import { ${enumNames} } from "./enums";`);
     }
 
-    return `${header}\n\n${imports.join("\n")}`;
+    return `${header}\n\n${imports.join('\n')}`;
   }
 }
