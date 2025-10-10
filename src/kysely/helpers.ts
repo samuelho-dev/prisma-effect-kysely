@@ -96,13 +96,15 @@ export const generated = <SType, SEncoded, R>(
 export const selectable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.make(ast);
+    return S.asSchema(S.make(ast));
   }
-  return S.make(
-    new AST.TypeLiteral(
-      extractParametersFromTypeLiteral(ast, 'selectSchema'),
-      ast.indexSignatures,
-      ast.annotations,
+  return S.asSchema(
+    S.make(
+      new AST.TypeLiteral(
+        extractParametersFromTypeLiteral(ast, 'selectSchema'),
+        ast.indexSignatures,
+        ast.annotations,
+      ),
     ),
   );
 };
@@ -113,7 +115,7 @@ export const selectable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
 export const insertable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.make(ast);
+    return S.asSchema(S.make(ast));
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
@@ -132,7 +134,7 @@ export const insertable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
     ast.indexSignatures,
     ast.annotations,
   );
-  return S.make(res);
+  return S.asSchema(S.make(res));
 };
 
 /**
@@ -141,7 +143,7 @@ export const insertable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
 export const updateable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.make(ast);
+    return S.asSchema(S.make(ast));
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
@@ -161,7 +163,7 @@ export const updateable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
     ast.annotations,
   );
 
-  return S.make(res);
+  return S.asSchema(S.make(res));
 };
 
 export interface Schemas<Type, Encoded> {
