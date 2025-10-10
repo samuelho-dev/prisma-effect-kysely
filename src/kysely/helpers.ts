@@ -93,10 +93,12 @@ export const generated = <SType, SEncoded, R>(
 /**
  * Create selectable schema from base schema
  */
-export const selectable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
+export const selectable = <Type, Encoded = Type, R = never>(
+  schema: S.Schema<Type, Encoded, R>
+): S.Schema<Selectable<Type>, Selectable<Encoded>, R> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.asSchema(S.make(ast));
+    return S.asSchema(S.make(ast)) as S.Schema<Selectable<Type>, Selectable<Encoded>, R>;
   }
   return S.asSchema(
     S.make(
@@ -106,16 +108,18 @@ export const selectable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
         ast.annotations,
       ),
     ),
-  );
+  ) as S.Schema<Selectable<Type>, Selectable<Encoded>, R>;
 };
 
 /**
  * Create insertable schema from base schema
  */
-export const insertable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
+export const insertable = <Type, Encoded = Type, R = never>(
+  schema: S.Schema<Type, Encoded, R>
+): S.Schema<Insertable<Type>, Insertable<Encoded>, R> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.asSchema(S.make(ast));
+    return S.asSchema(S.make(ast)) as S.Schema<Insertable<Type>, Insertable<Encoded>, R>;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
@@ -134,16 +138,18 @@ export const insertable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
     ast.indexSignatures,
     ast.annotations,
   );
-  return S.asSchema(S.make(res));
+  return S.asSchema(S.make(res)) as S.Schema<Insertable<Type>, Insertable<Encoded>, R>;
 };
 
 /**
  * Create updateable schema from base schema
  */
-export const updateable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
+export const updateable = <Type, Encoded = Type, R = never>(
+  schema: S.Schema<Type, Encoded, R>
+): S.Schema<Updateable<Type>, Updateable<Encoded>, R> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.asSchema(S.make(ast));
+    return S.asSchema(S.make(ast)) as S.Schema<Updateable<Type>, Updateable<Encoded>, R>;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
@@ -163,7 +169,7 @@ export const updateable = <Type, Encoded>(schema: S.Schema<Type, Encoded>) => {
     ast.annotations,
   );
 
-  return S.asSchema(S.make(res));
+  return S.asSchema(S.make(res)) as S.Schema<Updateable<Type>, Updateable<Encoded>, R>;
 };
 
 export interface Schemas<Type, Encoded> {
