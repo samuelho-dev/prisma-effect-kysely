@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.2] - 2025-10-12
+
+### Fixed
+
+- **Enum PascalCase Aliases**: Added missing const and type aliases for better ergonomics
+  - Now exports: `export const BudgetStatus = BUDGET_STATUS` (const alias)
+  - Now exports: `export type BudgetStatus = BudgetStatusType` (type alias)
+  - Allows consuming code to use PascalCase imports: `import { BudgetStatus } from './enums'`
+  - Maintains backward compatibility with SCREAMING_SNAKE_CASE enums
+  - This was documented in 1.7.1 but not actually implemented in the generated output
+
 ## [1.7.1] - 2025-10-12
 
 ### Changed
