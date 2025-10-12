@@ -52,7 +52,7 @@ Runs typecheck, tests, and build in sequence (runs automatically before publishi
    - Logs generation progress and statistics
 
 3. **Generator Classes** (src/generator/generators/):
-   - `EnumGenerator`: Creates enums.ts with Effect Literal schemas
+   - `EnumGenerator`: Creates enums.ts with native TypeScript enums and Effect Schema.Enums wrappers in namespaces
    - `TypeGenerator`: Creates types.ts with Effect Struct schemas and DB interface
    - `IndexGenerator`: Creates index.ts re-export file
 
@@ -67,13 +67,62 @@ Runs typecheck, tests, and build in sequence (runs automatically before publishi
 ### Output Structure
 The generator creates three files in the configured output directory:
 
-- **enums.ts**: Effect Schema Literal types for Prisma enums (supports @map)
+- **enums.ts**: Native TypeScript enums with Effect Schema.Enums wrappers in namespaces (supports @map)
+  - Example: `export enum Role { ADMIN, USER }` + `export namespace Role { export const Schema = Schema.Enums(Role); }`
 - **types.ts**: Effect Schema Struct types for Prisma models with:
   - Base schemas prefixed with `_` (e.g., `_User`)
-  - Operational schemas using `getSchemas()` (e.g., `User.Selectable`, `User.Insertable`, `User.Updateable`)
-  - TypeScript type exports (e.g., `UserSelect`, `UserInsert`, `UserUpdate`)
+  - Operational schemas in namespaces using `getSchemas()` (e.g., `User.Selectable`, `User.Insertable`, `User.Updateable`)
+  - TypeScript type exports in namespaces (e.g., `User.Select`, `User.Insert`, `User.Update`)
+  - Encoded type exports in namespaces (e.g., `User.SelectEncoded`, `User.InsertEncoded`, `User.UpdateEncoded`)
   - Kysely `DB` interface with table mappings (supports `@@map` directive)
 - **index.ts**: Re-exports all generated types
+
+### Namespace Pattern
+
+The generator uses TypeScript namespaces to organize exports while preserving user-declared names from Prisma schema:
+
+**Why Namespaces:**
+- **Zero name transformations**: Names flow unchanged from Prisma → Effect → Kysely → TypeScript
+- **No naming conflicts**: Namespaces eliminate collisions without requiring PascalCase conversion or suffixes
+- **Grouped exports**: Related schemas, types, and values are logically organized
+- **TypeScript namespace merging**: Multiple namespace declarations with same name merge automatically
+
+**Enum Pattern:**
+```typescript
+export enum ACTIVE_STATUS { ACTIVE = "ACTIVE", INACTIVE = "INACTIVE" }
+export namespace ACTIVE_STATUS {
+  export const Schema = Schema.Enums(ACTIVE_STATUS);
+  export type Type = Schema.Schema.Type<typeof Schema>;
+}
+// Usage: ACTIVE_STATUS.ACTIVE (value), ACTIVE_STATUS.Schema (Effect Schema)
+```
+
+**Model Pattern:**
+```typescript
+export const _User = Schema.Struct({ ... });  // Base schema
+export namespace User {                        // Namespace for operational schemas
+  const schemas = getSchemas(_User);
+  export const Selectable = schemas.Selectable;
+  export const Insertable = schemas.Insertable;
+  export const Updateable = schemas.Updateable;
+}
+export namespace User {                        // Second namespace declaration (merges!)
+  export type Select = Schema.Schema.Type<typeof User.Selectable>;
+  export type Insert = Schema.Schema.Type<typeof User.Insertable>;
+  export type Update = Schema.Schema.Type<typeof User.Updateable>;
+  export type SelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
+  // ... more types
+}
+// Usage: User.Selectable (schema), User.Select (type)
+```
+
+**Join Table Pattern:**
+Same as model pattern, using Prisma's implicit many-to-many naming (e.g., `CategoryToPost` from `_CategoryToPost`)
+
+**Name Preservation Examples:**
+- `session_model_preference` stays `session_model_preference` (NOT converted to `SessionModelPreference`)
+- `ACTIVE_STATUS` stays `ACTIVE_STATUS` (NOT converted to `ActiveStatus`)
+- All Prisma names are the source of truth
 
 ### Kysely Integration
 The generator includes deep Kysely integration for type-safe database operations:
