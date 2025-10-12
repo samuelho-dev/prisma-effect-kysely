@@ -1,14 +1,26 @@
 /**
- * Generated: 2025-10-04T06:47:17.360Z
+ * Generated: 2025-10-12T05:07:15.227Z
  * DO NOT EDIT MANUALLY
  */
 
-import { Schema } from "effect";
+import { Schema } from 'effect';
 
-export const Role = Schema.Literal("ADMIN", "GUEST", "USER");
+export enum Role {
+  ADMIN = 'ADMIN',
+  GUEST = 'GUEST',
+  USER = 'USER',
+}
 
-export type Role = Schema.Schema.Type<typeof Role>;
+export const RoleSchema = Schema.Enums(Role);
 
-export const Status = Schema.Literal("active", "inactive", "pending");
+export type RoleType = Schema.Schema.Type<typeof RoleSchema>;
 
-export type Status = Schema.Schema.Type<typeof Status>;
+export enum Status {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  PENDING = 'pending',
+}
+
+export const StatusSchema = Schema.Enums(Status);
+
+export type StatusType = Schema.Schema.Type<typeof StatusSchema>;

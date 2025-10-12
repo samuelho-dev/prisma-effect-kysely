@@ -2,6 +2,7 @@ import type { DMMF } from "@prisma/generator-helper";
 import { buildKyselyFieldType, generateDBInterface } from "./type";
 import { buildFieldType } from "../effect/type";
 import { getModelDbName } from "../prisma/type";
+import type { JoinTableInfo } from "../prisma/relation";
 
 /**
  * Kysely domain generator - orchestrates Kysely integration
@@ -33,10 +34,10 @@ export class KyselyGenerator {
   }
 
   /**
-   * Generate DB interface for all models
+   * Generate DB interface for all models and join tables
    */
-  generateDBInterface(models: readonly DMMF.Model[]) {
-    return generateDBInterface(models);
+  generateDBInterface(models: readonly DMMF.Model[], joinTables: JoinTableInfo[] = []) {
+    return generateDBInterface(models, joinTables);
   }
 
   /**

@@ -27,6 +27,10 @@ describe("Kysely Integration Tests", () => {
     }
   });
 
+  afterAll(() => {
+    dmmf = undefined;
+  });
+
   describe("Kysely-compatible schema generation", () => {
     let typesContent: string;
 

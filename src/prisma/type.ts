@@ -15,7 +15,11 @@ export function isUuidField(field: DMMF.Field) {
     return true;
   }
 
-  // 3. Fallback: Field name patterns
+  // 3. Fallback: Field name patterns (only for String type)
+  if (field.type !== "String") {
+    return false;
+  }
+
   const uuidFieldPatterns = [
     /^id$/, // Primary ID fields
     /_id$/, // Foreign key ID fields

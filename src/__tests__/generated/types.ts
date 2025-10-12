@@ -1,11 +1,11 @@
 /**
- * Generated: 2025-10-04T06:47:17.361Z
+ * Generated: 2025-10-12T05:07:15.237Z
  * DO NOT EDIT MANUALLY
  */
 
 import { Schema } from 'effect';
-import { Role, Status } from './enums';
-import { columnType, generated, getSchemas } from '../../kysely/helpers';
+import { columnType, generated, getSchemas } from 'prisma-effect-kysely';
+import { Role, RoleSchema, Status, StatusSchema } from './enums';
 
 // AllTypes Base Schema
 export const _AllTypes = Schema.Struct({
@@ -28,11 +28,9 @@ export const _AllTypes = Schema.Struct({
   intField: Schema.Number,
   jsonArray: Schema.Array(Schema.Unknown),
   jsonField: Schema.Unknown,
-  mappedField: Schema.propertySignature(Schema.String).pipe(
-    Schema.fromKey('db_mapped_field'),
-  ),
+  mappedField: Schema.propertySignature(Schema.String).pipe(Schema.fromKey('db_mapped_field')),
   mappedWithDefault: Schema.propertySignature(generated(Schema.Number)).pipe(
-    Schema.fromKey('mapped_default'),
+    Schema.fromKey('mapped_default')
   ),
   optionalBigInt: Schema.UndefinedOr(Schema.BigInt),
   optionalBool: Schema.UndefinedOr(Schema.Boolean),
@@ -42,14 +40,14 @@ export const _AllTypes = Schema.Struct({
   optionalFloat: Schema.UndefinedOr(Schema.Number),
   optionalInt: Schema.UndefinedOr(Schema.Number),
   optionalJson: Schema.UndefinedOr(Schema.Unknown),
-  optionalRole: Schema.UndefinedOr(Role),
-  optionalStatus: Schema.UndefinedOr(Status),
+  optionalRole: Schema.UndefinedOr(RoleSchema),
+  optionalStatus: Schema.UndefinedOr(StatusSchema),
   optionalString: Schema.UndefinedOr(Schema.String),
-  role: Role,
-  roleArray: Schema.Array(Role),
+  role: RoleSchema,
+  roleArray: Schema.Array(RoleSchema),
   session_id: generated(Schema.UUID),
-  status: Status,
-  statusArray: Schema.Array(Status),
+  status: StatusSchema,
+  statusArray: Schema.Array(StatusSchema),
   stringArray: Schema.Array(Schema.String),
   stringField: Schema.String,
   tenant_id: Schema.UUID,
@@ -63,6 +61,28 @@ export const AllTypes = getSchemas(_AllTypes);
 export type AllTypesSelect = Schema.Schema.Type<typeof AllTypes.Selectable>;
 export type AllTypesInsert = Schema.Schema.Type<typeof AllTypes.Insertable>;
 export type AllTypesUpdate = Schema.Schema.Type<typeof AllTypes.Updateable>;
+export type AllTypesSelectEncoded = Schema.Schema.Encoded<typeof AllTypes.Selectable>;
+export type AllTypesInsertEncoded = Schema.Schema.Encoded<typeof AllTypes.Insertable>;
+export type AllTypesUpdateEncoded = Schema.Schema.Encoded<typeof AllTypes.Updateable>;
+
+// AnnotationTest Base Schema
+export const _AnnotationTest = Schema.Struct({
+  age: Schema.Number.pipe(Schema.positive()),
+  coordinates: Schema.Array(Schema.Array(Schema.Number).pipe(Schema.itemsCount(3))),
+  createdAt: generated(Schema.Date),
+  email: Schema.String.pipe(Schema.email()),
+  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+  userId: Schema.String.pipe(Schema.brand('UserId')),
+});
+
+export const AnnotationTest = getSchemas(_AnnotationTest);
+
+export type AnnotationTestSelect = Schema.Schema.Type<typeof AnnotationTest.Selectable>;
+export type AnnotationTestInsert = Schema.Schema.Type<typeof AnnotationTest.Insertable>;
+export type AnnotationTestUpdate = Schema.Schema.Type<typeof AnnotationTest.Updateable>;
+export type AnnotationTestSelectEncoded = Schema.Schema.Encoded<typeof AnnotationTest.Selectable>;
+export type AnnotationTestInsertEncoded = Schema.Schema.Encoded<typeof AnnotationTest.Insertable>;
+export type AnnotationTestUpdateEncoded = Schema.Schema.Encoded<typeof AnnotationTest.Updateable>;
 
 // Category Base Schema
 export const _Category = Schema.Struct({
@@ -75,6 +95,9 @@ export const Category = getSchemas(_Category);
 export type CategorySelect = Schema.Schema.Type<typeof Category.Selectable>;
 export type CategoryInsert = Schema.Schema.Type<typeof Category.Insertable>;
 export type CategoryUpdate = Schema.Schema.Type<typeof Category.Updateable>;
+export type CategorySelectEncoded = Schema.Schema.Encoded<typeof Category.Selectable>;
+export type CategoryInsertEncoded = Schema.Schema.Encoded<typeof Category.Insertable>;
+export type CategoryUpdateEncoded = Schema.Schema.Encoded<typeof Category.Updateable>;
 
 // CompositeIdModel Base Schema
 export const _CompositeIdModel = Schema.Struct({
@@ -85,13 +108,16 @@ export const _CompositeIdModel = Schema.Struct({
 
 export const CompositeIdModel = getSchemas(_CompositeIdModel);
 
-export type CompositeIdModelSelect = Schema.Schema.Type<
+export type CompositeIdModelSelect = Schema.Schema.Type<typeof CompositeIdModel.Selectable>;
+export type CompositeIdModelInsert = Schema.Schema.Type<typeof CompositeIdModel.Insertable>;
+export type CompositeIdModelUpdate = Schema.Schema.Type<typeof CompositeIdModel.Updateable>;
+export type CompositeIdModelSelectEncoded = Schema.Schema.Encoded<
   typeof CompositeIdModel.Selectable
 >;
-export type CompositeIdModelInsert = Schema.Schema.Type<
+export type CompositeIdModelInsertEncoded = Schema.Schema.Encoded<
   typeof CompositeIdModel.Insertable
 >;
-export type CompositeIdModelUpdate = Schema.Schema.Type<
+export type CompositeIdModelUpdateEncoded = Schema.Schema.Encoded<
   typeof CompositeIdModel.Updateable
 >;
 
@@ -107,6 +133,9 @@ export const Employee = getSchemas(_Employee);
 export type EmployeeSelect = Schema.Schema.Type<typeof Employee.Selectable>;
 export type EmployeeInsert = Schema.Schema.Type<typeof Employee.Insertable>;
 export type EmployeeUpdate = Schema.Schema.Type<typeof Employee.Updateable>;
+export type EmployeeSelectEncoded = Schema.Schema.Encoded<typeof Employee.Selectable>;
+export type EmployeeInsertEncoded = Schema.Schema.Encoded<typeof Employee.Insertable>;
+export type EmployeeUpdateEncoded = Schema.Schema.Encoded<typeof Employee.Updateable>;
 
 // Post Base Schema
 export const _Post = Schema.Struct({
@@ -124,6 +153,9 @@ export const Post = getSchemas(_Post);
 export type PostSelect = Schema.Schema.Type<typeof Post.Selectable>;
 export type PostInsert = Schema.Schema.Type<typeof Post.Insertable>;
 export type PostUpdate = Schema.Schema.Type<typeof Post.Updateable>;
+export type PostSelectEncoded = Schema.Schema.Encoded<typeof Post.Selectable>;
+export type PostInsertEncoded = Schema.Schema.Encoded<typeof Post.Insertable>;
+export type PostUpdateEncoded = Schema.Schema.Encoded<typeof Post.Updateable>;
 
 // Profile Base Schema
 export const _Profile = Schema.Struct({
@@ -137,6 +169,41 @@ export const Profile = getSchemas(_Profile);
 export type ProfileSelect = Schema.Schema.Type<typeof Profile.Selectable>;
 export type ProfileInsert = Schema.Schema.Type<typeof Profile.Insertable>;
 export type ProfileUpdate = Schema.Schema.Type<typeof Profile.Updateable>;
+export type ProfileSelectEncoded = Schema.Schema.Encoded<typeof Profile.Selectable>;
+export type ProfileInsertEncoded = Schema.Schema.Encoded<typeof Profile.Insertable>;
+export type ProfileUpdateEncoded = Schema.Schema.Encoded<typeof Profile.Updateable>;
+
+// session_model_preference Base Schema
+export const _session_model_preference = Schema.Struct({
+  createdAt: generated(Schema.Date),
+  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+  language: generated(Schema.String),
+  notifications: generated(Schema.Boolean),
+  theme: Schema.String,
+  updatedAt: Schema.Date,
+  user_id: Schema.UUID,
+});
+
+export const SessionModelPreference = getSchemas(_session_model_preference);
+
+export type SessionModelPreferenceSelect = Schema.Schema.Type<
+  typeof SessionModelPreference.Selectable
+>;
+export type SessionModelPreferenceInsert = Schema.Schema.Type<
+  typeof SessionModelPreference.Insertable
+>;
+export type SessionModelPreferenceUpdate = Schema.Schema.Type<
+  typeof SessionModelPreference.Updateable
+>;
+export type SessionModelPreferenceSelectEncoded = Schema.Schema.Encoded<
+  typeof SessionModelPreference.Selectable
+>;
+export type SessionModelPreferenceInsertEncoded = Schema.Schema.Encoded<
+  typeof SessionModelPreference.Insertable
+>;
+export type SessionModelPreferenceUpdateEncoded = Schema.Schema.Encoded<
+  typeof SessionModelPreference.Updateable
+>;
 
 // User Base Schema
 export const _User = Schema.Struct({
@@ -152,14 +219,35 @@ export const User = getSchemas(_User);
 export type UserSelect = Schema.Schema.Type<typeof User.Selectable>;
 export type UserInsert = Schema.Schema.Type<typeof User.Insertable>;
 export type UserUpdate = Schema.Schema.Type<typeof User.Updateable>;
+export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
+export type UserInsertEncoded = Schema.Schema.Encoded<typeof User.Insertable>;
+export type UserUpdateEncoded = Schema.Schema.Encoded<typeof User.Updateable>;
+
+// _CategoryToPost Join Table Schema
+export const _CategoryToPost = Schema.Struct({
+  A: columnType(Schema.UUID, Schema.Never, Schema.Never),
+  B: columnType(Schema.UUID, Schema.Never, Schema.Never),
+});
+
+export const CategoryToPost = getSchemas(_CategoryToPost);
+
+export type CategoryToPostSelect = Schema.Schema.Type<typeof CategoryToPost.Selectable>;
+export type CategoryToPostInsert = Schema.Schema.Type<typeof CategoryToPost.Insertable>;
+export type CategoryToPostUpdate = Schema.Schema.Type<typeof CategoryToPost.Updateable>;
+export type CategoryToPostSelectEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Selectable>;
+export type CategoryToPostInsertEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Insertable>;
+export type CategoryToPostUpdateEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Updateable>;
 
 // Kysely Database Interface
 export interface DB {
   AllTypes: Schema.Schema.Encoded<typeof _AllTypes>;
+  AnnotationTest: Schema.Schema.Encoded<typeof _AnnotationTest>;
   Category: Schema.Schema.Encoded<typeof _Category>;
   composite_id_table: Schema.Schema.Encoded<typeof _CompositeIdModel>;
   Employee: Schema.Schema.Encoded<typeof _Employee>;
   Post: Schema.Schema.Encoded<typeof _Post>;
   Profile: Schema.Schema.Encoded<typeof _Profile>;
+  session_preferences: Schema.Schema.Encoded<typeof _session_model_preference>;
   User: Schema.Schema.Encoded<typeof _User>;
+  _CategoryToPost: Schema.Schema.Encoded<typeof _CategoryToPost>;
 }

@@ -1,5 +1,6 @@
 import type { DMMF } from "@prisma/generator-helper";
 import { hasDefaultValue, isIdField, getFieldDbName } from "../prisma/type";
+import type { JoinTableInfo } from "../prisma/relation";
 
 /**
  * Determine if field needs Kysely columnType wrapper
@@ -64,15 +65,30 @@ export function generateDBInterfaceEntry(model: DMMF.Model) {
 }
 
 /**
- * Generate complete DB interface
+ * Generate DB interface entry for a join table
  */
-export function generateDBInterface(models: readonly DMMF.Model[]) {
-  const tableEntries = Array.from(models)
+export function generateJoinTableDBInterfaceEntry(joinTable: JoinTableInfo) {
+  const { tableName, relationName } = joinTable;
+  return `  ${tableName}: Schema.Schema.Encoded<typeof _${relationName}>;`;
+}
+
+/**
+ * Generate complete DB interface including join tables
+ */
+export function generateDBInterface(
+  models: readonly DMMF.Model[],
+  joinTables: JoinTableInfo[] = [],
+) {
+  const modelEntries = Array.from(models)
     .map(generateDBInterfaceEntry)
     .join("\n");
 
+  const joinTableEntries = joinTables.length > 0
+    ? "\n" + joinTables.map(generateJoinTableDBInterfaceEntry).join("\n")
+    : "";
+
   return `// Kysely Database Interface
 export interface DB {
-${tableEntries}
+${modelEntries}${joinTableEntries}
 }`;
 }

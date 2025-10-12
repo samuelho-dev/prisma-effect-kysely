@@ -1,6 +1,7 @@
 import type { DMMF } from "@prisma/generator-helper";
 import * as PrismaEnum from "./enum";
 import * as PrismaType from "./type";
+import { detectImplicitManyToMany, type JoinTableInfo } from "./relation";
 
 /**
  * Prisma domain generator - orchestrates DMMF parsing and extraction
@@ -32,5 +33,12 @@ export class PrismaGenerator {
   getModelFields(model: DMMF.Model): readonly DMMF.Field[] {
     const filtered = PrismaType.filterSchemaFields(model.fields);
     return PrismaType.sortFields(filtered);
+  }
+
+  /**
+   * Get implicit many-to-many join tables
+   */
+  getManyToManyJoinTables(): JoinTableInfo[] {
+    return detectImplicitManyToMany(this.dmmf.datamodel.models);
   }
 }

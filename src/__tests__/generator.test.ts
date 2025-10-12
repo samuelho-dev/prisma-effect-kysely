@@ -29,6 +29,10 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     }
   });
 
+  afterAll(() => {
+    dmmf = undefined;
+  });
+
   describe("File Generation", () => {
     it("should generate all three files (enums.ts, types.ts, index.ts)", async () => {
       const options: GeneratorOptions = {

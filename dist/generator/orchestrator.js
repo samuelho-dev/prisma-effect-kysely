@@ -57,6 +57,7 @@ class GeneratorOrchestrator {
      */
     async generateTypes() {
         const models = this.prismaGen.getModels();
+        const joinTables = this.prismaGen.getManyToManyJoinTables();
         const hasEnums = this.prismaGen.getEnums().length > 0;
         // Generate header with imports
         const header = this.effectGen.generateTypesHeader(hasEnums);
@@ -77,9 +78,15 @@ ${kyselyFields}
             return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
         })
             .join("\n\n");
-        // Generate DB interface
-        const dbInterface = this.kyselyGen.generateDBInterface(models);
-        const content = `${header}\n\n${modelSchemas}\n\n${dbInterface}`;
+        // Generate join table schemas
+        const joinTableSchemas = joinTables.length > 0
+            ? this.effectGen.generateJoinTableSchemas(joinTables)
+            : "";
+        // Generate DB interface with join tables
+        const dbInterface = this.kyselyGen.generateDBInterface(models, joinTables);
+        const content = joinTableSchemas
+            ? `${header}\n\n${modelSchemas}\n\n${joinTableSchemas}\n\n${dbInterface}`
+            : `${header}\n\n${modelSchemas}\n\n${dbInterface}`;
         await this.fileManager.writeFile("types.ts", content);
     }
     /**
