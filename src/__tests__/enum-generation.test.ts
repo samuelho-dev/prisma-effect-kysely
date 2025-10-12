@@ -12,11 +12,11 @@ describe('generateEnumSchema - Schema.Enums Pattern', () => {
     dbName: null,
   };
 
-  it('should generate native TypeScript enum with PascalCase name', () => {
+  it('should generate native TypeScript enum with original name', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 1: Contains enum declaration
-    expect(result).toContain('export enum ProductStatus {');
+    // Test 1: Contains enum declaration with original name
+    expect(result).toContain('export enum PRODUCT_STATUS {');
 
     // Test 2: Enum members have correct format
     expect(result).toContain('ARCHIVED = "ARCHIVED"');
@@ -27,23 +27,23 @@ describe('generateEnumSchema - Schema.Enums Pattern', () => {
   it('should generate Schema.Enums wrapper', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 3: Schema wrapper exists
-    expect(result).toContain('export const ProductStatusSchema = Schema.Enums(ProductStatus)');
+    // Test 3: Schema wrapper exists with original name
+    expect(result).toContain('export const PRODUCT_STATUSSchema = Schema.Enums(PRODUCT_STATUS)');
   });
 
   it('should generate type alias', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 4: Type alias exists
-    expect(result).toContain('export type ProductStatusType = Schema.Schema.Type<typeof ProductStatusSchema>');
+    // Test 4: Type alias exists with original name
+    expect(result).toContain('export type PRODUCT_STATUSType = Schema.Schema.Type<typeof PRODUCT_STATUSSchema>');
   });
 
-  it('should convert SCREAMING_SNAKE_CASE to PascalCase', () => {
+  it('should preserve original enum name from Prisma schema', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 5: No SCREAMING_SNAKE_CASE in enum name
-    expect(result).not.toContain('PRODUCT_STATUS');
-    expect(result).toContain('ProductStatus');
+    // Test 5: Preserves original SCREAMING_SNAKE_CASE
+    expect(result).toContain('PRODUCT_STATUS');
+    expect(result).not.toContain('ProductStatus');
   });
 
   it('should NOT generate Schema.Literal', () => {

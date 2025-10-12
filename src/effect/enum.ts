@@ -14,8 +14,8 @@ import { generateFileHeader } from "../utils/codegen";
  * - Type alias for convenience
  */
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
-  // Convert SCREAMING_SNAKE_CASE to PascalCase (Test 5)
-  const enumName = toPascalCase(enumDef.name);
+  // Preserve original enum name from Prisma schema
+  const enumName = enumDef.name;
   const schemaName = `${enumName}Schema`;
   const typeName = `${enumName}Type`;
 

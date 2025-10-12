@@ -22,7 +22,7 @@ const orchestrator_1 = require("./orchestrator");
 __exportStar(require("../kysely/helpers"), exports);
 exports.generator = (0, generator_helper_1.generatorHandler)({
     onManifest: () => ({
-        version: '1.5.2',
+        version: '1.5.3',
         defaultOutput: './generated',
         prettyName: 'Prisma Effect Kysely Generator',
     }),
