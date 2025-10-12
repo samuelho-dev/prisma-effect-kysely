@@ -52,7 +52,8 @@ describe('Generated Code Validation', () => {
       );
 
       // Verify structure
-      expect(typesContent).toContain('import { Schema } from "effect"');
+      expect(typesContent).toContain('import * as Effect from "effect"');
+      expect(typesContent).toContain('const Schema = Effect.Schema');
       expect(typesContent).toContain(
         'import { columnType, generated, getSchemas } from "prisma-effect-kysely"',
       );

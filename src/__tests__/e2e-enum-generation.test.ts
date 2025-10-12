@@ -20,7 +20,8 @@ describe('End-to-End Enum Generation', () => {
     // Test 16: Generated code contains expected structures
     expect(result).toContain('export enum');
     expect(result).toContain('Schema.Enums(');
-    expect(result).toContain('import { Schema } from "effect"');
+    expect(result).toContain('import * as Effect from "effect"');
+    expect(result).toContain('const Schema = Effect.Schema');
   });
 
   it('should allow enum to be used in Kysely queries (type compatibility)', () => {

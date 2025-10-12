@@ -1,9 +1,10 @@
 /**
- * Generated: 2025-10-12T05:07:15.227Z
+ * Generated: 2025-10-12T08:18:15.745Z
  * DO NOT EDIT MANUALLY
  */
 
-import { Schema } from 'effect';
+import * as Effect from 'effect';
+const Schema = Effect.Schema;
 
 export enum Role {
   ADMIN = 'ADMIN',
@@ -11,9 +12,10 @@ export enum Role {
   USER = 'USER',
 }
 
-export const RoleSchema = Schema.Enums(Role);
-
-export type RoleType = Schema.Schema.Type<typeof RoleSchema>;
+export namespace Role {
+  export const Schema = Effect.Schema.Enums(Role);
+  export type Type = Effect.Schema.Schema.Type<typeof Schema>;
+}
 
 export enum Status {
   ACTIVE = 'active',
@@ -21,6 +23,7 @@ export enum Status {
   PENDING = 'pending',
 }
 
-export const StatusSchema = Schema.Enums(Status);
-
-export type StatusType = Schema.Schema.Type<typeof StatusSchema>;
+export namespace Status {
+  export const Schema = Effect.Schema.Enums(Status);
+  export type Type = Effect.Schema.Schema.Type<typeof Schema>;
+}

@@ -90,7 +90,8 @@ describe("Prisma Effect Schema Generator - E2E", () => {
         join(testOutputPath, "types.ts"),
         "utf-8",
       );
-      expect(typesContent).toContain('import { Schema } from "effect"');
+      expect(typesContent).toContain('import * as Effect from "effect"');
+      expect(typesContent).toContain('const Schema = Effect.Schema');
       expect(typesContent).toContain("export interface DB");
     });
 
@@ -178,10 +179,10 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     });
 
     it("should generate Role enum with Schema.Enums in namespace", () => {
-      // New behavior: native TypeScript enum + Schema.Enums wrapper in namespace
+      // New behavior: native TypeScript enum + Effect.Schema.Enums wrapper in namespace
       expect(enumsContent).toContain("export enum Role {");
       expect(enumsContent).toContain("export namespace Role");
-      expect(enumsContent).toContain("export const Schema = Schema.Enums(Role)");
+      expect(enumsContent).toContain("export const Schema = Effect.Schema.Enums(Role)");
       expect(enumsContent).toContain('"ADMIN"');
       expect(enumsContent).toContain('"GUEST"');
       expect(enumsContent).toContain('"USER"');
@@ -190,10 +191,10 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     });
 
     it("should handle @map annotations in Status enum", () => {
-      // New behavior: native TypeScript enum with Schema.Enums wrapper in namespace
+      // New behavior: native TypeScript enum with Effect.Schema.Enums wrapper in namespace
       expect(enumsContent).toContain("export enum Status {");
       expect(enumsContent).toContain("export namespace Status");
-      expect(enumsContent).toContain("export const Schema = Schema.Enums(Status)");
+      expect(enumsContent).toContain("export const Schema = Effect.Schema.Enums(Status)");
       expect(enumsContent).toContain('"active"');
       expect(enumsContent).toContain('"inactive"');
       expect(enumsContent).toContain('"pending"');
@@ -252,9 +253,9 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     });
 
     it("should use Schema wrapper for enum fields", () => {
-      // New behavior: Use RoleSchema and StatusSchema (Schema wrappers)
-      expect(typesContent).toMatch(/\brole:\s*RoleSchema\b/);
-      expect(typesContent).toMatch(/\bstatus:\s*StatusSchema\b/);
+      // New behavior: Use Role.Schema and Status.Schema (namespace pattern)
+      expect(typesContent).toMatch(/\brole:\s*Role\.Schema\b/);
+      expect(typesContent).toMatch(/\bstatus:\s*Status\.Schema\b/);
     });
   });
 

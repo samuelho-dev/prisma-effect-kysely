@@ -31,8 +31,8 @@ ${enumMembers}
 }
 
 export namespace ${enumName} {
-  export const Schema = Schema.Enums(${enumName});
-  export type Type = Schema.Schema.Type<typeof Schema>;
+  export const Schema = Effect.Schema.Enums(${enumName});
+  export type Type = Effect.Schema.Schema.Type<typeof Schema>;
 }`;
 }
 
@@ -41,7 +41,7 @@ export namespace ${enumName} {
  */
 export function generateEnumsFile(enums: readonly DMMF.DatamodelEnum[]) {
   const header = generateFileHeader();
-  const imports = `import { Schema } from "effect";`;
+  const imports = `import * as Effect from "effect";\nconst Schema = Effect.Schema;`;
   const enumSchemas = enums.map(generateEnumSchema).join("\n\n");
 
   return `${header}\n\n${imports}\n\n${enumSchemas}`;

@@ -24,19 +24,19 @@ describe('generateEnumSchema - Schema.Enums Pattern', () => {
     expect(result).toContain('ACTIVE = "ACTIVE"');
   });
 
-  it('should generate Schema.Enums wrapper in namespace', () => {
+  it('should generate Effect.Schema.Enums wrapper in namespace', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 3: Schema wrapper exists in namespace
+    // Test 3: Schema wrapper exists in namespace using Effect.Schema
     expect(result).toContain('export namespace PRODUCT_STATUS');
-    expect(result).toContain('export const Schema = Schema.Enums(PRODUCT_STATUS)');
+    expect(result).toContain('export const Schema = Effect.Schema.Enums(PRODUCT_STATUS)');
   });
 
   it('should generate type alias in namespace', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 4: Type alias exists in namespace
-    expect(result).toContain('export type Type = Schema.Schema.Type<typeof Schema>');
+    // Test 4: Type alias exists in namespace using Effect.Schema
+    expect(result).toContain('export type Type = Effect.Schema.Schema.Type<typeof Schema>');
   });
 
   it('should preserve original enum name from Prisma schema', () => {
@@ -47,10 +47,11 @@ describe('generateEnumSchema - Schema.Enums Pattern', () => {
     expect(result).not.toContain('ProductStatus');
   });
 
-  it('should NOT generate Schema.Literal', () => {
+  it('should use Effect.Schema namespace prefix', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 6: Old pattern should not exist
+    // Test 6: Should use Effect.Schema instead of bare Schema
+    expect(result).toContain('Effect.Schema');
     expect(result).not.toContain('Schema.Literal');
   });
 });

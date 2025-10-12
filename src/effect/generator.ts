@@ -90,19 +90,16 @@ ${fieldDefinitions}
     const header = generateFileHeader();
 
     const imports = [
-      `import { Schema } from "effect";`,
+      `import * as Effect from "effect";`,
+      `const Schema = Effect.Schema;`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {
-      // Test 13: Import both enum and Schema wrapper
-      // Test 14: Use PascalCase naming
-      // Test 15: No SCREAMING_SNAKE_CASE
+      // With namespace pattern, we only import the enum itself
+      // Access Schema through namespace: EnumName.Schema
       const enumImports = this.dmmf.datamodel.enums
-        .flatMap((e) => {
-          const baseName = toPascalCase(e.name);
-          return [baseName, `${baseName}Schema`];
-        })
+        .map((e) => e.name)  // Preserve original enum names
         .join(', ');
 
       imports.push(`import { ${enumImports} } from "./enums";`);

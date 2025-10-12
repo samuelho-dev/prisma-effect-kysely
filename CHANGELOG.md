@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-10-12
+
+### Fixed
+
+- **TypeScript Namespace Collision (TS7022)**: Fixed circular reference error in generated enum code where namespace export `Schema` collided with imported `Schema` from Effect library
+  - Changed import pattern from `import { Schema } from "effect"` to `import * as Effect from "effect"`
+  - Added module-level alias `const Schema = Effect.Schema` for clean, readable code throughout generated files
+  - Only use fully-qualified `Effect.Schema` inside enum namespaces where collision occurs
+  - This maintains 95% of generated code with clean `Schema.*` patterns while avoiding namespace collision
+
+- **Optional Field Pattern**: Updated optional field generation from `Schema.Union(type, Schema.Undefined)` to correct `Schema.UndefinedOr(type)` combinator per Effect Schema API
+
+### Changed
+
+- Generated code now uses `import * as Effect from "effect"` pattern (industry standard)
+- All generated files include module-level alias `const Schema = Effect.Schema` for clean API
+
 ## [1.6.0] - 2025-10-12
 
 ### Changed

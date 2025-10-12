@@ -12,23 +12,24 @@ describe('generateTypesHeader - Enum Imports', () => {
 
   const generator = new EffectGenerator(mockDMMF);
 
-  it('should import both enum and Schema wrapper', () => {
+  it('should import enums with original names (namespace pattern)', () => {
     const header = generator.generateTypesHeader(true);
 
-    // Test 13: Imports enum name
-    expect(header).toContain('ProductStatus');
-    expect(header).toContain('ProductType');
+    // With namespace pattern (v1.6.0+), we only import the enum itself
+    // Access Schema through namespace: EnumName.Schema
+    expect(header).toContain('PRODUCT_STATUS');
+    expect(header).toContain('PRODUCT_TYPE');
 
-    // Test 14: Imports Schema wrappers
-    expect(header).toContain('ProductStatusSchema');
-    expect(header).toContain('ProductTypeSchema');
+    // Should NOT import separate Schema exports (old pattern)
+    expect(header).not.toContain('ProductStatusSchema');
+    expect(header).not.toContain('ProductTypeSchema');
   });
 
-  it('should NOT import SCREAMING_SNAKE_CASE names', () => {
+  it('should use Effect import pattern', () => {
     const header = generator.generateTypesHeader(true);
 
-    // Test 15: Old naming pattern not used
-    expect(header).not.toContain('PRODUCT_STATUS');
-    expect(header).not.toContain('PRODUCT_TYPE');
+    // Should use import * as Effect from 'effect'
+    expect(header).toContain('import * as Effect from "effect"');
+    expect(header).not.toContain('import { Schema } from "effect"');
   });
 });
