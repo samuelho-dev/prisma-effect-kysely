@@ -24,35 +24,34 @@ describe('generateEnumSchema - Schema.Enums Pattern', () => {
     expect(result).toContain('ACTIVE = "ACTIVE"');
   });
 
-  it('should generate Effect Schema.Enums wrapper with suffix pattern', () => {
+  it('should generate Schema.Enums wrapper with PascalCase', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 3: Schema wrapper uses suffix pattern
-    expect(result).toContain('export const PRODUCT_STATUSSchema = Schema.Enums(PRODUCT_STATUS)');
+    // Test 3: Schema wrapper uses PascalCase
+    expect(result).toContain('export const ProductStatusSchema = Schema.Enums(PRODUCT_STATUS)');
   });
 
-  it('should generate type alias with suffix pattern', () => {
+  it('should generate type alias with PascalCase', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 4: Type alias uses suffix pattern
-    expect(result).toContain('export type PRODUCT_STATUSType = Schema.Schema.Type<typeof PRODUCT_STATUSSchema>');
+    // Test 4: Type alias uses PascalCase
+    expect(result).toContain('export type ProductStatusType = Schema.Schema.Type<typeof ProductStatusSchema>');
   });
 
-  it('should preserve original enum name from Prisma schema', () => {
+  it('should preserve original enum name but use PascalCase for Schema/Type', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 5: Preserves original SCREAMING_SNAKE_CASE
-    expect(result).toContain('PRODUCT_STATUS');
-    expect(result).not.toContain('ProductStatus');
+    // Test 5: Enum keeps SCREAMING_SNAKE_CASE
+    expect(result).toContain('export enum PRODUCT_STATUS');
+    // Schema and Type use PascalCase
+    expect(result).toContain('ProductStatusSchema');
+    expect(result).toContain('ProductStatusType');
   });
 
-  it('should include JSDoc documentation', () => {
+  it('should NOT generate Schema.Literal', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 6: Should include JSDoc
-    expect(result).toContain('/**');
-    expect(result).toContain('* PRODUCT_STATUS enum from Prisma schema');
-    expect(result).toContain('@see');
-    expect(result).toContain('@example');
+    // Test 6: Old pattern should not exist
+    expect(result).not.toContain('Schema.Literal');
   });
 });

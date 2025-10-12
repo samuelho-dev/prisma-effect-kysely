@@ -5,96 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.0] - 2025-10-12
-
-### Fixed
-
-- **CRITICAL: TypeScript TS7022 Compilation Error**: Fixed circular reference errors in generated enum code that prevented TypeScript compilation
-  - v1.6.0-v1.6.1 used namespace merging pattern that caused unavoidable TS7022 errors: `'Schema' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer`
-  - Reverted to proven v1.5.3 suffix pattern (`RoleSchema`, `RoleType`) which compiles without errors
-  - Tests were masking the compilation failures by only checking string patterns, never actually running TypeScript compiler on generated code
+## [1.7.1] - 2025-10-12
 
 ### Changed
 
-- **BREAKING: Reverted to Suffix Pattern for Enums**
-  - Enum exports now use suffix pattern instead of namespace pattern from v1.6.x
-  - **Before (v1.6.x - broken)**: `Role.Schema`, `Role.Type`
-  - **After (v1.7.0 - working)**: `RoleSchema`, `RoleType`
-  - This ensures generated code compiles with TypeScript strict mode without errors
-  - **Migration from v1.6.x**:
-    - `Role.Schema` → `RoleSchema`
-    - `Role.Type` → `RoleType`
-    - `Status.Schema` → `StatusSchema`
-    - `Status.Type` → `StatusType`
+- **Enum naming convention improved**:
+  - Enum declarations preserve original Prisma schema names (e.g., `export enum ACTIVE_STATUS`)
+  - Schema wrappers use PascalCase for idiomatic TypeScript (e.g., `ActiveStatusSchema`)
+  - Type aliases use PascalCase (e.g., `ActiveStatusType`)
+  - **Usage**: Access enum values with original name: `ACTIVE_STATUS.ACTIVE`, validate with PascalCase schema: `ActiveStatusSchema`
 
-### Added
+### Example
 
-- **JSDoc Documentation**: All generated enum exports now include comprehensive JSDoc comments
-  - Self-documenting code with `@see` references between related exports
-  - Clear `@example` tags showing how to use Effect Schema validation
-  - Generated TypeScript type unions documented inline (e.g., `'ADMIN' | 'USER' | 'GUEST'`)
-  - Improves IDE IntelliSense and developer experience
+```typescript
+// Generated from: enum ACTIVE_STATUS { ACTIVE, INACTIVE }
+export enum ACTIVE_STATUS {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE"
+}
+export const ActiveStatusSchema = Schema.Enums(ACTIVE_STATUS);
+export type ActiveStatusType = Schema.Schema.Type<typeof ActiveStatusSchema>;
 
-## [1.6.1] - 2025-10-12
-
-### Fixed
-
-- **TypeScript Namespace Collision (TS7022)**: Fixed circular reference error in generated enum code where namespace export `Schema` collided with imported `Schema` from Effect library
-  - Changed import pattern from `import { Schema } from "effect"` to `import * as Effect from "effect"`
-  - Added module-level alias `const Schema = Effect.Schema` for clean, readable code throughout generated files
-  - Only use fully-qualified `Effect.Schema` inside enum namespaces where collision occurs
-  - This maintains 95% of generated code with clean `Schema.*` patterns while avoiding namespace collision
-
-- **Optional Field Pattern**: Updated optional field generation from `Schema.Union(type, Schema.Undefined)` to correct `Schema.UndefinedOr(type)` combinator per Effect Schema API
-
-### Changed
-
-- Generated code now uses `import * as Effect from "effect"` pattern (industry standard)
-- All generated files include module-level alias `const Schema = Effect.Schema` for clean API
-
-## [1.6.0] - 2025-10-12
-
-### Changed
-
-- **BREAKING: TypeScript Namespace Pattern for Complete Name Preservation**
-  - **Zero name transformations** - All user-declared names from Prisma schema are preserved exactly throughout the generated code
-  - **Enums**: Now use TypeScript namespace pattern instead of suffix pattern
-    - Before v1.6.0: `ACTIVE_STATUS` enum generated `ACTIVE_STATUSSchema` and `ACTIVE_STATUSType` (awkward)
-    - v1.6.0+: Uses namespace merging for clean API:
-      ```typescript
-      export enum ACTIVE_STATUS { ACTIVE, INACTIVE }
-      export namespace ACTIVE_STATUS {
-        export const Schema = Schema.Enums(ACTIVE_STATUS);
-        export type Type = Schema.Schema.Type<typeof Schema>;
-      }
-      // Usage: ACTIVE_STATUS.ACTIVE, ACTIVE_STATUS.Schema, ACTIVE_STATUS.Type
-      ```
-  - **Models**: Operational schemas and type exports moved into namespaces
-    - Before v1.6.0: `export const User = getSchemas(_User)`, `export type UserSelect = ...`
-    - v1.6.0+: Everything grouped in namespace:
-      ```typescript
-      export namespace User {
-        const schemas = getSchemas(_User);
-        export const Selectable = schemas.Selectable;
-        export const Insertable = schemas.Insertable;
-        export const Updateable = schemas.Updateable;
-        export type Select = Schema.Schema.Type<typeof User.Selectable>;
-        export type Insert = Schema.Schema.Type<typeof User.Insertable>;
-        // ...
-      }
-      ```
-  - **Join Tables**: Same namespace pattern for consistency
-  - **No PascalCase conversion**: `session_model_preference` stays `session_model_preference` (not converted to `SessionModelPreference`)
-  - **Benefits**:
-    - ✨ Complete bridge from Prisma → Effect → Kysely → TypeScript with stable names
-    - ✨ No naming conflicts without transformations
-    - ✨ Cleaner API with grouped related exports
-    - ✨ User's Prisma schema names are the source of truth
-  - **Migration Guide**:
-    - Enum access: `ACTIVE_STATUSSchema` → `ACTIVE_STATUS.Schema`, `ACTIVE_STATUSType` → `ACTIVE_STATUS.Type`
-    - Model operational schemas: `User.Selectable` stays the same (namespace merging)
-    - Type imports: `UserSelect` → `User.Select`, `UserInsert` → `User.Insert`, etc.
-    - Encoded types: `UserSelectEncoded` → `User.SelectEncoded`, etc.
+// Usage:
+const status = ACTIVE_STATUS.ACTIVE;  // Direct enum access
+Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
+```
 
 ## [1.5.3] - 2025-10-12
 

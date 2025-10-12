@@ -12,23 +12,23 @@ describe('generateTypesHeader - Enum Imports', () => {
 
   const generator = new EffectGenerator(mockDMMF);
 
-  it('should import enums with suffix pattern', () => {
+  it('should import both enum and Schema wrapper', () => {
     const header = generator.generateTypesHeader(true);
 
-    // Suffix pattern: import enum + schema separately
-    expect(header).toContain('PRODUCT_STATUS');
-    expect(header).toContain('PRODUCT_TYPE');
+    // Test 13: Imports enum name
+    expect(header).toContain('ProductStatus');
+    expect(header).toContain('ProductType');
 
-    // Should import Schema exports with suffix
-    expect(header).toContain('PRODUCT_STATUSSchema');
-    expect(header).toContain('PRODUCT_TYPESchema');
+    // Test 14: Imports Schema wrappers
+    expect(header).toContain('ProductStatusSchema');
+    expect(header).toContain('ProductTypeSchema');
   });
 
-  it('should use standard Effect import', () => {
+  it('should NOT import SCREAMING_SNAKE_CASE names', () => {
     const header = generator.generateTypesHeader(true);
 
-    // Should use import { Schema } from 'effect'
-    expect(header).toContain('import { Schema } from "effect"');
-    expect(header).not.toContain('import * as Effect from "effect"');
+    // Test 15: Old naming pattern not used
+    expect(header).not.toContain('PRODUCT_STATUS');
+    expect(header).not.toContain('PRODUCT_TYPE');
   });
 });

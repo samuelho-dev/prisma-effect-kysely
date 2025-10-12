@@ -40,34 +40,33 @@ ${fieldDefinitions}
   }
 
   /**
-   * Generate operational schemas as namespace (ModelName.Selectable, etc.)
+   * Generate operational schemas (ModelName.Selectable, etc.)
    */
   generateOperationalSchemas(model: DMMF.Model) {
     const baseSchemaName = `_${model.name}`;
-    const modelName = model.name;
+    const operationalSchemaName = toPascalCase(model.name);
 
-    return `export namespace ${modelName} {
-  const schemas = getSchemas(${baseSchemaName});
-  export const Selectable = schemas.Selectable;
-  export const Insertable = schemas.Insertable;
-  export const Updateable = schemas.Updateable;
-}`;
+    return `export const ${operationalSchemaName} = getSchemas(${baseSchemaName});`;
   }
 
   /**
-   * Generate TypeScript type exports as namespace
+   * Generate TypeScript type exports
    */
   generateTypeExports(model: DMMF.Model) {
-    const name = model.name;
+    const name = toPascalCase(model.name);
 
-    return `export namespace ${name} {
-  export type Select = Schema.Schema.Type<typeof ${name}.Selectable>;
-  export type Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
-  export type Update = Schema.Schema.Type<typeof ${name}.Updateable>;
-  export type SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
-  export type InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
-  export type UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;
-}`;
+    // Application-side types (decoded - for repository layer)
+    const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
+export type ${name}Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
+export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
+
+    // Database-side encoded types (for queries layer)
+    const encodedTypes = `
+export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
+export type ${name}InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
+export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
+
+    return applicationTypes + encodedTypes;
   }
 
   /**
@@ -95,12 +94,17 @@ ${fieldDefinitions}
     ];
 
     if (hasEnums) {
-      // Import enums and their schemas with suffix pattern
-      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name);
-      const enumImports = enumNames.join(', ');
-      const schemaImports = enumNames.map(name => `${name}Schema`).join(', ');
+      // Test 13: Import both enum and Schema wrapper
+      // Test 14: Use PascalCase naming
+      // Test 15: No SCREAMING_SNAKE_CASE
+      const enumImports = this.dmmf.datamodel.enums
+        .flatMap((e) => {
+          const baseName = toPascalCase(e.name);
+          return [baseName, `${baseName}Schema`];
+        })
+        .join(', ');
 
-      imports.push(`import { ${enumImports}, ${schemaImports} } from "./enums";`);
+      imports.push(`import { ${enumImports} } from "./enums";`);
     }
 
     return `${header}\n\n${imports.join('\n')}`;

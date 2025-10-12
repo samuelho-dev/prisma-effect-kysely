@@ -14,12 +14,14 @@ import { generateFileHeader } from "../utils/codegen";
  * - Type alias for convenience
  */
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
-  // Preserve original enum name from Prisma schema
+  // Preserve original enum name for the enum itself
   const enumName = enumDef.name;
-  const schemaName = `${enumName}Schema`;
-  const typeName = `${enumName}Type`;
+  // Use PascalCase for Schema and Type exports
+  const pascalName = toPascalCase(enumDef.name);
+  const schemaName = `${pascalName}Schema`;
+  const typeName = `${pascalName}Type`;
 
-  // Generate native TypeScript enum members
+  // Generate native TypeScript enum members (Tests 1-2)
   const enumMembers = enumDef.values
     .map((v) => {
       const value = getEnumValueDbName(v);
@@ -27,37 +29,14 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
     })
     .join(",\n");
 
-  // Get first enum value for example
-  const firstValue = enumDef.values[0]?.name || 'VALUE';
-
-  // Get enum values as type union for JSDoc
-  const enumValueUnion = enumDef.values
-    .map(v => `'${getEnumValueDbName(v)}'`)
-    .join(' | ');
-
-  // Generate: enum + Schema.Enums() wrapper + type with JSDoc
-  return `/**
- * ${enumName} enum from Prisma schema.
- * @see {@link ${schemaName}} for Effect Schema validation
- * @see {@link ${typeName}} for TypeScript type
- */
-export enum ${enumName} {
+  // Generate: enum + Schema.Enums() wrapper + type (Tests 3-4)
+  // Explicitly NOT using Schema.Literal (Test 6)
+  return `export enum ${enumName} {
 ${enumMembers}
 }
 
-/**
- * Effect Schema validator for ${enumName} enum.
- * Validates that a value is a valid ${enumName} enum member.
- *
- * @example
- * const validated = Schema.decodeSync(${schemaName})("${firstValue}");
- */
 export const ${schemaName} = Schema.Enums(${enumName});
 
-/**
- * TypeScript type for ${enumName} enum values.
- * Equivalent to: ${enumValueUnion}
- */
 export type ${typeName} = Schema.Schema.Type<typeof ${schemaName}>;`;
 }
 

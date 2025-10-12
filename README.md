@@ -43,134 +43,37 @@ Generates three files in the configured output directory:
 
 ### enums.ts
 
-Native TypeScript enums with Effect Schema validators and comprehensive JSDoc:
+Effect Schema enums from Prisma enums with exact literal types:
 
 ```typescript
-/**
- * UserRole enum from Prisma schema.
- * @see {@link UserRoleSchema} for Effect Schema validation
- * @see {@link UserRoleType} for TypeScript type
- */
-export enum UserRole {
-  ADMIN = "ADMIN",
-  USER = "USER",
-  GUEST = "GUEST"
-}
-
-/**
- * Effect Schema validator for UserRole enum.
- * Validates that a value is a valid UserRole enum member.
- *
- * @example
- * const validated = Schema.decodeSync(UserRoleSchema)("ADMIN");
- */
-export const UserRoleSchema = Schema.Enums(UserRole);
-
-/**
- * TypeScript type for UserRole enum values.
- * Equivalent to: 'ADMIN' | 'USER' | 'GUEST'
- */
-export type UserRoleType = Schema.Schema.Type<typeof UserRoleSchema>;
-
-// Usage:
-// - Access enum values: UserRole.ADMIN, UserRole.USER
-// - Access Effect Schema: UserRoleSchema
-// - Access TypeScript type: UserRoleType
+export const UserRole = Schema.Literal('admin', 'user', 'guest');
+export type UserRole = Schema.Schema.Type<typeof UserRole>;
 ```
 
 ### types.ts
 
-Effect Schema structs from Prisma models with Kysely integration:
+Effect Schema structs from Prisma models:
 
 ```typescript
-// Base schema with underscore prefix
-export const _User = Schema.Struct({
-  id: columnType(Schema.UUID, Schema.Never, Schema.Never), // Read-only ID
+export const User = Schema.Struct({
+  id: Schema.UUID,
   email: Schema.String,
-  name: Schema.Union(Schema.String, Schema.Undefined),     // Optional field
-  role: UserRoleSchema,
-  createdAt: generated(Schema.Date),                       // Generated field
+  name: Schema.optional(Schema.String),
+  role: UserRole,
+  createdAt: Schema.Date,
 });
-
-// Operational schemas and types in namespace
-export namespace User {
-  const schemas = getSchemas(_User);
-  export const Selectable = schemas.Selectable;  // For SELECT queries
-  export const Insertable = schemas.Insertable;  // For INSERT (generated fields optional)
-  export const Updateable = schemas.Updateable;  // For UPDATE (all fields optional)
-
-  export type Select = Schema.Schema.Type<typeof User.Selectable>;
-  export type Insert = Schema.Schema.Type<typeof User.Insertable>;
-  export type Update = Schema.Schema.Type<typeof User.Updateable>;
-  export type SelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
-  export type InsertEncoded = Schema.Schema.Encoded<typeof User.Insertable>;
-  export type UpdateEncoded = Schema.Schema.Encoded<typeof User.Updateable>;
-}
-
-// Kysely DB interface for type-safe queries
-export interface DB {
-  User: Schema.Schema.Encoded<typeof _User>;
-  // ... other models
-}
+export type User = Schema.Schema.Type<typeof User>;
 ```
 
-**Name Preservation**: All names from your Prisma schema are preserved exactly:
-- Model `User` → `User` namespace with `User.Select`, `User.Insert`, `User.Update`
-- Model `session_preference` → `session_preference` namespace
-- Enum `ACTIVE_STATUS` → `ACTIVE_STATUS` enum and namespace
+**Naming Convention**: All exported schemas and types use PascalCase, regardless of the Prisma model naming convention:
+- Model `User` → `User`, `UserSelect`, `UserInsert`
+- Model `session_preference` → `SessionPreference`, `SessionPreferenceSelect`, `SessionPreferenceInsert`
 
-This creates a complete bridge from Prisma → Effect → Kysely → TypeScript with stable, predictable names.
+This ensures consistent TypeScript identifier naming while preserving the original model names for internal schemas.
 
 ### index.ts
 
 Re-exports all generated types for easy importing
-
-## Namespace Pattern
-
-The generator uses TypeScript namespaces to organize generated code while preserving your Prisma schema names exactly.
-
-### Benefits
-
-- **Zero Name Transformations**: Your Prisma names flow unchanged through Effect, Kysely, and TypeScript
-- **No Naming Conflicts**: Namespaces eliminate collisions without requiring name transformations
-- **Grouped Exports**: Related schemas, types, and values are logically grouped
-- **Clean API**: Access everything through a single identifier (e.g., `User.Select`, `User.Insertable`)
-
-### Structure
-
-**For Enums:**
-```typescript
-// Native TypeScript enum preserving Prisma schema naming
-export enum ACTIVE_STATUS { ACTIVE, INACTIVE }
-
-// Effect Schema validator with suffix pattern
-export const ACTIVE_STATUSSchema = Schema.Enums(ACTIVE_STATUS);
-
-// TypeScript type export
-export type ACTIVE_STATUSType = Schema.Schema.Type<typeof ACTIVE_STATUSSchema>;
-```
-
-**For Models:**
-```typescript
-export const _User = Schema.Struct({ ... });  // Base schema (underscore prefix)
-export namespace User {                        // Namespace for operational schemas
-  const schemas = getSchemas(_User);
-  export const Selectable = schemas.Selectable;
-  export const Insertable = schemas.Insertable;
-  export const Updateable = schemas.Updateable;
-  export type Select = ...;
-  export type Insert = ...;
-  // ... more types
-}
-```
-
-**For Join Tables:**
-```typescript
-export const _CategoryToPost = Schema.Struct({ A, B });
-export namespace CategoryToPost {
-  // Same pattern as models
-}
-```
 
 ## Type Mappings
 
