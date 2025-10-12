@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2025-10-12
+
+### Added
+
+- **Implicit Many-to-Many Join Table Generation** - Full support for Prisma's implicit many-to-many relations
+  - Automatically generates Effect Schema types for join tables (e.g., `_CategoryToPost`)
+  - Includes join tables in Kysely `DB` interface for type-safe queries
+  - Generates operational schemas (`Selectable`, `Insertable`, `Updateable`) for join tables
+  - Both `Type` and `Encoded` exports for complete type coverage
+  - Example:
+    ```typescript
+    // Generated join table schema
+    export const _CategoryToPost = Schema.Struct({
+      A: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      B: columnType(Schema.UUID, Schema.Never, Schema.Never),
+    });
+
+    export const CategoryToPost = getSchemas(_CategoryToPost);
+
+    // DB interface includes join table
+    export interface DB {
+      Category: Schema.Schema.Encoded<typeof _Category>;
+      Post: Schema.Schema.Encoded<typeof _Post>;
+      _CategoryToPost: Schema.Schema.Encoded<typeof _CategoryToPost>;
+    }
+    ```
+  - **Benefits**:
+    - ✨ Type-safe Kysely queries through intermediate tables
+    - ✨ Complete database schema representation
+    - ✨ Enables complex many-to-many queries with full type inference
+    - ✨ Maintains consistency with Prisma's database structure
+
+### Fixed
+
+- **UUID Detection Accuracy** - Enhanced UUID field detection to prevent false positives
+  - Now checks field type is `String` before applying name pattern matching
+  - Prevents incorrect UUID detection on `Int` fields named `id`
+  - Maintains 3-tier detection strategy: native type → documentation → field patterns
+
+- **Memory Leaks in Test Suite** - Added proper cleanup hooks
+  - Added `afterAll()` hooks to clear DMMF references in test files
+  - Eliminates memory leak warnings with Jest's `--detectLeaks` flag
+  - All 154 tests pass cleanly without memory warnings
+
+### Implementation Details
+
+- **New modules**:
+  - `src/prisma/relation.ts`: Relation detection logic with join table metadata extraction
+  - `src/effect/join-table.ts`: Schema generation for join tables
+  - 20 new tests (12 relation detection + 8 schema generation)
+
+- **Edge cases handled**:
+  - Circular many-to-many relations (A↔B, A↔C, B↔C)
+  - Mixed ID types (UUID in one model, Int in another)
+  - Self-relations (properly filtered out)
+  - Explicit many-to-many relations (detected and excluded)
+
+### Testing
+
+- All 154 tests passing
+- No memory leaks with `--detectLeaks` flag
+- TypeScript compilation passes without errors
+- Comprehensive edge case coverage
+
 ## [1.5.0] - 2025-10-11
 
 ### Changed - BREAKING
