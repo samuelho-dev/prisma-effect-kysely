@@ -61,9 +61,12 @@ describe('Generated Code Validation', () => {
       expect(typesContent).not.toMatch(/\)\s+as\s+[A-Z]/); // matches ") as TypeName"
       expect(typesContent).not.toMatch(/\w+\s+as\s+[A-Z]/); // matches "value as TypeName"
 
-      // Verify enums
-      expect(enumsContent).toContain('export const Role');
-      expect(enumsContent).toContain('export const Status');
+      // Verify enums (now exported as native TypeScript enums)
+      expect(enumsContent).toContain('export enum Role');
+      expect(enumsContent).toContain('export enum Status');
+      // Verify namespace with Schema wrapper
+      expect(enumsContent).toContain('export namespace Role');
+      expect(enumsContent).toContain('export namespace Status');
     });
 
     it('should not use type assertions', async () => {
@@ -101,15 +104,18 @@ describe('Generated Code Validation', () => {
 
       // Verify exports for each model
       expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/export type UserSelect/);
-      expect(typesContent).toMatch(/export type UserInsert/);
-      expect(typesContent).toMatch(/export type UserUpdate/);
+      // Namespace pattern: getSchemas is used within namespace
+      expect(typesContent).toContain('export namespace User');
+      expect(typesContent).toMatch(/const schemas = getSchemas\(_User\)/);
+      // Types are within namespace
+      expect(typesContent).toMatch(/export type Select = Schema\.Schema\.Type/);
+      expect(typesContent).toMatch(/export type Insert = Schema\.Schema\.Type/);
+      expect(typesContent).toMatch(/export type Update = Schema\.Schema\.Type/);
 
       // Verify Encoded type exports (NEW - for queries layer)
-      expect(typesContent).toMatch(/export type UserSelectEncoded/);
-      expect(typesContent).toMatch(/export type UserInsertEncoded/);
-      expect(typesContent).toMatch(/export type UserUpdateEncoded/);
+      expect(typesContent).toMatch(/export type SelectEncoded = Schema\.Schema\.Encoded/);
+      expect(typesContent).toMatch(/export type InsertEncoded = Schema\.Schema\.Encoded/);
+      expect(typesContent).toMatch(/export type UpdateEncoded = Schema\.Schema\.Encoded/);
 
       // Verify DB interface
       expect(typesContent).toMatch(/export interface DB/);
@@ -129,21 +135,23 @@ describe('Generated Code Validation', () => {
         'utf-8',
       );
 
-      // Verify Encoded types are exported for all operation types
+      // Verify Encoded types are exported within namespace for all operation types
+      expect(typesContent).toContain('export namespace User');
       expect(typesContent).toMatch(
-        /export type UserSelectEncoded = Schema\.Schema\.Encoded<typeof User\.Selectable>/,
+        /export type SelectEncoded = Schema\.Schema\.Encoded<typeof User\.Selectable>/,
       );
       expect(typesContent).toMatch(
-        /export type UserInsertEncoded = Schema\.Schema\.Encoded<typeof User\.Insertable>/,
+        /export type InsertEncoded = Schema\.Schema\.Encoded<typeof User\.Insertable>/,
       );
       expect(typesContent).toMatch(
-        /export type UserUpdateEncoded = Schema\.Schema\.Encoded<typeof User\.Updateable>/,
+        /export type UpdateEncoded = Schema\.Schema\.Encoded<typeof User\.Updateable>/,
       );
 
       // Verify for another model to ensure it's generated for all models
-      expect(typesContent).toMatch(/export type PostSelectEncoded/);
-      expect(typesContent).toMatch(/export type PostInsertEncoded/);
-      expect(typesContent).toMatch(/export type PostUpdateEncoded/);
+      expect(typesContent).toContain('export namespace Post');
+      expect(typesContent).toMatch(/export type SelectEncoded = Schema\.Schema\.Encoded<typeof Post\.Selectable>/);
+      expect(typesContent).toMatch(/export type InsertEncoded = Schema\.Schema\.Encoded<typeof Post\.Insertable>/);
+      expect(typesContent).toMatch(/export type UpdateEncoded = Schema\.Schema\.Encoded<typeof Post\.Updateable>/);
     });
 
     it('should handle @map and @@map annotations', async () => {

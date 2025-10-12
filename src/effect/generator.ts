@@ -40,33 +40,34 @@ ${fieldDefinitions}
   }
 
   /**
-   * Generate operational schemas (ModelName.Selectable, etc.)
+   * Generate operational schemas as namespace (ModelName.Selectable, etc.)
    */
   generateOperationalSchemas(model: DMMF.Model) {
     const baseSchemaName = `_${model.name}`;
-    const operationalSchemaName = toPascalCase(model.name);
+    const modelName = model.name;
 
-    return `export const ${operationalSchemaName} = getSchemas(${baseSchemaName});`;
+    return `export namespace ${modelName} {
+  const schemas = getSchemas(${baseSchemaName});
+  export const Selectable = schemas.Selectable;
+  export const Insertable = schemas.Insertable;
+  export const Updateable = schemas.Updateable;
+}`;
   }
 
   /**
-   * Generate TypeScript type exports
+   * Generate TypeScript type exports as namespace
    */
   generateTypeExports(model: DMMF.Model) {
-    const name = toPascalCase(model.name);
+    const name = model.name;
 
-    // Application-side types (decoded - for repository layer)
-    const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
-export type ${name}Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
-export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
-
-    // Database-side encoded types (for queries layer)
-    const encodedTypes = `
-export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
-export type ${name}InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
-export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
-
-    return applicationTypes + encodedTypes;
+    return `export namespace ${name} {
+  export type Select = Schema.Schema.Type<typeof ${name}.Selectable>;
+  export type Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
+  export type Update = Schema.Schema.Type<typeof ${name}.Updateable>;
+  export type SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
+  export type InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
+  export type UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;
+}`;
   }
 
   /**

@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-10-12
+
+### Changed
+
+- **BREAKING: TypeScript Namespace Pattern for Complete Name Preservation**
+  - **Zero name transformations** - All user-declared names from Prisma schema are preserved exactly throughout the generated code
+  - **Enums**: Now use TypeScript namespace pattern instead of suffix pattern
+    - Before v1.6.0: `ACTIVE_STATUS` enum generated `ACTIVE_STATUSSchema` and `ACTIVE_STATUSType` (awkward)
+    - v1.6.0+: Uses namespace merging for clean API:
+      ```typescript
+      export enum ACTIVE_STATUS { ACTIVE, INACTIVE }
+      export namespace ACTIVE_STATUS {
+        export const Schema = Schema.Enums(ACTIVE_STATUS);
+        export type Type = Schema.Schema.Type<typeof Schema>;
+      }
+      // Usage: ACTIVE_STATUS.ACTIVE, ACTIVE_STATUS.Schema, ACTIVE_STATUS.Type
+      ```
+  - **Models**: Operational schemas and type exports moved into namespaces
+    - Before v1.6.0: `export const User = getSchemas(_User)`, `export type UserSelect = ...`
+    - v1.6.0+: Everything grouped in namespace:
+      ```typescript
+      export namespace User {
+        const schemas = getSchemas(_User);
+        export const Selectable = schemas.Selectable;
+        export const Insertable = schemas.Insertable;
+        export const Updateable = schemas.Updateable;
+        export type Select = Schema.Schema.Type<typeof User.Selectable>;
+        export type Insert = Schema.Schema.Type<typeof User.Insertable>;
+        // ...
+      }
+      ```
+  - **Join Tables**: Same namespace pattern for consistency
+  - **No PascalCase conversion**: `session_model_preference` stays `session_model_preference` (not converted to `SessionModelPreference`)
+  - **Benefits**:
+    - ✨ Complete bridge from Prisma → Effect → Kysely → TypeScript with stable names
+    - ✨ No naming conflicts without transformations
+    - ✨ Cleaner API with grouped related exports
+    - ✨ User's Prisma schema names are the source of truth
+  - **Migration Guide**:
+    - Enum access: `ACTIVE_STATUSSchema` → `ACTIVE_STATUS.Schema`, `ACTIVE_STATUSType` → `ACTIVE_STATUS.Type`
+    - Model operational schemas: `User.Selectable` stays the same (namespace merging)
+    - Type imports: `UserSelect` → `User.Select`, `UserInsert` → `User.Insert`, etc.
+    - Encoded types: `UserSelectEncoded` → `User.SelectEncoded`, etc.
+
 ## [1.5.3] - 2025-10-12
 
 ### Changed

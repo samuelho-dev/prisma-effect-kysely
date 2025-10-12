@@ -16,10 +16,8 @@ import { generateFileHeader } from "../utils/codegen";
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
   // Preserve original enum name from Prisma schema
   const enumName = enumDef.name;
-  const schemaName = `${enumName}Schema`;
-  const typeName = `${enumName}Type`;
 
-  // Generate native TypeScript enum members (Tests 1-2)
+  // Generate native TypeScript enum members
   const enumMembers = enumDef.values
     .map((v) => {
       const value = getEnumValueDbName(v);
@@ -27,15 +25,15 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
     })
     .join(",\n");
 
-  // Generate: enum + Schema.Enums() wrapper + type (Tests 3-4)
-  // Explicitly NOT using Schema.Literal (Test 6)
+  // Generate: enum + namespace with Schema and Type
   return `export enum ${enumName} {
 ${enumMembers}
 }
 
-export const ${schemaName} = Schema.Enums(${enumName});
-
-export type ${typeName} = Schema.Schema.Type<typeof ${schemaName}>;`;
+export namespace ${enumName} {
+  export const Schema = Schema.Enums(${enumName});
+  export type Type = Schema.Schema.Type<typeof Schema>;
+}`;
 }
 
 /**

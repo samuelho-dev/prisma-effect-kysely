@@ -52,18 +52,23 @@ ${columnAField},
 ${columnBField},
 });`;
 
-  // Generate operational schemas
-  const operationalSchema = `export const ${relationName} = getSchemas(_${relationName});`;
+  // Generate operational schemas as namespace
+  const operationalSchema = `export namespace ${relationName} {
+  const schemas = getSchemas(_${relationName});
+  export const Selectable = schemas.Selectable;
+  export const Insertable = schemas.Insertable;
+  export const Updateable = schemas.Updateable;
+}`;
 
-  // Generate Type exports
-  const typeExports = `export type ${relationName}Select = Schema.Schema.Type<typeof ${relationName}.Selectable>;
-export type ${relationName}Insert = Schema.Schema.Type<typeof ${relationName}.Insertable>;
-export type ${relationName}Update = Schema.Schema.Type<typeof ${relationName}.Updateable>;`;
+  // Generate Type exports as namespace
+  const typeExports = `export namespace ${relationName} {
+  export type Select = Schema.Schema.Type<typeof ${relationName}.Selectable>;
+  export type Insert = Schema.Schema.Type<typeof ${relationName}.Insertable>;
+  export type Update = Schema.Schema.Type<typeof ${relationName}.Updateable>;
+  export type SelectEncoded = Schema.Schema.Encoded<typeof ${relationName}.Selectable>;
+  export type InsertEncoded = Schema.Schema.Encoded<typeof ${relationName}.Insertable>;
+  export type UpdateEncoded = Schema.Schema.Encoded<typeof ${relationName}.Updateable>;
+}`;
 
-  // Generate Encoded type exports
-  const encodedExports = `export type ${relationName}SelectEncoded = Schema.Schema.Encoded<typeof ${relationName}.Selectable>;
-export type ${relationName}InsertEncoded = Schema.Schema.Encoded<typeof ${relationName}.Insertable>;
-export type ${relationName}UpdateEncoded = Schema.Schema.Encoded<typeof ${relationName}.Updateable>;`;
-
-  return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}\n${encodedExports}`;
+  return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
 }

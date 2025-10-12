@@ -57,9 +57,10 @@ describe("Kysely Integration Tests", () => {
       expect(typesContent).toMatch(/generated\(/);
     });
 
-    it("should export getSchemas for operational schemas", () => {
-      // Should export operational schemas (Selectable, Insertable, Updateable)
-      expect(typesContent).toMatch(/export const User = getSchemas/);
+    it("should use getSchemas within namespace for operational schemas", () => {
+      // Should use getSchemas within namespace (Selectable, Insertable, Updateable)
+      expect(typesContent).toContain("export namespace User");
+      expect(typesContent).toMatch(/const schemas = getSchemas\(_User\)/);
     });
 
     it("should generate DB interface using Schema.Encoded", () => {
@@ -147,22 +148,27 @@ describe("Kysely Integration Tests", () => {
       typesContent = readFileSync(join(testOutputPath, "types.ts"), "utf-8");
     });
 
-    it("should export operational schema objects", () => {
-      // Should export: export const User = getSchemas(_User);
-      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+\)/);
+    it("should export operational schema objects in namespace", () => {
+      // Should use getSchemas within namespace and export schema properties
+      expect(typesContent).toMatch(/export namespace \w+/);
+      expect(typesContent).toMatch(/const schemas = getSchemas\(_\w+\)/);
+      expect(typesContent).toMatch(/export const Selectable = schemas\.Selectable/);
+      expect(typesContent).toMatch(/export const Insertable = schemas\.Insertable/);
+      expect(typesContent).toMatch(/export const Updateable = schemas\.Updateable/);
     });
 
-    it("should export TypeScript types for Select/Insert/Update", () => {
-      // Should export types like:
-      // export type UserSelect = Schema.Schema.Type<typeof User.Selectable>;
+    it("should export TypeScript types for Select/Insert/Update in namespace", () => {
+      // Should export types within namespace like:
+      // export namespace User { export type Select = Schema.Schema.Type<typeof User.Selectable>; }
+      expect(typesContent).toMatch(/export namespace \w+/);
       expect(typesContent).toMatch(
-        /export type \w+Select = Schema\.Schema\.Type<typeof \w+\.Selectable>/,
+        /export type Select = Schema\.Schema\.Type<typeof \w+\.Selectable>/,
       );
       expect(typesContent).toMatch(
-        /export type \w+Insert = Schema\.Schema\.Type<typeof \w+\.Insertable>/,
+        /export type Insert = Schema\.Schema\.Type<typeof \w+\.Insertable>/,
       );
       expect(typesContent).toMatch(
-        /export type \w+Update = Schema\.Schema\.Type<typeof \w+\.Updateable>/,
+        /export type Update = Schema\.Schema\.Type<typeof \w+\.Updateable>/,
       );
     });
   });

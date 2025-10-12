@@ -8,7 +8,7 @@ export * from '../kysely/helpers';
 
 export const generator = generatorHandler({
   onManifest: () => ({
-    version: '1.5.3',
+    version: '1.6.0',
     defaultOutput: './generated',
     prettyName: 'Prisma Effect Kysely Generator',
   }),

@@ -177,10 +177,11 @@ describe("Prisma Effect Schema Generator - E2E", () => {
       enumsContent = readFileSync(join(testOutputPath, "enums.ts"), "utf-8");
     });
 
-    it("should generate Role enum with Schema.Enums", () => {
-      // New behavior: native TypeScript enum + Schema.Enums wrapper
+    it("should generate Role enum with Schema.Enums in namespace", () => {
+      // New behavior: native TypeScript enum + Schema.Enums wrapper in namespace
       expect(enumsContent).toContain("export enum Role {");
-      expect(enumsContent).toContain("export const RoleSchema = Schema.Enums(Role)");
+      expect(enumsContent).toContain("export namespace Role");
+      expect(enumsContent).toContain("export const Schema = Schema.Enums(Role)");
       expect(enumsContent).toContain('"ADMIN"');
       expect(enumsContent).toContain('"GUEST"');
       expect(enumsContent).toContain('"USER"');
@@ -189,9 +190,10 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     });
 
     it("should handle @map annotations in Status enum", () => {
-      // New behavior: native TypeScript enum with Schema.Enums wrapper
+      // New behavior: native TypeScript enum with Schema.Enums wrapper in namespace
       expect(enumsContent).toContain("export enum Status {");
-      expect(enumsContent).toContain("export const StatusSchema = Schema.Enums(Status)");
+      expect(enumsContent).toContain("export namespace Status");
+      expect(enumsContent).toContain("export const Schema = Schema.Enums(Status)");
       expect(enumsContent).toContain('"active"');
       expect(enumsContent).toContain('"inactive"');
       expect(enumsContent).toContain('"pending"');
@@ -491,49 +493,37 @@ describe("Prisma Effect Schema Generator - E2E", () => {
       typesContent = readFileSync(join(testOutputPath, "types.ts"), "utf-8");
     });
 
-    it("should convert snake_case model names to PascalCase for exports", () => {
+    it("should preserve original snake_case model names in namespace", () => {
       // Base schema should keep original name with underscore prefix
       expect(typesContent).toMatch(
         /export const _session_model_preference = Schema\.Struct/,
       );
 
-      // Operational schema should use PascalCase
-      expect(typesContent).toMatch(
-        /export const SessionModelPreference = getSchemas\(_session_model_preference\)/,
-      );
+      // Namespace should preserve original name (no PascalCase conversion)
+      expect(typesContent).toContain("export namespace session_model_preference");
+      expect(typesContent).toContain("const schemas = getSchemas(_session_model_preference)");
     });
 
-    it("should generate PascalCase type exports for snake_case models", () => {
-      // Type exports should use PascalCase
-      expect(typesContent).toContain(
-        "export type SessionModelPreferenceSelect = Schema.Schema.Type<typeof SessionModelPreference.Selectable>",
-      );
-      expect(typesContent).toContain(
-        "export type SessionModelPreferenceInsert = Schema.Schema.Type<typeof SessionModelPreference.Insertable>",
-      );
-      expect(typesContent).toContain(
-        "export type SessionModelPreferenceUpdate = Schema.Schema.Type<typeof SessionModelPreference.Updateable>",
-      );
+    it("should preserve original model names in namespace type exports", () => {
+      // Type exports should preserve original names in namespace
+      expect(typesContent).toContain("export namespace session_model_preference");
+      expect(typesContent).toContain("export type Select = Schema.Schema.Type<typeof session_model_preference.Selectable>");
+      expect(typesContent).toContain("export type Insert = Schema.Schema.Type<typeof session_model_preference.Insertable>");
+      expect(typesContent).toContain("export type Update = Schema.Schema.Type<typeof session_model_preference.Updateable>");
     });
 
-    it("should generate PascalCase encoded type exports for snake_case models", () => {
-      // Encoded type exports should also use PascalCase
-      expect(typesContent).toContain(
-        "export type SessionModelPreferenceSelectEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Selectable>",
-      );
-      expect(typesContent).toContain(
-        "export type SessionModelPreferenceInsertEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Insertable>",
-      );
-      expect(typesContent).toContain(
-        "export type SessionModelPreferenceUpdateEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Updateable>",
-      );
+    it("should preserve original names in namespace encoded type exports", () => {
+      // Encoded type exports should preserve original names in namespace
+      expect(typesContent).toContain("export type SelectEncoded = Schema.Schema.Encoded<typeof session_model_preference.Selectable>");
+      expect(typesContent).toContain("export type InsertEncoded = Schema.Schema.Encoded<typeof session_model_preference.Insertable>");
+      expect(typesContent).toContain("export type UpdateEncoded = Schema.Schema.Encoded<typeof session_model_preference.Updateable>");
     });
 
     it("should not affect PascalCase model names", () => {
-      // Existing PascalCase models should remain unchanged
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
-      expect(typesContent).toContain("export type UserSelect");
-      expect(typesContent).toContain("export type UserInsert");
+      // Existing PascalCase models should remain unchanged with namespace
+      expect(typesContent).toContain("export namespace User");
+      expect(typesContent).toContain("export type Select = Schema.Schema.Type<typeof User.Selectable>");
+      expect(typesContent).toContain("export type Insert = Schema.Schema.Type<typeof User.Insertable>");
     });
   });
 });

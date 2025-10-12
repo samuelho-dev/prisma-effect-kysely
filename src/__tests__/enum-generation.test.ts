@@ -24,18 +24,19 @@ describe('generateEnumSchema - Schema.Enums Pattern', () => {
     expect(result).toContain('ACTIVE = "ACTIVE"');
   });
 
-  it('should generate Schema.Enums wrapper', () => {
+  it('should generate Schema.Enums wrapper in namespace', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 3: Schema wrapper exists with original name
-    expect(result).toContain('export const PRODUCT_STATUSSchema = Schema.Enums(PRODUCT_STATUS)');
+    // Test 3: Schema wrapper exists in namespace
+    expect(result).toContain('export namespace PRODUCT_STATUS');
+    expect(result).toContain('export const Schema = Schema.Enums(PRODUCT_STATUS)');
   });
 
-  it('should generate type alias', () => {
+  it('should generate type alias in namespace', () => {
     const result = generateEnumSchema(mockEnum);
 
-    // Test 4: Type alias exists with original name
-    expect(result).toContain('export type PRODUCT_STATUSType = Schema.Schema.Type<typeof PRODUCT_STATUSSchema>');
+    // Test 4: Type alias exists in namespace
+    expect(result).toContain('export type Type = Schema.Schema.Type<typeof Schema>');
   });
 
   it('should preserve original enum name from Prisma schema', () => {

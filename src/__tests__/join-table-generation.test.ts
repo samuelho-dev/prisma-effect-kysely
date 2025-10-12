@@ -32,7 +32,7 @@ describe("Join Table Schema Generation", () => {
       expect(generated).toContain("B: columnType(Schema.UUID, Schema.Never, Schema.Never)");
     });
 
-    it("should generate PascalCase export name without underscore", async () => {
+    it("should generate namespace for join table without base schema underscore", async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -54,7 +54,11 @@ describe("Join Table Schema Generation", () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain("export const CategoryToPost = getSchemas(_CategoryToPost)");
+      // Base schema keeps underscore: _CategoryToPost
+      expect(generated).toContain("export const _CategoryToPost = Schema.Struct({");
+      // Namespace removes underscore: CategoryToPost
+      expect(generated).toContain("export namespace CategoryToPost");
+      expect(generated).toContain("const schemas = getSchemas(_CategoryToPost)");
     });
 
     it("should generate operational schemas (Selectable/Insertable/Updateable)", async () => {
@@ -79,10 +83,11 @@ describe("Join Table Schema Generation", () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain("export const CategoryToPost = getSchemas(_CategoryToPost)");
-      expect(generated).toContain("export type CategoryToPostSelect");
-      expect(generated).toContain("export type CategoryToPostInsert");
-      expect(generated).toContain("export type CategoryToPostUpdate");
+      expect(generated).toContain("export namespace CategoryToPost");
+      expect(generated).toContain("const schemas = getSchemas(_CategoryToPost)");
+      expect(generated).toContain("export type Select = Schema.Schema.Type<typeof CategoryToPost.Selectable>");
+      expect(generated).toContain("export type Insert = Schema.Schema.Type<typeof CategoryToPost.Insertable>");
+      expect(generated).toContain("export type Update = Schema.Schema.Type<typeof CategoryToPost.Updateable>");
     });
 
     it("should generate Encoded type exports", async () => {
@@ -107,9 +112,9 @@ describe("Join Table Schema Generation", () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain("export type CategoryToPostSelectEncoded");
-      expect(generated).toContain("export type CategoryToPostInsertEncoded");
-      expect(generated).toContain("export type CategoryToPostUpdateEncoded");
+      expect(generated).toContain("export type SelectEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Selectable>");
+      expect(generated).toContain("export type InsertEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Insertable>");
+      expect(generated).toContain("export type UpdateEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Updateable>");
     });
 
     it("should handle Int ID fields (non-UUID)", async () => {
