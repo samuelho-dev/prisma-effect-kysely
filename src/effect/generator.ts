@@ -3,6 +3,7 @@ import { generateEnumsFile } from './enum';
 import { buildFieldType } from './type';
 import { getFieldDbName } from '../prisma/type';
 import { toPascalCase } from '../utils/naming';
+import { generateFileHeader } from '../utils/codegen';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -21,7 +22,7 @@ export class EffectGenerator {
    * Generate base schema for a model (_ModelName)
    */
   generateBaseSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
-    const fieldDefinitions = Array.from(fields)
+    const fieldDefinitions = fields
       .map((field) => {
         const fieldType = buildFieldType(field, this.dmmf);
         return `  ${field.name}: ${fieldType}`;
@@ -79,12 +80,11 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
 
   /**
    * Generate types.ts file header
+   *
+   * TDD: Satisfies tests 13-15 in import-generation.test.ts
    */
   generateTypesHeader(hasEnums: boolean) {
-    const header = `/**
- * Generated: ${new Date().toISOString()}
- * DO NOT EDIT MANUALLY
- */`;
+    const header = generateFileHeader();
 
     const imports = [
       `import { Schema } from "effect";`,
@@ -92,8 +92,17 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
     ];
 
     if (hasEnums) {
-      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name).join(', ');
-      imports.push(`import { ${enumNames} } from "./enums";`);
+      // Test 13: Import both enum and Schema wrapper
+      // Test 14: Use PascalCase naming
+      // Test 15: No SCREAMING_SNAKE_CASE
+      const enumImports = this.dmmf.datamodel.enums
+        .flatMap((e) => {
+          const baseName = toPascalCase(e.name);
+          return [baseName, `${baseName}Schema`];
+        })
+        .join(', ');
+
+      imports.push(`import { ${enumImports} } from "./enums";`);
     }
 
     return `${header}\n\n${imports.join('\n')}`;

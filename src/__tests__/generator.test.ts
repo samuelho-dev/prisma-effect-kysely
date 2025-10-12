@@ -173,16 +173,21 @@ describe("Prisma Effect Schema Generator - E2E", () => {
       enumsContent = readFileSync(join(testOutputPath, "enums.ts"), "utf-8");
     });
 
-    it("should generate Role enum with Schema.Literal", () => {
-      expect(enumsContent).toContain("export const Role");
-      expect(enumsContent).toContain("Schema.Literal");
+    it("should generate Role enum with Schema.Enums", () => {
+      // New behavior: native TypeScript enum + Schema.Enums wrapper
+      expect(enumsContent).toContain("export enum Role {");
+      expect(enumsContent).toContain("export const RoleSchema = Schema.Enums(Role)");
       expect(enumsContent).toContain('"ADMIN"');
       expect(enumsContent).toContain('"GUEST"');
       expect(enumsContent).toContain('"USER"');
+      // Should NOT use Schema.Literal pattern anymore
+      expect(enumsContent).not.toContain("Schema.Literal");
     });
 
     it("should handle @map annotations in Status enum", () => {
-      expect(enumsContent).toContain("export const Status");
+      // New behavior: native TypeScript enum with Schema.Enums wrapper
+      expect(enumsContent).toContain("export enum Status {");
+      expect(enumsContent).toContain("export const StatusSchema = Schema.Enums(Status)");
       expect(enumsContent).toContain('"active"');
       expect(enumsContent).toContain('"inactive"');
       expect(enumsContent).toContain('"pending"');
@@ -240,9 +245,10 @@ describe("Prisma Effect Schema Generator - E2E", () => {
       expect(typesContent).toMatch(/jsonField:\s*Schema\.Unknown/);
     });
 
-    it("should use imported enum types directly", () => {
-      expect(typesContent).toMatch(/\brole:\s*Role\b/);
-      expect(typesContent).toMatch(/\bstatus:\s*Status\b/);
+    it("should use Schema wrapper for enum fields", () => {
+      // New behavior: Use RoleSchema and StatusSchema (Schema wrappers)
+      expect(typesContent).toMatch(/\brole:\s*RoleSchema\b/);
+      expect(typesContent).toMatch(/\bstatus:\s*StatusSchema\b/);
     });
   });
 

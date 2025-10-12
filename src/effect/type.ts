@@ -6,6 +6,7 @@ import {
   hasDefaultValue,
 } from "../prisma/type";
 import { extractEffectTypeOverride } from "../utils/annotations";
+import { toPascalCase } from "../utils/naming";
 
 /**
  * Prisma scalar type mapping to Effect Schema types
@@ -47,9 +48,12 @@ export function mapFieldToEffectType(field: DMMF.Field, dmmf: DMMF.Document) {
   }
 
   // PRIORITY 4: Check if it's an enum
+  // TDD: Satisfies tests 11-12 in field-type-generation.test.ts
   const enumDef = dmmf.datamodel.enums.find((e) => e.name === field.type);
   if (enumDef) {
-    return field.type; // Use enum name directly
+    // Return Schema wrapper, not raw enum (Test 11)
+    // Use PascalCase + Schema suffix (Test 12)
+    return toPascalCase(field.type, 'Schema');
   }
 
   // PRIORITY 5: Fallback to Unknown
