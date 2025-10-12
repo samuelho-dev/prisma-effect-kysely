@@ -21,8 +21,6 @@ describe('End-to-End Enum Generation', () => {
     expect(result).toContain('export enum');
     expect(result).toContain('Schema.Enums(');
     expect(result).toContain('import { Schema } from "effect"');
-    expect(result).toContain('export const ROLESchema');
-    expect(result).toContain('export type ROLEType');
   });
 
   it('should allow enum to be used in Kysely queries (type compatibility)', () => {

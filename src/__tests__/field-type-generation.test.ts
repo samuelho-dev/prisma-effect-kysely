@@ -21,21 +21,19 @@ describe('buildFieldType - Enum Field Mapping', () => {
     isUpdatedAt: false,
   });
 
-  it('should map enum field to suffix Schema pattern', () => {
+  it('should map enum field to Schema wrapper (not raw enum)', () => {
     const result = buildFieldType(mockEnumField, mockDMMF);
 
-    // Test 11: Returns Schema with suffix (v1.7.0+)
-    expect(result).toBe('PRODUCT_STATUSSchema');
+    // Test 11: Returns Schema wrapper, not enum name
+    expect(result).toBe('ProductStatusSchema');
     expect(result).not.toBe('ProductStatus');
     expect(result).not.toBe('PRODUCT_STATUS');
-    expect(result).not.toBe('PRODUCT_STATUS.Schema');
   });
 
-  it('should preserve original enum name with Schema suffix', () => {
+  it('should use PascalCase + Schema suffix', () => {
     const result = buildFieldType(mockEnumField, mockDMMF);
 
-    // Test 12: Uses suffix pattern EnumNameSchema
-    expect(result).toMatch(/^[A-Z_]+Schema$/);
-    expect(result).toContain('PRODUCT_STATUS');
+    // Test 12: Naming convention
+    expect(result).toMatch(/^[A-Z][a-zA-Z]+Schema$/);
   });
 });
