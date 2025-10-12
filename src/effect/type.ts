@@ -51,9 +51,9 @@ export function mapFieldToEffectType(field: DMMF.Field, dmmf: DMMF.Document) {
   // TDD: Satisfies tests 11-12 in field-type-generation.test.ts
   const enumDef = dmmf.datamodel.enums.find((e) => e.name === field.type);
   if (enumDef) {
-    // Return Schema via namespace pattern (v1.6.0+)
-    // Preserve original enum name, access Schema through namespace
-    return `${enumDef.name}.Schema`;
+    // Return Schema with suffix pattern (v1.7.0+)
+    // Preserve original enum name with Schema suffix
+    return `${enumDef.name}Schema`;
   }
 
   // PRIORITY 5: Fallback to Unknown

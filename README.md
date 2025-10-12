@@ -43,24 +43,39 @@ Generates three files in the configured output directory:
 
 ### enums.ts
 
-Native TypeScript enums with Effect Schema wrappers in namespaces:
+Native TypeScript enums with Effect Schema validators and comprehensive JSDoc:
 
 ```typescript
+/**
+ * UserRole enum from Prisma schema.
+ * @see {@link UserRoleSchema} for Effect Schema validation
+ * @see {@link UserRoleType} for TypeScript type
+ */
 export enum UserRole {
   ADMIN = "ADMIN",
   USER = "USER",
   GUEST = "GUEST"
 }
 
-export namespace UserRole {
-  export const Schema = Schema.Enums(UserRole);
-  export type Type = Schema.Schema.Type<typeof Schema>;
-}
+/**
+ * Effect Schema validator for UserRole enum.
+ * Validates that a value is a valid UserRole enum member.
+ *
+ * @example
+ * const validated = Schema.decodeSync(UserRoleSchema)("ADMIN");
+ */
+export const UserRoleSchema = Schema.Enums(UserRole);
+
+/**
+ * TypeScript type for UserRole enum values.
+ * Equivalent to: 'ADMIN' | 'USER' | 'GUEST'
+ */
+export type UserRoleType = Schema.Schema.Type<typeof UserRoleSchema>;
 
 // Usage:
 // - Access enum values: UserRole.ADMIN, UserRole.USER
-// - Access Effect Schema: UserRole.Schema
-// - Access TypeScript type: UserRole.Type
+// - Access Effect Schema: UserRoleSchema
+// - Access TypeScript type: UserRoleType
 ```
 
 ### types.ts
@@ -73,7 +88,7 @@ export const _User = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never), // Read-only ID
   email: Schema.String,
   name: Schema.Union(Schema.String, Schema.Undefined),     // Optional field
-  role: UserRole.Schema,
+  role: UserRoleSchema,
   createdAt: generated(Schema.Date),                       // Generated field
 });
 
@@ -125,11 +140,14 @@ The generator uses TypeScript namespaces to organize generated code while preser
 
 **For Enums:**
 ```typescript
-export enum ACTIVE_STATUS { ACTIVE, INACTIVE }  // Native TypeScript enum
-export namespace ACTIVE_STATUS {                // Namespace merging
-  export const Schema = Schema.Enums(ACTIVE_STATUS);  // Effect Schema
-  export type Type = Schema.Schema.Type<typeof Schema>; // TypeScript type
-}
+// Native TypeScript enum preserving Prisma schema naming
+export enum ACTIVE_STATUS { ACTIVE, INACTIVE }
+
+// Effect Schema validator with suffix pattern
+export const ACTIVE_STATUSSchema = Schema.Enums(ACTIVE_STATUS);
+
+// TypeScript type export
+export type ACTIVE_STATUSType = Schema.Schema.Type<typeof ACTIVE_STATUSSchema>;
 ```
 
 **For Models:**

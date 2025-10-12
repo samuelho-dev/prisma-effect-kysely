@@ -90,19 +90,17 @@ ${fieldDefinitions}
     const header = generateFileHeader();
 
     const imports = [
-      `import * as Effect from "effect";`,
-      `const Schema = Effect.Schema;`,
+      `import { Schema } from "effect";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {
-      // With namespace pattern, we only import the enum itself
-      // Access Schema through namespace: EnumName.Schema
-      const enumImports = this.dmmf.datamodel.enums
-        .map((e) => e.name)  // Preserve original enum names
-        .join(', ');
+      // Import enums and their schemas with suffix pattern
+      const enumNames = this.dmmf.datamodel.enums.map((e) => e.name);
+      const enumImports = enumNames.join(', ');
+      const schemaImports = enumNames.map(name => `${name}Schema`).join(', ');
 
-      imports.push(`import { ${enumImports} } from "./enums";`);
+      imports.push(`import { ${enumImports}, ${schemaImports} } from "./enums";`);
     }
 
     return `${header}\n\n${imports.join('\n')}`;

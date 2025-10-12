@@ -1,12 +1,11 @@
 /**
- * Generated: 2025-10-12T08:18:15.755Z
+ * Generated: 2025-10-12T09:16:58.952Z
  * DO NOT EDIT MANUALLY
  */
 
-import * as Effect from 'effect';
-const Schema = Effect.Schema;
+import { Schema } from 'effect';
 import { columnType, generated, getSchemas } from 'prisma-effect-kysely';
-import { Role, Status } from './enums';
+import { Role, Status, RoleSchema, StatusSchema } from './enums';
 
 // AllTypes Base Schema
 export const _AllTypes = Schema.Struct({
@@ -33,22 +32,22 @@ export const _AllTypes = Schema.Struct({
   mappedWithDefault: Schema.propertySignature(generated(Schema.Number)).pipe(
     Schema.fromKey('mapped_default')
   ),
-  optionalBigInt: Schema.Union(Schema.BigInt, Schema.Undefined),
-  optionalBool: Schema.Union(Schema.Boolean, Schema.Undefined),
-  optionalBytes: Schema.Union(Schema.Uint8Array, Schema.Undefined),
-  optionalDate: Schema.Union(Schema.Date, Schema.Undefined),
-  optionalDecimal: Schema.Union(Schema.String, Schema.Undefined),
-  optionalFloat: Schema.Union(Schema.Number, Schema.Undefined),
-  optionalInt: Schema.Union(Schema.Number, Schema.Undefined),
-  optionalJson: Schema.Union(Schema.Unknown, Schema.Undefined),
-  optionalRole: Schema.Union(Role.Schema, Schema.Undefined),
-  optionalStatus: Schema.Union(Status.Schema, Schema.Undefined),
-  optionalString: Schema.Union(Schema.String, Schema.Undefined),
-  role: Role.Schema,
-  roleArray: Schema.Array(Role.Schema),
+  optionalBigInt: Schema.UndefinedOr(Schema.BigInt),
+  optionalBool: Schema.UndefinedOr(Schema.Boolean),
+  optionalBytes: Schema.UndefinedOr(Schema.Uint8Array),
+  optionalDate: Schema.UndefinedOr(Schema.Date),
+  optionalDecimal: Schema.UndefinedOr(Schema.String),
+  optionalFloat: Schema.UndefinedOr(Schema.Number),
+  optionalInt: Schema.UndefinedOr(Schema.Number),
+  optionalJson: Schema.UndefinedOr(Schema.Unknown),
+  optionalRole: Schema.UndefinedOr(RoleSchema),
+  optionalStatus: Schema.UndefinedOr(StatusSchema),
+  optionalString: Schema.UndefinedOr(Schema.String),
+  role: RoleSchema,
+  roleArray: Schema.Array(RoleSchema),
   session_id: generated(Schema.UUID),
-  status: Status.Schema,
-  statusArray: Schema.Array(Status.Schema),
+  status: StatusSchema,
+  statusArray: Schema.Array(StatusSchema),
   stringArray: Schema.Array(Schema.String),
   stringField: Schema.String,
   tenant_id: Schema.UUID,
@@ -147,7 +146,7 @@ export namespace CompositeIdModel {
 // Employee Base Schema
 export const _Employee = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-  managerId: Schema.Union(Schema.UUID, Schema.Undefined),
+  managerId: Schema.UndefinedOr(Schema.UUID),
   name: Schema.String,
 });
 
@@ -170,7 +169,7 @@ export namespace Employee {
 // Post Base Schema
 export const _Post = Schema.Struct({
   authorId: Schema.UUID,
-  content: Schema.Union(Schema.String, Schema.Undefined),
+  content: Schema.UndefinedOr(Schema.String),
   createdAt: generated(Schema.Date),
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   published: generated(Schema.Boolean),

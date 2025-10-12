@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-10-12
+
+### Fixed
+
+- **CRITICAL: TypeScript TS7022 Compilation Error**: Fixed circular reference errors in generated enum code that prevented TypeScript compilation
+  - v1.6.0-v1.6.1 used namespace merging pattern that caused unavoidable TS7022 errors: `'Schema' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer`
+  - Reverted to proven v1.5.3 suffix pattern (`RoleSchema`, `RoleType`) which compiles without errors
+  - Tests were masking the compilation failures by only checking string patterns, never actually running TypeScript compiler on generated code
+
+### Changed
+
+- **BREAKING: Reverted to Suffix Pattern for Enums**
+  - Enum exports now use suffix pattern instead of namespace pattern from v1.6.x
+  - **Before (v1.6.x - broken)**: `Role.Schema`, `Role.Type`
+  - **After (v1.7.0 - working)**: `RoleSchema`, `RoleType`
+  - This ensures generated code compiles with TypeScript strict mode without errors
+  - **Migration from v1.6.x**:
+    - `Role.Schema` → `RoleSchema`
+    - `Role.Type` → `RoleType`
+    - `Status.Schema` → `StatusSchema`
+    - `Status.Type` → `StatusType`
+
+### Added
+
+- **JSDoc Documentation**: All generated enum exports now include comprehensive JSDoc comments
+  - Self-documenting code with `@see` references between related exports
+  - Clear `@example` tags showing how to use Effect Schema validation
+  - Generated TypeScript type unions documented inline (e.g., `'ADMIN' | 'USER' | 'GUEST'`)
+  - Improves IDE IntelliSense and developer experience
+
 ## [1.6.1] - 2025-10-12
 
 ### Fixed

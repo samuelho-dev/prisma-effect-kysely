@@ -16,6 +16,8 @@ import { generateFileHeader } from "../utils/codegen";
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
   // Preserve original enum name from Prisma schema
   const enumName = enumDef.name;
+  const schemaName = `${enumName}Schema`;
+  const typeName = `${enumName}Type`;
 
   // Generate native TypeScript enum members
   const enumMembers = enumDef.values
@@ -25,15 +27,38 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
     })
     .join(",\n");
 
-  // Generate: enum + namespace with Schema and Type
-  return `export enum ${enumName} {
+  // Get first enum value for example
+  const firstValue = enumDef.values[0]?.name || 'VALUE';
+
+  // Get enum values as type union for JSDoc
+  const enumValueUnion = enumDef.values
+    .map(v => `'${getEnumValueDbName(v)}'`)
+    .join(' | ');
+
+  // Generate: enum + Schema.Enums() wrapper + type with JSDoc
+  return `/**
+ * ${enumName} enum from Prisma schema.
+ * @see {@link ${schemaName}} for Effect Schema validation
+ * @see {@link ${typeName}} for TypeScript type
+ */
+export enum ${enumName} {
 ${enumMembers}
 }
 
-export namespace ${enumName} {
-  export const Schema = Effect.Schema.Enums(${enumName});
-  export type Type = Effect.Schema.Schema.Type<typeof Schema>;
-}`;
+/**
+ * Effect Schema validator for ${enumName} enum.
+ * Validates that a value is a valid ${enumName} enum member.
+ *
+ * @example
+ * const validated = Schema.decodeSync(${schemaName})("${firstValue}");
+ */
+export const ${schemaName} = Schema.Enums(${enumName});
+
+/**
+ * TypeScript type for ${enumName} enum values.
+ * Equivalent to: ${enumValueUnion}
+ */
+export type ${typeName} = Schema.Schema.Type<typeof ${schemaName}>;`;
 }
 
 /**
@@ -41,7 +66,7 @@ export namespace ${enumName} {
  */
 export function generateEnumsFile(enums: readonly DMMF.DatamodelEnum[]) {
   const header = generateFileHeader();
-  const imports = `import * as Effect from "effect";\nconst Schema = Effect.Schema;`;
+  const imports = `import { Schema } from "effect";`;
   const enumSchemas = enums.map(generateEnumSchema).join("\n\n");
 
   return `${header}\n\n${imports}\n\n${enumSchemas}`;

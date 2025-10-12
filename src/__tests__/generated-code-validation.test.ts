@@ -52,8 +52,7 @@ describe('Generated Code Validation', () => {
       );
 
       // Verify structure
-      expect(typesContent).toContain('import * as Effect from "effect"');
-      expect(typesContent).toContain('const Schema = Effect.Schema');
+      expect(typesContent).toContain('import { Schema } from "effect"');
       expect(typesContent).toContain(
         'import { columnType, generated, getSchemas } from "prisma-effect-kysely"',
       );
@@ -62,12 +61,12 @@ describe('Generated Code Validation', () => {
       expect(typesContent).not.toMatch(/\)\s+as\s+[A-Z]/); // matches ") as TypeName"
       expect(typesContent).not.toMatch(/\w+\s+as\s+[A-Z]/); // matches "value as TypeName"
 
-      // Verify enums (now exported as native TypeScript enums)
+      // Verify enums (now exported as native TypeScript enums with suffix pattern)
       expect(enumsContent).toContain('export enum Role');
       expect(enumsContent).toContain('export enum Status');
-      // Verify namespace with Schema wrapper
-      expect(enumsContent).toContain('export namespace Role');
-      expect(enumsContent).toContain('export namespace Status');
+      // Verify Schema exports with suffix pattern
+      expect(enumsContent).toContain('export const RoleSchema');
+      expect(enumsContent).toContain('export const StatusSchema');
     });
 
     it('should not use type assertions', async () => {

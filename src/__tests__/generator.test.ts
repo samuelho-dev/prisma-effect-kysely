@@ -90,8 +90,7 @@ describe("Prisma Effect Schema Generator - E2E", () => {
         join(testOutputPath, "types.ts"),
         "utf-8",
       );
-      expect(typesContent).toContain('import * as Effect from "effect"');
-      expect(typesContent).toContain('const Schema = Effect.Schema');
+      expect(typesContent).toContain('import { Schema } from "effect"');
       expect(typesContent).toContain("export interface DB");
     });
 
@@ -178,11 +177,11 @@ describe("Prisma Effect Schema Generator - E2E", () => {
       enumsContent = readFileSync(join(testOutputPath, "enums.ts"), "utf-8");
     });
 
-    it("should generate Role enum with Schema.Enums in namespace", () => {
-      // New behavior: native TypeScript enum + Effect.Schema.Enums wrapper in namespace
+    it("should generate Role enum with Schema.Enums suffix pattern", () => {
+      // Suffix pattern: RoleSchema, RoleType
       expect(enumsContent).toContain("export enum Role {");
-      expect(enumsContent).toContain("export namespace Role");
-      expect(enumsContent).toContain("export const Schema = Effect.Schema.Enums(Role)");
+      expect(enumsContent).toContain("export const RoleSchema = Schema.Enums(Role)");
+      expect(enumsContent).toContain("export type RoleType = Schema.Schema.Type<typeof RoleSchema>");
       expect(enumsContent).toContain('"ADMIN"');
       expect(enumsContent).toContain('"GUEST"');
       expect(enumsContent).toContain('"USER"');
@@ -191,10 +190,10 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     });
 
     it("should handle @map annotations in Status enum", () => {
-      // New behavior: native TypeScript enum with Effect.Schema.Enums wrapper in namespace
+      // Suffix pattern: StatusSchema, StatusType
       expect(enumsContent).toContain("export enum Status {");
-      expect(enumsContent).toContain("export namespace Status");
-      expect(enumsContent).toContain("export const Schema = Effect.Schema.Enums(Status)");
+      expect(enumsContent).toContain("export const StatusSchema = Schema.Enums(Status)");
+      expect(enumsContent).toContain("export type StatusType = Schema.Schema.Type<typeof StatusSchema>");
       expect(enumsContent).toContain('"active"');
       expect(enumsContent).toContain('"inactive"');
       expect(enumsContent).toContain('"pending"');
@@ -253,9 +252,9 @@ describe("Prisma Effect Schema Generator - E2E", () => {
     });
 
     it("should use Schema wrapper for enum fields", () => {
-      // New behavior: Use Role.Schema and Status.Schema (namespace pattern)
-      expect(typesContent).toMatch(/\brole:\s*Role\.Schema\b/);
-      expect(typesContent).toMatch(/\bstatus:\s*Status\.Schema\b/);
+      // Suffix pattern: RoleSchema, StatusSchema
+      expect(typesContent).toMatch(/\brole:\s*RoleSchema\b/);
+      expect(typesContent).toMatch(/\bstatus:\s*StatusSchema\b/);
     });
   });
 
