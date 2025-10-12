@@ -31,13 +31,21 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
 
   // Generate: enum + Schema.Enums() wrapper + type (Tests 3-4)
   // Explicitly NOT using Schema.Literal (Test 6)
+  //
+  // Also generate PascalCase aliases for better ergonomics:
+  // - const alias: allows using PascalCase in runtime code
+  // - type alias: provides PascalCase type name
   return `export enum ${enumName} {
 ${enumMembers}
 }
 
 export const ${schemaName} = Schema.Enums(${enumName});
 
-export type ${typeName} = Schema.Schema.Type<typeof ${schemaName}>;`;
+export type ${typeName} = Schema.Schema.Type<typeof ${schemaName}>;
+
+// PascalCase aliases for better ergonomics
+export const ${pascalName} = ${enumName};
+export type ${pascalName} = ${typeName};`;
 }
 
 /**
