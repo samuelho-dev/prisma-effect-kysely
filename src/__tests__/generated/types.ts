@@ -1,11 +1,11 @@
 /**
- * Generated: 2025-10-13T06:40:37.774Z
+ * Generated: 2025-10-13T06:54:49.095Z
  * DO NOT EDIT MANUALLY
  */
 
 import { Schema } from 'effect';
 import { columnType, generated, getSchemas } from 'prisma-effect-kysely';
-import { Role, RoleSchema, Status, StatusSchema } from './enums';
+import { RoleSchema, StatusSchema } from './enums';
 
 // AllTypes Base Schema
 export const _AllTypes = Schema.Struct({

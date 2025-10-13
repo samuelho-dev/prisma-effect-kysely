@@ -93,13 +93,13 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
     ];
 
     if (hasEnums) {
-      // Test 13: Import both enum and Schema wrapper
-      // Test 14: Use PascalCase naming
-      // Test 15: No SCREAMING_SNAKE_CASE
+      // Only import Schema wrappers (not plain enum types)
+      // Use PascalCase naming with Schema suffix
+      // No SCREAMING_SNAKE_CASE
       const enumImports = this.dmmf.datamodel.enums
-        .flatMap((e) => {
+        .map((e) => {
           const baseName = toPascalCase(e.name);
-          return [baseName, `${baseName}Schema`];
+          return `${baseName}Schema`;
         })
         .join(', ');
 

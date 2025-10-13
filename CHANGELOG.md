@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Breaking**: None - only internal DB interface generation changed, user API remains identical
   - Location: `src/kysely/type.ts:61-72`
 
+#### Unused Enum Type Imports
+- **types.ts now imports only Schema wrappers**: Eliminated TypeScript "declared but never read" warnings for enum types
+  - **Problem**: Generated `types.ts` imported both plain enum types (e.g., `BudgetStatus`) and schema wrappers (e.g., `BudgetStatusSchema`), but only the schema wrappers were used in field definitions
+  - **Solution**: Import generation now only includes `*Schema` wrappers, not plain enum types
+  - **Impact**: Eliminates all unused import warnings for enum types in generated code
+  - **Breaking**: None - users can still import plain enum types directly from `enums.ts` if needed
+  - Location: `src/effect/generator.ts:95-107`
+
 ### Added
 
 #### Test Coverage
@@ -28,11 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All tests use TDD approach (failing test first, then fix)
 
 ### Technical Details
+
+**Kysely Join Fix:**
 - DB interface entries changed from `Table: Schema.Schema.Encoded<typeof _Table>` to `Table: TableSelectEncoded`
 - Join table entries changed from `_table: Schema.Schema.Encoded<typeof _joinTable>` to `_table: joinTableSelectEncoded`
+
+**Enum Import Fix:**
+- Import generation changed from `.flatMap()` returning `[baseName, `${baseName}Schema`]` to `.map()` returning only `${baseName}Schema`
+- Generated imports change from `import { Role, RoleSchema, Status, StatusSchema }` to `import { RoleSchema, StatusSchema }`
+- Plain enum types still exported from `enums.ts` for direct use
+
+**Overall:**
 - Effect Schema functionality preserved - all 158 tests passing
 - No type coercions introduced
-- Maintains semantic naming without unnecessary prefixes
+- No breaking changes
 
 ## [1.8.1] - 2025-10-12
 

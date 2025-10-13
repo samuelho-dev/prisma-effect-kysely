@@ -3,25 +3,22 @@ import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks';
 
 describe('generateTypesHeader - Enum Imports', () => {
   const mockDMMF = createMockDMMF({
-    enums: [
-      createMockEnum('PRODUCT_STATUS', []),
-      createMockEnum('PRODUCT_TYPE', [])
-    ],
-    models: []
+    enums: [createMockEnum('PRODUCT_STATUS', []), createMockEnum('PRODUCT_TYPE', [])],
+    models: [],
   });
 
   const generator = new EffectGenerator(mockDMMF);
 
-  it('should import both enum and Schema wrapper', () => {
+  it('should import only Schema wrappers (not plain enum types)', () => {
     const header = generator.generateTypesHeader(true);
 
-    // Test 13: Imports enum name
-    expect(header).toContain('ProductStatus');
-    expect(header).toContain('ProductType');
-
-    // Test 14: Imports Schema wrappers
+    // Should import Schema wrappers
     expect(header).toContain('ProductStatusSchema');
     expect(header).toContain('ProductTypeSchema');
+
+    // Should NOT import plain enum types (to avoid unused import warnings)
+    expect(header).not.toMatch(/\bProductStatus[^S]/); // ProductStatus not followed by 'S' (Schema)
+    expect(header).not.toMatch(/\bProductType[^S]/); // ProductType not followed by 'S' (Schema)
   });
 
   it('should NOT import SCREAMING_SNAKE_CASE names', () => {
