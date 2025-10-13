@@ -268,16 +268,18 @@ describe('Kysely Helpers', () => {
         const insertableAst = schemas.Insertable.ast;
         expect(insertableAst._tag).toBe('TypeLiteral');
 
-        if (insertableAst._tag === 'TypeLiteral') {
-          const fieldNames = insertableAst.propertySignatures.map((p: any) => p.name);
+        // Extract field names (TypeScript knows this is TypeLiteral after assertion)
+        const fieldNames =
+          insertableAst._tag === 'TypeLiteral'
+            ? insertableAst.propertySignatures.map((p: any) => p.name)
+            : [];
 
-          // Generated fields should be ABSENT
-          expect(fieldNames).not.toContain('id');
-          expect(fieldNames).not.toContain('session_id');
+        // Generated fields should be ABSENT
+        expect(fieldNames).not.toContain('id');
+        expect(fieldNames).not.toContain('session_id');
 
-          // Regular fields should be present
-          expect(fieldNames).toContain('name');
-        }
+        // Regular fields should be present
+        expect(fieldNames).toContain('name');
       });
     });
   });
