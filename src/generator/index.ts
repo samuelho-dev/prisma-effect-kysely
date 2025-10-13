@@ -2,13 +2,14 @@
 
 import { generatorHandler } from '@prisma/generator-helper';
 import { GeneratorOrchestrator } from './orchestrator';
+import packageJson from '../../package.json';
 
 // Re-export kysely helpers for generated code
 export * from '../kysely/helpers';
 
 export const generator = generatorHandler({
   onManifest: () => ({
-    version: '1.7.1',
+    version: packageJson.version,
     defaultOutput: './generated',
     prettyName: 'Prisma Effect Kysely Generator',
   }),

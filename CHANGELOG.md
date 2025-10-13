@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2025-10-12
+
+### Fixed
+
+#### Dynamic Version Management
+- **Generator version now read from package.json**: Removed hardcoded version string in generator manifest
+  - Generator now reports correct version dynamically
+  - Version always stays in sync with package.json
+  - No more manual version updates needed in multiple places
+  - Location: `src/generator/index.ts:5,12`
+
+#### Custom Relation Name Support for Join Tables
+- **Prisma custom relation names now respected**: Fixed implicit many-to-many join table naming
+  - `@relation("product_tags")` now correctly generates `_product_tags` table (not `_ProductToProductTag`)
+  - Matches Prisma's actual database table naming convention
+  - Both custom and default relation names work correctly
+  - Location: `src/prisma/relation.ts:106-115`
+
+### Added
+
+#### Test Coverage
+- Added test case for custom relation names in implicit many-to-many relations
+  - Product/ProductTag models with `@relation("product_tags")`
+  - Validates correct table name generation (`_product_tags`)
+  - Location: `src/__tests__/fixtures/test.prisma:166-177`
+
+### Technical Details
+- Uses TypeScript's `resolveJsonModule` to import package.json
+- Prisma's `field.relationName` contains either custom name or Prisma-generated default
+- Maintains alphabetical model ordering for A/B column assignment in join tables
+- Null-safety check added for relationName (defensive programming)
+
 ## [1.8.0] - 2025-10-12
 
 ### Added - Enterprise Open Source Standards

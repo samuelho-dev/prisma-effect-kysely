@@ -156,11 +156,24 @@ model Post {
   updatedAt  DateTime   @updatedAt
 }
 
-// Many-to-Many relation (implicit)
+// Many-to-Many relation (implicit) - default naming
 model Category {
   id    String @id @db.Uuid @default(dbgenerated("gen_random_uuid()"))
   name  String @unique
   posts Post[] // Relation field (should be excluded)
+}
+
+// Many-to-Many relation (implicit) - custom relation name
+model Product {
+  id   String      @id @db.Uuid @default(dbgenerated("gen_random_uuid()"))
+  name String
+  tags ProductTag[] @relation("product_tags")
+}
+
+model ProductTag {
+  id       String    @id @db.Uuid @default(dbgenerated("gen_random_uuid()"))
+  name     String
+  products Product[] @relation("product_tags")
 }
 
 // Self-relation

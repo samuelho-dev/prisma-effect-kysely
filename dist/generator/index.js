@@ -14,15 +14,19 @@ var __createBinding = (this && this.__createBinding) || (Object.create ? (functi
 var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generator = void 0;
 const generator_helper_1 = require("@prisma/generator-helper");
 const orchestrator_1 = require("./orchestrator");
+const package_json_1 = __importDefault(require("../../package.json"));
 // Re-export kysely helpers for generated code
 __exportStar(require("../kysely/helpers"), exports);
 exports.generator = (0, generator_helper_1.generatorHandler)({
     onManifest: () => ({
-        version: '1.7.1',
+        version: package_json_1.default.version,
         defaultOutput: './generated',
         prettyName: 'Prisma Effect Kysely Generator',
     }),

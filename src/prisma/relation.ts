@@ -1,5 +1,5 @@
-import type { DMMF } from "@prisma/generator-helper";
-import { isUuidField } from "./type";
+import type { DMMF } from '@prisma/generator-helper';
+import { isUuidField } from './type';
 
 /**
  * Metadata for implicit many-to-many join tables
@@ -33,7 +33,7 @@ export interface JoinTableInfo {
  */
 function isImplicitManyToManyField(field: DMMF.Field): boolean {
   return (
-    field.kind === "object" &&
+    field.kind === 'object' &&
     field.isList === true &&
     field.relationFromFields !== undefined &&
     field.relationFromFields.length === 0 &&
@@ -62,18 +62,14 @@ export function getModelIdField(model: DMMF.Model): DMMF.Field {
     }
   }
 
-  throw new Error(
-    `Model ${model.name} has no ID field (@id or @@id required)`,
-  );
+  throw new Error(`Model ${model.name} has no ID field (@id or @@id required)`);
 }
 
 /**
  * Detect all implicit many-to-many relations from DMMF models
  * Returns metadata for generating join table schemas
  */
-export function detectImplicitManyToMany(
-  models: readonly DMMF.Model[],
-): JoinTableInfo[] {
+export function detectImplicitManyToMany(models: readonly DMMF.Model[]): JoinTableInfo[] {
   const joinTables = new Map<string, JoinTableInfo>();
 
   for (const model of models) {
@@ -90,7 +86,7 @@ export function detectImplicitManyToMany(
 
       // Check if the relation is reciprocal (both sides are lists)
       const relatedField = relatedModel.fields.find(
-        (f) => f.relationName === field.relationName && f.isList === true,
+        (f) => f.relationName === field.relationName && f.isList === true
       );
 
       if (!relatedField || !isImplicitManyToManyField(relatedField)) {
@@ -103,26 +99,32 @@ export function detectImplicitManyToMany(
         continue;
       }
 
-      // Generate table name (alphabetically sorted model names)
-      const modelNames = [model.name, relatedModel.name].sort();
-      const tableName = `_${modelNames[0]}To${modelNames[1]}`;
-
-      // Skip if we've already processed this relation
-      if (joinTables.has(tableName)) {
+      // Use Prisma's relation name for table naming
+      // For custom @relation("name"), Prisma creates _name
+      // For default relations, Prisma creates _ModelAToModelB
+      // Note: relationName should always be defined for implicit m-n relations
+      if (!field.relationName) {
         continue;
       }
 
-      // Extract ID field types
-      const modelAIdField = getModelIdField(
-        models.find((m) => m.name === modelNames[0])!,
-      );
-      const modelBIdField = getModelIdField(
-        models.find((m) => m.name === modelNames[1])!,
-      );
+      const tableName = `_${field.relationName}`;
+      const relationName = field.relationName;
 
-      joinTables.set(tableName, {
+      // Skip if we've already processed this relation
+      if (joinTables.has(relationName)) {
+        continue;
+      }
+
+      // Keep alphabetical ordering for A/B column assignment
+      const modelNames = [model.name, relatedModel.name].sort();
+
+      // Extract ID field types
+      const modelAIdField = getModelIdField(models.find((m) => m.name === modelNames[0])!);
+      const modelBIdField = getModelIdField(models.find((m) => m.name === modelNames[1])!);
+
+      joinTables.set(relationName, {
         tableName,
-        relationName: `${modelNames[0]}To${modelNames[1]}`,
+        relationName,
         modelA: modelNames[0],
         modelB: modelNames[1],
         columnAType: modelAIdField.type,
