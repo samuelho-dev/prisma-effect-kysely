@@ -16,12 +16,6 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
   updateSchema: S.Schema<UType, UEncoded, UR>;
 }
 
-interface GeneratedSchemas<SType, SEncoded, R> {
-  selectSchema: S.Schema<SType, SEncoded, R>;
-  insertSchema: S.Schema<SType | undefined, SEncoded | undefined, R>;
-  updateSchema: S.Schema<SType, SEncoded, R>;
-}
-
 /**
  * Mark a field as having different types for select/insert/update
  * Used for ID fields with @default (read-only)
@@ -41,16 +35,15 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
 };
 
 /**
- * Mark a field as database-generated (optional on insert)
+ * Mark a field as database-generated (omitted from insert)
  * Used for fields with @default
+ *
+ * Follows @effect/sql Model.Generated pattern:
+ * - Present in select and update schemas
+ * - OMITTED from insert schema (not optional, completely absent)
  */
 export const generated = <SType, SEncoded, R>(schema: S.Schema<SType, SEncoded, R>) => {
-  const schemas: GeneratedSchemas<SType, SEncoded, R> = {
-    selectSchema: schema,
-    insertSchema: S.Union(schema, S.Undefined),
-    updateSchema: schema,
-  };
-  return schema.annotations({ [GeneratedId]: schemas });
+  return schema.annotations({ [GeneratedId]: true }); // Just a marker
 };
 
 /**
@@ -76,6 +69,7 @@ export const selectable = <Type, Encoded>(
 
 /**
  * Create insertable schema from base schema
+ * Filters out generated fields (@effect/sql Model.Generated pattern)
  */
 export const insertable = <Type, Encoded>(
   schema: S.Schema<Type, Encoded>
@@ -85,22 +79,42 @@ export const insertable = <Type, Encoded>(
     return S.asSchema(S.make(ast)) as S.Schema<Insertable<Type>, Insertable<Encoded>, never>;
   }
 
-  const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
-
-  const res = new AST.TypeLiteral(
-    extracted.map(
-      (prop) =>
-        new AST.PropertySignature(
+  // Extract and filter out generated fields entirely
+  const extracted = ast.propertySignatures
+    .map((prop: AST.PropertySignature) => {
+      if (isColumnType(prop.type)) {
+        const schemas = prop.type.annotations[ColumnTypeId] as AnyColumnTypeSchemas;
+        return new AST.PropertySignature(
           prop.name,
-          prop.type,
-          isOptionalType(prop.type),
+          schemas.insertSchema.ast,
+          prop.isOptional,
           prop.isReadonly,
           prop.annotations
-        )
-    ),
-    ast.indexSignatures,
-    ast.annotations
-  );
+        );
+      }
+      // For generated fields, mark them for filtering
+      if (isGeneratedType(prop.type)) {
+        return null; // Will be filtered out
+      }
+      return prop;
+    })
+    .filter((prop): prop is AST.PropertySignature => {
+      // Filter out generated fields (null) and Never types
+      return prop !== null && prop.type._tag !== 'NeverKeyword';
+    })
+    .map((prop) => {
+      // Make Union(T, Undefined) fields optional
+      const isOptional = isOptionalType(prop.type);
+      return new AST.PropertySignature(
+        prop.name,
+        prop.type,
+        isOptional,
+        prop.isReadonly,
+        prop.annotations
+      );
+    });
+
+  const res = new AST.TypeLiteral(extracted, ast.indexSignatures, ast.annotations);
   return S.asSchema(S.make(res)) as S.Schema<Insertable<Type>, Insertable<Encoded>, never>;
 };
 
@@ -187,20 +201,7 @@ const extractParametersFromTypeLiteral = (
           prop.annotations
         );
       }
-      if (isGeneratedType(prop.type)) {
-        const schemas = prop.type.annotations[GeneratedId] as GeneratedSchemas<
-          unknown,
-          unknown,
-          unknown
-        >;
-        return new AST.PropertySignature(
-          prop.name,
-          schemas[schemaType].ast,
-          prop.isOptional,
-          prop.isReadonly,
-          prop.annotations
-        );
-      }
+      // Generated fields are just markers now, return as-is
       return prop;
     })
     .filter((prop: AST.PropertySignature) => prop.type._tag !== 'NeverKeyword');
@@ -211,6 +212,7 @@ const isColumnType = (ast: AST.AST) => ColumnTypeId in ast.annotations;
 const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
 
 const isOptionalType = (ast: AST.AST) => {
+  // Check for Union(T, Undefined) pattern
   if (!AST.isUnion(ast)) {
     return false;
   }

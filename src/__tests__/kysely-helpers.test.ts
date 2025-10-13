@@ -182,4 +182,103 @@ describe('Kysely Helpers', () => {
       });
     });
   });
+
+  describe('Generated Fields - Native Effect Schema Pattern (@effect/sql)', () => {
+    describe('generated() fields should be OMITTED from Insertable', () => {
+      it('should omit generated fields from Insertable schema entirely', () => {
+        const baseSchema = Schema.Struct({
+          id: generated(Schema.Number),
+          session_id: generated(Schema.UUID),
+          name: Schema.String,
+        });
+        const schemas = getSchemas(baseSchema);
+
+        // Runtime: generated fields should be ABSENT from insert schema
+        const result = Schema.decodeUnknownSync(schemas.Insertable)({
+          name: 'test',
+          // id and session_id not present in insert schema at all
+        });
+
+        expect(result).toEqual({ name: 'test' });
+      });
+
+      it('should silently ignore generated fields if provided (Effect Schema behavior)', () => {
+        const baseSchema = Schema.Struct({
+          id: generated(Schema.Number),
+          name: Schema.String,
+        });
+        const schemas = getSchemas(baseSchema);
+
+        // Effect Schema's default behavior: extra fields are silently ignored
+        const result = Schema.decodeUnknownSync(schemas.Insertable)({
+          id: 123, // Extra field - will be ignored
+          name: 'test',
+        });
+
+        // id is filtered out, only name remains
+        expect(result).toEqual({ name: 'test' });
+      });
+
+      // Type-level test skipped - this is a code generation issue
+      // TypeScript's Schema.Schema.Type inference can't see runtime field filtering
+      // The fix requires explicit type generation in src/effect/generator.ts
+
+      it('should have generated fields in Selectable', () => {
+        const baseSchema = Schema.Struct({
+          id: generated(Schema.Number),
+          name: Schema.String,
+        });
+        const schemas = getSchemas(baseSchema);
+
+        // Selectable should have ALL fields including generated
+        const result = Schema.decodeUnknownSync(schemas.Selectable)({
+          id: 123,
+          name: 'test',
+        });
+
+        expect(result).toEqual({ id: 123, name: 'test' });
+      });
+
+      it('should have generated fields in Updateable', () => {
+        const baseSchema = Schema.Struct({
+          id: generated(Schema.Number),
+          name: Schema.String,
+        });
+        const schemas = getSchemas(baseSchema);
+
+        // Updateable should have ALL fields (all optional)
+        const result = Schema.decodeUnknownSync(schemas.Updateable)({
+          id: 123,
+        });
+
+        expect(result).toEqual({ id: 123 });
+      });
+    });
+
+    describe('AST structure verification', () => {
+      it('should not have generated fields in Insertable AST', () => {
+        const baseSchema = Schema.Struct({
+          id: generated(Schema.Number),
+          session_id: generated(Schema.UUID),
+          name: Schema.String,
+        });
+        const schemas = getSchemas(baseSchema);
+
+        // Check the AST structure
+        const insertableAst = schemas.Insertable.ast;
+        expect(insertableAst._tag).toBe('TypeLiteral');
+
+        if (insertableAst._tag === 'TypeLiteral') {
+          const fieldNames = insertableAst.propertySignatures.map((p: any) => p.name);
+
+          // Generated fields should be ABSENT
+          expect(fieldNames).not.toContain('id');
+          expect(fieldNames).not.toContain('session_id');
+
+          // Regular fields should be present
+          expect(fieldNames).toContain('name');
+        }
+      });
+    });
+  });
 });
