@@ -110,6 +110,25 @@ export interface DB {
 }
 ```
 
+**Implicit Many-to-Many Join Tables**: The generator automatically detects and generates schemas for Prisma's implicit M2M relations:
+- **Database Columns**: Prisma requires `A` and `B` columns (alphabetically ordered)
+- **TypeScript Fields**: Generated with semantic snake_case names (e.g., `product_id`, `product_tag_id`)
+- **Mapping**: Uses Effect Schema's `propertySignature` with `fromKey` to map semantic names to A/B
+- **Example**:
+  ```typescript
+  // Database: _ProductToProductTag with columns A, B
+  // Generated TypeScript:
+  export const _ProductToProductTag = Schema.Struct({
+    product_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
+    product_tag_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
+  });
+  ```
+- **Benefits**:
+  - Developer-friendly semantic names in TypeScript
+  - Maintains Prisma A/B database compatibility
+  - Type-safe bidirectional transformation
+  - Follows snake_case convention for database identifiers
+
 ### UUID Detection Strategy
 The generator uses a 3-tier detection strategy (in priority order):
 

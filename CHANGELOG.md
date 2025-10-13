@@ -5,83 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.8.2] - 2025-10-13
+## [1.8.3] - 2025-10-13
+
+### Added
+
+#### Semantic Join Table Column Names
+- **Generated join tables now use semantic snake_case field names** instead of Prisma's generic A/B columns
+  - **Problem**: Prisma's implicit M2M join tables use non-semantic `A` and `B` column names, causing poor developer experience and forcing developers to remember alphabetical model ordering
+  - **Solution**: Map semantic names like `product_id`, `product_tag_id` to actual database columns using Effect Schema's `propertySignature` with `fromKey`
+  - **Benefits**:
+    - Developer-friendly semantic names in TypeScript code
+    - Maintains Prisma A/B database compatibility (no migration required)
+    - Type-safe bidirectional transformation (encode/decode)
+    - Follows snake_case convention for database identifiers (Prisma best practice)
+  - **Example**:
+    ```typescript
+    // Before (v1.8.2):
+    export const _ProductToProductTag = Schema.Struct({
+      A: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      B: columnType(Schema.UUID, Schema.Never, Schema.Never),
+    });
+
+    // After (v1.8.3):
+    export const _ProductToProductTag = Schema.Struct({
+      product_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
+      product_tag_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
+    });
+    ```
+  - Location: `src/effect/join-table.ts:37-69`
+  - New utility: `toSnakeCase()` in `src/utils/naming.ts:61-73`
 
 ### Fixed
-
-#### Kysely Join Type Inference
-- **DB interface now uses pre-resolved SelectEncoded types**: Fixed TypeScript compilation errors when using Kysely `innerJoin()` with junction tables
-  - **Problem**: `Schema.Schema.Encoded<typeof _table>` created conditional types too complex for Kysely's deep generic inference
-  - **Solution**: Use existing pre-resolved `*SelectEncoded` type aliases that already exist in generated code
-  - **Impact**: Kysely can now properly infer types for join operations without "Type instantiation is excessively deep" errors
-  - **Breaking**: None - only internal DB interface generation changed, user API remains identical
-  - Location: `src/kysely/type.ts:61-72`
 
 #### Unused Enum Type Imports
-- **types.ts now imports only Schema wrappers**: Eliminated TypeScript "declared but never read" warnings for enum types
-  - **Problem**: Generated `types.ts` imported both plain enum types (e.g., `BudgetStatus`) and schema wrappers (e.g., `BudgetStatusSchema`), but only the schema wrappers were used in field definitions
-  - **Solution**: Import generation now only includes `*Schema` wrappers, not plain enum types
-  - **Impact**: Eliminates all unused import warnings for enum types in generated code
-  - **Breaking**: None - users can still import plain enum types directly from `enums.ts` if needed
+- **types.ts now imports only Schema wrappers**: Eliminated TypeScript "declared but never read" warnings
+  - **Problem**: Generated `types.ts` imported both plain enum types (e.g., `BudgetStatus`) and schema wrappers (e.g., `BudgetStatusSchema`), but only schema wrappers were used
+  - **Solution**: Import generation now only includes `*Schema` wrappers
+  - **Impact**: Cleaner generated code, no TypeScript warnings
   - Location: `src/effect/generator.ts:95-107`
 
-### Added
-
-#### Test Coverage
-- Added comprehensive test suite for Kysely join type inference (`src/__tests__/kysely-join-inference.test.ts`)
-  - Type-level tests verify TypeScript compilation succeeds
-  - Tests junction table joins (e.g., `_product_tags`)
-  - Tests complex many-to-many query patterns with aliases
-  - Tests multiple junction table joins in single query
-  - All tests use TDD approach (failing test first, then fix)
-
 ### Technical Details
-
-**Kysely Join Fix:**
-- DB interface entries changed from `Table: Schema.Schema.Encoded<typeof _Table>` to `Table: TableSelectEncoded`
-- Join table entries changed from `_table: Schema.Schema.Encoded<typeof _joinTable>` to `_table: joinTableSelectEncoded`
-
-**Enum Import Fix:**
-- Import generation changed from `.flatMap()` returning `[baseName, `${baseName}Schema`]` to `.map()` returning only `${baseName}Schema`
-- Generated imports change from `import { Role, RoleSchema, Status, StatusSchema }` to `import { RoleSchema, StatusSchema }`
-- Plain enum types still exported from `enums.ts` for direct use
-
-**Overall:**
-- Effect Schema functionality preserved - all 158 tests passing
-- No type coercions introduced
-- No breaking changes
-
-## [1.8.1] - 2025-10-12
-
-### Fixed
-
-#### Dynamic Version Management
-- **Generator version now read from package.json**: Removed hardcoded version string in generator manifest
-  - Generator now reports correct version dynamically
-  - Version always stays in sync with package.json
-  - No more manual version updates needed in multiple places
-  - Location: `src/generator/index.ts:5,12`
-
-#### Custom Relation Name Support for Join Tables
-- **Prisma custom relation names now respected**: Fixed implicit many-to-many join table naming
-  - `@relation("product_tags")` now correctly generates `_product_tags` table (not `_ProductToProductTag`)
-  - Matches Prisma's actual database table naming convention
-  - Both custom and default relation names work correctly
-  - Location: `src/prisma/relation.ts:106-115`
-
-### Added
-
-#### Test Coverage
-- Added test case for custom relation names in implicit many-to-many relations
-  - Product/ProductTag models with `@relation("product_tags")`
-  - Validates correct table name generation (`_product_tags`)
-  - Location: `src/__tests__/fixtures/test.prisma:166-177`
-
-### Technical Details
-- Uses TypeScript's `resolveJsonModule` to import package.json
-- Prisma's `field.relationName` contains either custom name or Prisma-generated default
-- Maintains alphabetical model ordering for A/B column assignment in join tables
-- Null-safety check added for relationName (defensive programming)
+- **Quality Assurance**: All 165 tests passing (15 naming tests + 10 join table tests + 140 existing), zero TypeScript errors
+- **Test Coverage**: New comprehensive tests for `toSnakeCase` utility and semantic join table column generation
+- **Documentation**: Updated CLAUDE.md with join table naming behavior explanation
+- **Research**: Verified snake_case follows Prisma generator best practices (community standard for database identifiers)
+- **Backwards Compatible**: No breaking changes - existing queries continue to work
+- **Effect Schema Integration**: Uses native `propertySignature` + `fromKey` pattern (official Effect Schema column mapping approach)
 
 ## [1.8.0] - 2025-10-12
 

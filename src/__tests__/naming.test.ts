@@ -1,4 +1,4 @@
-import { toPascalCase } from '../utils/naming';
+import { toPascalCase, toSnakeCase } from '../utils/naming';
 
 describe('Naming Utilities', () => {
   describe('toPascalCase', () => {
@@ -48,6 +48,44 @@ describe('Naming Utilities', () => {
       expect(toPascalCase('AllTypes')).toBe('AllTypes');
       expect(toPascalCase('CompositeIdModel')).toBe('CompositeIdModel');
       expect(toPascalCase('session_model_preference')).toBe('SessionModelPreference');
+    });
+  });
+
+  describe('toSnakeCase', () => {
+    it('should convert PascalCase to snake_case', () => {
+      expect(toSnakeCase('User')).toBe('user');
+      expect(toSnakeCase('UserProfile')).toBe('user_profile');
+      expect(toSnakeCase('SessionModelPreference')).toBe('session_model_preference');
+    });
+
+    it('should convert camelCase to snake_case', () => {
+      expect(toSnakeCase('user')).toBe('user');
+      expect(toSnakeCase('userProfile')).toBe('user_profile');
+      expect(toSnakeCase('sessionModelPreference')).toBe('session_model_preference');
+    });
+
+    it('should handle single word', () => {
+      expect(toSnakeCase('user')).toBe('user');
+      expect(toSnakeCase('User')).toBe('user');
+    });
+
+    it('should handle empty string', () => {
+      expect(toSnakeCase('')).toBe('');
+    });
+
+    it('should handle real-world model names for join tables', () => {
+      expect(toSnakeCase('Product')).toBe('product');
+      expect(toSnakeCase('ProductTag')).toBe('product_tag');
+      expect(toSnakeCase('Category')).toBe('category');
+      expect(toSnakeCase('Post')).toBe('post');
+    });
+
+    it('should generate correct column names for join tables', () => {
+      // Simulating join table column name generation
+      const modelA = 'Product';
+      const modelB = 'ProductTag';
+      expect(`${toSnakeCase(modelA)}_id`).toBe('product_id');
+      expect(`${toSnakeCase(modelB)}_id`).toBe('product_tag_id');
     });
   });
 });
