@@ -1,25 +1,22 @@
-import type { DMMF } from "@prisma/generator-helper";
-import type { JoinTableInfo } from "../prisma/relation";
+import type { DMMF } from '@prisma/generator-helper';
+import type { JoinTableInfo } from '../prisma/relation';
 
 /**
  * Map join table column type to Effect Schema type
  * Uses same mapping as regular fields
  */
-function mapColumnType(
-  columnType: string,
-  isUuid: boolean,
-): string {
-  if (columnType === "String" && isUuid) {
-    return "Schema.UUID";
+function mapColumnType(columnType: string, isUuid: boolean): string {
+  if (columnType === 'String' && isUuid) {
+    return 'Schema.UUID';
   }
 
   const scalarMap: Record<string, string> = {
-    String: "Schema.String",
-    Int: "Schema.Number",
-    BigInt: "Schema.BigInt",
+    String: 'Schema.String',
+    Int: 'Schema.Number',
+    BigInt: 'Schema.BigInt',
   };
 
-  return scalarMap[columnType] || "Schema.Unknown";
+  return scalarMap[columnType] || 'Schema.Unknown';
 }
 
 /**
@@ -31,11 +28,9 @@ function mapColumnType(
  * - Type exports (Select, Insert, Update)
  * - Encoded type exports
  */
-export function generateJoinTableSchema(
-  joinTable: JoinTableInfo,
-  dmmf: DMMF.Document,
-): string {
-  const { tableName, relationName, columnAType, columnBType, columnAIsUuid, columnBIsUuid } = joinTable;
+export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document): string {
+  const { tableName, relationName, columnAType, columnBType, columnAIsUuid, columnBIsUuid } =
+    joinTable;
 
   // Map column types to Effect Schema types
   const columnASchema = mapColumnType(columnAType, columnAIsUuid);

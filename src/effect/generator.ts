@@ -1,7 +1,6 @@
 import type { DMMF } from '@prisma/generator-helper';
 import { generateEnumsFile } from './enum';
 import { buildFieldType } from './type';
-import { getFieldDbName } from '../prisma/type';
 import { toPascalCase } from '../utils/naming';
 import { generateFileHeader } from '../utils/codegen';
 import { generateJoinTableSchema } from './join-table';
@@ -114,8 +113,6 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
    * Generate schemas for all join tables
    */
   generateJoinTableSchemas(joinTables: JoinTableInfo[]) {
-    return joinTables
-      .map((jt) => generateJoinTableSchema(jt, this.dmmf))
-      .join('\n\n');
+    return joinTables.map((jt) => generateJoinTableSchema(jt, this.dmmf)).join('\n\n');
   }
 }

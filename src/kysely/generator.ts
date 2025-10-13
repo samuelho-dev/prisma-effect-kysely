@@ -1,8 +1,7 @@
-import type { DMMF } from "@prisma/generator-helper";
-import { buildKyselyFieldType, generateDBInterface } from "./type";
-import { buildFieldType } from "../effect/type";
-import { getModelDbName } from "../prisma/type";
-import type { JoinTableInfo } from "../prisma/relation";
+import type { DMMF } from '@prisma/generator-helper';
+import { buildKyselyFieldType, generateDBInterface } from './type';
+import { buildFieldType } from '../effect/type';
+import type { JoinTableInfo } from '../prisma/relation';
 
 /**
  * Kysely domain generator - orchestrates Kysely integration
@@ -30,7 +29,7 @@ export class KyselyGenerator {
   generateModelFields(fields: readonly DMMF.Field[]) {
     return Array.from(fields)
       .map((field) => this.generateFieldWithKysely(field))
-      .join(",\n");
+      .join(',\n');
   }
 
   /**
