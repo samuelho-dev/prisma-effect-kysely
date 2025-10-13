@@ -115,16 +115,18 @@ describe('Generated Code Validation', () => {
       expect(typesContent).toMatch(
         /export type UserSelectEncoded = Schema\.Schema\.Encoded<typeof User\.Selectable>/
       );
+      // User has generated fields (createdAt, id, updatedAt), so InsertEncoded should have Omit
       expect(typesContent).toMatch(
-        /export type UserInsertEncoded = Schema\.Schema\.Encoded<typeof User\.Insertable>/
+        /export type UserInsertEncoded = Omit<Schema\.Schema\.Encoded<typeof User\.Insertable>/
       );
       expect(typesContent).toMatch(
         /export type UserUpdateEncoded = Schema\.Schema\.Encoded<typeof User\.Updateable>/
       );
 
       // Verify for another model to ensure it's generated for all models
+      // Post also has generated fields, so InsertEncoded should have Omit
       expect(typesContent).toMatch(/export type PostSelectEncoded/);
-      expect(typesContent).toMatch(/export type PostInsertEncoded/);
+      expect(typesContent).toMatch(/export type PostInsertEncoded = Omit/);
       expect(typesContent).toMatch(/export type PostUpdateEncoded/);
     });
 

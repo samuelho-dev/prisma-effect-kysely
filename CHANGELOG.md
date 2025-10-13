@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2025-10-13
+
+### Fixed
+
+#### TypeScript Type Inference for Generated Fields - Explicit Omit Types
+- **Generate explicit Insert type definitions using TypeScript's Omit utility for compile-time type safety**
+  - **Problem**: v1.8.4 fixed runtime behavior (generated fields correctly omitted from Insertable schema), but TypeScript's `Schema.Schema.Type` inference couldn't see runtime AST field filtering, causing all fields to appear in Insert types
+  - **Root Cause**: TypeScript's structural type inference works on static schema structure; runtime AST transformations are invisible to the type system
+  - **Solution**: Code generator now creates explicit type definitions: `Omit<Schema.Schema.Type<typeof Model.Insertable>, 'generatedField1' | 'generatedField2'>`
+  - **Result**: Compile-time type safety + runtime correctness
+  - **Benefits**:
+    - TypeScript compiler errors when attempting to insert generated fields (prevents bugs at compile-time)
+    - Accurate IDE autocomplete and type hints for Insert operations
+    - Matches code generation best practices (same approach as Prisma Client, Drizzle ORM, tRPC)
+    - Zero runtime overhead (types are erased at compile time)
+  - **Fields Automatically Omitted from Insert Types**:
+    - ID fields with `@default` (e.g., `@id @default(uuid())`)
+    - Non-ID fields with `@default` (e.g., `@default(now())`)
+    - Fields with `@updatedAt` directive (auto-managed by database)
+  - **Example**:
+    ```typescript
+    // Prisma schema:
+    model User {
+      id        String   @id @default(uuid()) @db.Uuid
+      email     String
+      name      String
+      createdAt DateTime @default(now())
+      updatedAt DateTime @updatedAt
+    }
+
+    // Generated types (v1.9.0):
+    export type UserInsert = Omit<
+      Schema.Schema.Type<typeof User.Insertable>,
+      'id' | 'createdAt' | 'updatedAt'
+    >;
+
+    // TypeScript now enforces:
+    const validInsert: UserInsert = {
+      email: 'user@example.com',
+      name: 'John Doe'
+    }; // ✅ Compiles successfully
+
+    const invalidInsert: UserInsert = {
+      id: 'some-uuid', // ❌ TypeScript error: 'id' does not exist in type 'UserInsert'
+      email: 'user@example.com',
+      name: 'John Doe'
+    };
+    ```
+  - **Implementation**:
+    - Added `getOmittedInsertFields()` helper in `src/effect/generator.ts` to identify fields during code generation
+    - Uses DMMF properties: `hasDefaultValue` and `isUpdatedAt`
+    - Fields are alphabetically sorted in Omit union for deterministic output
+  - Location: `src/effect/generator.ts:10-36, 83-110`
+  - Orchestrator: `src/generator/orchestrator.ts:98`
+  - Tests: `src/__tests__/type-inference-generated.test.ts` (10 new tests, all passing)
+
+### Technical Details
+- **Architecture**: Explicit type generation (industry standard for code generators)
+- **Rationale**: TypeScript's structural type inference works on static schema structure; runtime AST transformations are invisible to the type system
+- **Not a Workaround**: Standard practice when type inference can't capture runtime behavior (same approach as Prisma Client, Drizzle ORM, tRPC)
+- **Comparison to @effect/sql**: They use `VariantSchema.Field` for compile-time variant control; we use explicit `Omit` types for the same goal
+- **Quality Assurance**: All 181 tests passing (including 10 new type inference tests), strict TypeScript compilation
+- **Backwards Compatible**: No breaking changes to runtime behavior (maintains v1.8.4 runtime guarantees)
+- **Type Safety Guarantee**: Models without generated fields continue to use plain `Schema.Schema.Type` (no unnecessary `Omit`)
+
+### Breaking Changes
+None - This is a non-breaking enhancement. The change is purely additive at the type level:
+- Runtime behavior unchanged from v1.8.4
+- Generated schemas remain the same
+- Only TypeScript type definitions become more restrictive (catching bugs earlier)
+
 ## [1.8.4] - 2025-10-13
 
 ### Fixed

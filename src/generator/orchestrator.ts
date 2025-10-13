@@ -1,8 +1,8 @@
-import type { GeneratorOptions } from "@prisma/generator-helper";
-import { FileManager } from "../utils/file-manager";
-import { PrismaGenerator } from "../prisma/generator";
-import { EffectGenerator } from "../effect/generator";
-import { KyselyGenerator } from "../kysely/generator";
+import type { GeneratorOptions } from '@prisma/generator-helper';
+import { FileManager } from '../utils/file-manager';
+import { PrismaGenerator } from '../prisma/generator';
+import { EffectGenerator } from '../effect/generator';
+import { KyselyGenerator } from '../kysely/generator';
 
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema
@@ -31,8 +31,8 @@ export class GeneratorOrchestrator {
 
     if (!outputPath) {
       throw new Error(
-        "Prisma Effect Generator: output path not configured.\n" +
-          'Add "output" to your generator block in schema.prisma',
+        'Prisma Effect Generator: output path not configured.\n' +
+          'Add "output" to your generator block in schema.prisma'
       );
     }
 
@@ -50,11 +50,7 @@ export class GeneratorOrchestrator {
     await this.fileManager.ensureDirectory();
 
     // Generate all files in parallel for better performance
-    await Promise.all([
-      this.generateEnums(),
-      this.generateTypes(),
-      this.generateIndex(),
-    ]);
+    await Promise.all([this.generateEnums(), this.generateTypes(), this.generateIndex()]);
 
     this.logComplete();
   }
@@ -65,7 +61,7 @@ export class GeneratorOrchestrator {
   private async generateEnums() {
     const enums = this.prismaGen.getEnums();
     const content = this.effectGen.generateEnums(enums);
-    await this.fileManager.writeFile("enums.ts", content);
+    await this.fileManager.writeFile('enums.ts', content);
   }
 
   /**
@@ -93,18 +89,16 @@ ${kyselyFields}
 });`;
 
         // Generate operational schemas and type exports
-        const operationalSchema =
-          this.effectGen.generateOperationalSchemas(model);
-        const typeExports = this.effectGen.generateTypeExports(model);
+        const operationalSchema = this.effectGen.generateOperationalSchemas(model);
+        const typeExports = this.effectGen.generateTypeExports(model, fields);
 
         return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
       })
-      .join("\n\n");
+      .join('\n\n');
 
     // Generate join table schemas
-    const joinTableSchemas = joinTables.length > 0
-      ? this.effectGen.generateJoinTableSchemas(joinTables)
-      : "";
+    const joinTableSchemas =
+      joinTables.length > 0 ? this.effectGen.generateJoinTableSchemas(joinTables) : '';
 
     // Generate DB interface with join tables
     const dbInterface = this.kyselyGen.generateDBInterface(models, joinTables);
@@ -112,7 +106,7 @@ ${kyselyFields}
     const content = joinTableSchemas
       ? `${header}\n\n${modelSchemas}\n\n${joinTableSchemas}\n\n${dbInterface}`
       : `${header}\n\n${modelSchemas}\n\n${dbInterface}`;
-    await this.fileManager.writeFile("types.ts", content);
+    await this.fileManager.writeFile('types.ts', content);
   }
 
   /**
@@ -120,22 +114,18 @@ ${kyselyFields}
    */
   private async generateIndex() {
     const content = this.kyselyGen.generateIndexFile();
-    await this.fileManager.writeFile("index.ts", content);
+    await this.fileManager.writeFile('index.ts', content);
   }
 
   /**
    * Log generation start with stats
    */
   private logStart(options: GeneratorOptions) {
-    const modelCount = options.dmmf.datamodel.models.filter(
-      (m) => !m.name.startsWith("_"),
-    ).length;
+    const modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith('_')).length;
     const enumCount = options.dmmf.datamodel.enums.length;
 
-    console.log("[Prisma Effect Kysely Generator] Starting generation...");
-    console.log(
-      `[Effect Generator] Processing ${modelCount} models, ${enumCount} enums`,
-    );
+    console.log('[Prisma Effect Kysely Generator] Starting generation...');
+    console.log(`[Effect Generator] Processing ${modelCount} models, ${enumCount} enums`);
   }
 
   /**

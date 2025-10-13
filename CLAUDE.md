@@ -129,6 +129,34 @@ export interface DB {
   - Type-safe bidirectional transformation
   - Follows snake_case convention for database identifiers
 
+### Type Generation for Generated Fields (v1.9.0)
+
+**Challenge**: TypeScript's `Schema.Schema.Type` inference works on static schema structure and cannot see runtime AST field filtering performed by v1.8.4's `insertable()` helper.
+
+**Solution**: Generate explicit Insert types using TypeScript's `Omit` utility:
+```typescript
+// Generated code:
+export type UserInsert = Omit<Schema.Schema.Type<typeof User.Insertable>, 'id' | 'createdAt' | 'updatedAt'>;
+```
+
+**Fields Automatically Omitted**:
+- Fields with `@default` (both ID and non-ID): `@id @default(uuid())`, `@default(now())`
+- Fields with `@updatedAt` directive
+
+**Rationale**:
+- TypeScript's type inference can't capture runtime AST transformations
+- Explicit type generation is industry standard (Prisma Client, Drizzle ORM, tRPC all use this approach)
+- Provides compile-time safety that runtime-only validation cannot
+- Zero performance overhead (types erased at compile time)
+
+**Pattern**: Standard code generation practice when runtime behavior differs from schema structure.
+
+**Implementation**:
+- `getOmittedInsertFields()` in `src/effect/generator.ts` identifies fields during code generation
+- Uses DMMF properties: `field.hasDefaultValue` and `field.isUpdatedAt`
+- Fields are alphabetically sorted in Omit union for deterministic output
+- Models without generated fields use plain `Schema.Schema.Type` (no unnecessary Omit)
+
 ### UUID Detection Strategy
 The generator uses a 3-tier detection strategy (in priority order):
 

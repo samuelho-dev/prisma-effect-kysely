@@ -74,7 +74,7 @@ ${kyselyFields}
 });`;
             // Generate operational schemas and type exports
             const operationalSchema = this.effectGen.generateOperationalSchemas(model);
-            const typeExports = this.effectGen.generateTypeExports(model);
+            const typeExports = this.effectGen.generateTypeExports(model, fields);
             return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
         })
             .join("\n\n");

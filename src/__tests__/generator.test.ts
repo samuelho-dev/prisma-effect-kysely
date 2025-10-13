@@ -478,8 +478,9 @@ describe('Prisma Effect Schema Generator - E2E', () => {
       expect(typesContent).toContain(
         'export type SessionModelPreferenceSelect = Schema.Schema.Type<typeof SessionModelPreference.Selectable>'
       );
-      expect(typesContent).toContain(
-        'export type SessionModelPreferenceInsert = Schema.Schema.Type<typeof SessionModelPreference.Insertable>'
+      // SessionModelPreference has generated fields, so Insert should have Omit
+      expect(typesContent).toMatch(
+        /export type SessionModelPreferenceInsert = Omit<Schema\.Schema\.Type<typeof SessionModelPreference\.Insertable>, [^>]+>/
       );
       expect(typesContent).toContain(
         'export type SessionModelPreferenceUpdate = Schema.Schema.Type<typeof SessionModelPreference.Updateable>'
@@ -491,8 +492,9 @@ describe('Prisma Effect Schema Generator - E2E', () => {
       expect(typesContent).toContain(
         'export type SessionModelPreferenceSelectEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Selectable>'
       );
-      expect(typesContent).toContain(
-        'export type SessionModelPreferenceInsertEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Insertable>'
+      // SessionModelPreference has generated fields, so InsertEncoded should have Omit
+      expect(typesContent).toMatch(
+        /export type SessionModelPreferenceInsertEncoded = Omit<Schema\.Schema\.Encoded<typeof SessionModelPreference\.Insertable>, [^>]+>/
       );
       expect(typesContent).toContain(
         'export type SessionModelPreferenceUpdateEncoded = Schema.Schema.Encoded<typeof SessionModelPreference.Updateable>'
