@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.2] - 2025-10-13
+
+### Fixed
+
+#### Kysely Join Type Inference
+- **DB interface now uses pre-resolved SelectEncoded types**: Fixed TypeScript compilation errors when using Kysely `innerJoin()` with junction tables
+  - **Problem**: `Schema.Schema.Encoded<typeof _table>` created conditional types too complex for Kysely's deep generic inference
+  - **Solution**: Use existing pre-resolved `*SelectEncoded` type aliases that already exist in generated code
+  - **Impact**: Kysely can now properly infer types for join operations without "Type instantiation is excessively deep" errors
+  - **Breaking**: None - only internal DB interface generation changed, user API remains identical
+  - Location: `src/kysely/type.ts:61-72`
+
+### Added
+
+#### Test Coverage
+- Added comprehensive test suite for Kysely join type inference (`src/__tests__/kysely-join-inference.test.ts`)
+  - Type-level tests verify TypeScript compilation succeeds
+  - Tests junction table joins (e.g., `_product_tags`)
+  - Tests complex many-to-many query patterns with aliases
+  - Tests multiple junction table joins in single query
+  - All tests use TDD approach (failing test first, then fix)
+
+### Technical Details
+- DB interface entries changed from `Table: Schema.Schema.Encoded<typeof _Table>` to `Table: TableSelectEncoded`
+- Join table entries changed from `_table: Schema.Schema.Encoded<typeof _joinTable>` to `_table: joinTableSelectEncoded`
+- Effect Schema functionality preserved - all 158 tests passing
+- No type coercions introduced
+- Maintains semantic naming without unnecessary prefixes
+
 ## [1.8.1] - 2025-10-12
 
 ### Fixed

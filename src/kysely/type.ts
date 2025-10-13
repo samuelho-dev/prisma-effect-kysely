@@ -1,6 +1,7 @@
-import type { DMMF } from "@prisma/generator-helper";
-import { hasDefaultValue, isIdField, getFieldDbName } from "../prisma/type";
-import type { JoinTableInfo } from "../prisma/relation";
+import type { DMMF } from '@prisma/generator-helper';
+import { hasDefaultValue, isIdField, getFieldDbName } from '../prisma/type';
+import type { JoinTableInfo } from '../prisma/relation';
+import { toPascalCase } from '../utils/naming';
 
 /**
  * Determine if field needs Kysely columnType wrapper
@@ -57,19 +58,21 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field) {
 
 /**
  * Generate DB interface entry for a model
+ * Uses pre-resolved *SelectEncoded type for Kysely compatibility
  */
 export function generateDBInterfaceEntry(model: DMMF.Model) {
   const tableName = model.dbName || model.name;
-  const baseSchemaName = `_${model.name}`;
-  return `  ${tableName}: Schema.Schema.Encoded<typeof ${baseSchemaName}>;`;
+  const pascalName = toPascalCase(model.name);
+  return `  ${tableName}: ${pascalName}SelectEncoded;`;
 }
 
 /**
  * Generate DB interface entry for a join table
+ * Uses pre-resolved *SelectEncoded type for Kysely compatibility
  */
 export function generateJoinTableDBInterfaceEntry(joinTable: JoinTableInfo) {
   const { tableName, relationName } = joinTable;
-  return `  ${tableName}: Schema.Schema.Encoded<typeof _${relationName}>;`;
+  return `  ${tableName}: ${relationName}SelectEncoded;`;
 }
 
 /**
@@ -77,15 +80,14 @@ export function generateJoinTableDBInterfaceEntry(joinTable: JoinTableInfo) {
  */
 export function generateDBInterface(
   models: readonly DMMF.Model[],
-  joinTables: JoinTableInfo[] = [],
+  joinTables: JoinTableInfo[] = []
 ) {
-  const modelEntries = Array.from(models)
-    .map(generateDBInterfaceEntry)
-    .join("\n");
+  const modelEntries = Array.from(models).map(generateDBInterfaceEntry).join('\n');
 
-  const joinTableEntries = joinTables.length > 0
-    ? "\n" + joinTables.map(generateJoinTableDBInterfaceEntry).join("\n")
-    : "";
+  const joinTableEntries =
+    joinTables.length > 0
+      ? '\n' + joinTables.map(generateJoinTableDBInterfaceEntry).join('\n')
+      : '';
 
   return `// Kysely Database Interface
 export interface DB {

@@ -38,23 +38,14 @@ describe('Generated Code Validation', () => {
       await orchestrator.generate(options);
 
       // Read generated files
-      const typesContent = readFileSync(
-        join(testOutputPath, 'types.ts'),
-        'utf-8',
-      );
-      const enumsContent = readFileSync(
-        join(testOutputPath, 'enums.ts'),
-        'utf-8',
-      );
-      const indexContent = readFileSync(
-        join(testOutputPath, 'index.ts'),
-        'utf-8',
-      );
+      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
+      const enumsContent = readFileSync(join(testOutputPath, 'enums.ts'), 'utf-8');
+      const indexContent = readFileSync(join(testOutputPath, 'index.ts'), 'utf-8');
 
       // Verify structure
       expect(typesContent).toContain('import { Schema } from "effect"');
       expect(typesContent).toContain(
-        'import { columnType, generated, getSchemas } from "prisma-effect-kysely"',
+        'import { columnType, generated, getSchemas } from "prisma-effect-kysely"'
       );
 
       // Verify no type assertions (look for " as SomeType" pattern, not just words containing "as")
@@ -75,10 +66,7 @@ describe('Generated Code Validation', () => {
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
 
-      const typesContent = readFileSync(
-        join(testOutputPath, 'types.ts'),
-        'utf-8',
-      );
+      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
       // Verify NO type assertions (look for " as SomeType" pattern)
       expect(typesContent).not.toMatch(/\)\s+as\s+[A-Z]/); // matches ") as TypeName"
@@ -94,10 +82,7 @@ describe('Generated Code Validation', () => {
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
 
-      const typesContent = readFileSync(
-        join(testOutputPath, 'types.ts'),
-        'utf-8',
-      );
+      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
       // Verify exports for each model
       expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
@@ -124,20 +109,17 @@ describe('Generated Code Validation', () => {
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
 
-      const typesContent = readFileSync(
-        join(testOutputPath, 'types.ts'),
-        'utf-8',
-      );
+      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
       // Verify Encoded types are exported for all operation types
       expect(typesContent).toMatch(
-        /export type UserSelectEncoded = Schema\.Schema\.Encoded<typeof User\.Selectable>/,
+        /export type UserSelectEncoded = Schema\.Schema\.Encoded<typeof User\.Selectable>/
       );
       expect(typesContent).toMatch(
-        /export type UserInsertEncoded = Schema\.Schema\.Encoded<typeof User\.Insertable>/,
+        /export type UserInsertEncoded = Schema\.Schema\.Encoded<typeof User\.Insertable>/
       );
       expect(typesContent).toMatch(
-        /export type UserUpdateEncoded = Schema\.Schema\.Encoded<typeof User\.Updateable>/,
+        /export type UserUpdateEncoded = Schema\.Schema\.Encoded<typeof User\.Updateable>/
       );
 
       // Verify for another model to ensure it's generated for all models
@@ -155,15 +137,10 @@ describe('Generated Code Validation', () => {
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
 
-      const typesContent = readFileSync(
-        join(testOutputPath, 'types.ts'),
-        'utf-8',
-      );
+      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
       // Verify propertySignature with fromKey for @map
-      expect(typesContent).toMatch(
-        /Schema\.propertySignature\([^)]+\)\.pipe\(Schema\.fromKey/,
-      );
+      expect(typesContent).toMatch(/Schema\.propertySignature\([^)]+\)\.pipe\(Schema\.fromKey/);
 
       // Verify @@map in DB interface
       expect(typesContent).toMatch(/composite_id_table:/);
@@ -178,18 +155,15 @@ describe('Generated Code Validation', () => {
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
 
-      const typesContent = readFileSync(
-        join(testOutputPath, 'types.ts'),
-        'utf-8',
-      );
+      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
       // Verify kysely integration - check the functions are used
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
       expect(typesContent).toContain('getSchemas(');
 
-      // Verify DB interface uses Schema.Encoded
-      expect(typesContent).toMatch(/Schema\.Schema\.Encoded<typeof _/);
+      // Verify DB interface uses pre-resolved SelectEncoded types
+      expect(typesContent).toMatch(/:\s*\w+SelectEncoded;/);
     });
   });
 
