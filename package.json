@@ -1,6 +1,6 @@
 {
   "name": "prisma-effect-kysely",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Prisma generator that creates Effect Schema types from Prisma schema compatible with Kysely",
   "license": "MIT",
   "author": "Samuel Ho",
@@ -68,13 +68,11 @@
     ]
   },
   "dependencies": {
-    "@prisma/client": "6.16.3",
-    "@prisma/dmmf": "^6.17.0",
     "@prisma/generator-helper": "^6.17.0",
-    "effect": "^3.18.4",
     "prettier": "^3.6.2"
   },
   "peerDependencies": {
+    "effect": "^3.18.4",
     "kysely": "^0.28.0"
   },
   "peerDependenciesMeta": {

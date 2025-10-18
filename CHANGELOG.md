@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2025-10-17
+
+### Fixed
+
+#### Dependency Configuration
+- **Fixed Effect as peer dependency** to prevent version conflicts and follow best practices
+  - **Problem**: `effect` was listed as a regular dependency, causing potential version conflicts in user projects
+  - **Solution**: Moved `effect` to `peerDependencies` (required, not optional)
+  - **Rationale**:
+    - Generated code imports from `effect` package
+    - Runtime helpers (`src/kysely/helpers.ts`) export Effect schemas
+    - Users need Effect in their projects anyway
+    - Follows same pattern as `zod-prisma-types` (Zod as peer dependency)
+  - **Impact**: Users must explicitly install `effect` in their projects (most already have it)
+
+### Removed
+
+#### Unused Dependencies
+- **Removed `@prisma/client` and `@prisma/dmmf`** from dependencies
+  - **Analysis**: Code analysis revealed these packages are never imported in the codebase
+  - **Impact**: Smaller package size, cleaner dependency tree
+
+### Changed
+
+#### Package Structure
+**Before:**
+```json
+"dependencies": {
+  "@prisma/client": "6.16.3",
+  "@prisma/dmmf": "^6.17.0",
+  "@prisma/generator-helper": "^6.17.0",
+  "effect": "^3.18.4",
+  "prettier": "^3.6.2"
+}
+```
+
+**After:**
+```json
+"dependencies": {
+  "@prisma/generator-helper": "^6.17.0",
+  "prettier": "^3.6.2"
+},
+"peerDependencies": {
+  "effect": "^3.18.4",
+  "kysely": "^0.28.0"
+}
+```
+
+### Migration Guide
+
+**For New Users:**
+- Install Effect explicitly: `npm install effect` or `pnpm install effect`
+
+**For Existing Users:**
+- If you already have `effect` installed: No action needed
+- If you don't have `effect`: Run `npm install effect` or `pnpm install effect`
+- npm 7+ will automatically install peer dependencies
+
+**Benefits:**
+- ✅ Prevents Effect version conflicts between your project and the generator
+- ✅ You control which Effect version to use
+- ✅ Smaller package size (removed unused dependencies)
+- ✅ Follows industry best practices for library dependencies
+
 ## [1.9.1] - 2025-10-17
 
 ### Fixed
