@@ -1,5 +1,5 @@
 import * as AST from 'effect/SchemaAST';
-import * as S from 'effect/Schema';
+import { Schema } from 'effect';
 import type { Insertable, Selectable, Updateable } from 'kysely';
 
 /**
@@ -11,9 +11,9 @@ export const ColumnTypeId = Symbol.for('/ColumnTypeId');
 export const GeneratedId = Symbol.for('/GeneratedId');
 
 interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> {
-  selectSchema: S.Schema<SType, SEncoded, SR>;
-  insertSchema: S.Schema<IType, IEncoded, IR>;
-  updateSchema: S.Schema<UType, UEncoded, UR>;
+  selectSchema: Schema.Schema<SType, SEncoded, SR>;
+  insertSchema: Schema.Schema<IType, IEncoded, IR>;
+  updateSchema: Schema.Schema<UType, UEncoded, UR>;
 }
 
 /**
@@ -21,17 +21,17 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
  * Used for ID fields with @default (read-only)
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
-  selectSchema: S.Schema<SType, SEncoded, SR>,
-  insertSchema: S.Schema<IType, IEncoded, IR>,
-  updateSchema: S.Schema<UType, UEncoded, UR>
-) => {
+  selectSchema: Schema.Schema<SType, SEncoded, SR>,
+  insertSchema: Schema.Schema<IType, IEncoded, IR>,
+  updateSchema: Schema.Schema<UType, UEncoded, UR>
+): Schema.Schema<SType, SEncoded, SR> => {
   const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
     {
       selectSchema,
       insertSchema,
       updateSchema,
     };
-  return selectSchema.annotations({ [ColumnTypeId]: schemas });
+  return Schema.asSchema(selectSchema.annotations({ [ColumnTypeId]: schemas }));
 };
 
 /**
@@ -42,29 +42,35 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  */
-export const generated = <SType, SEncoded, R>(schema: S.Schema<SType, SEncoded, R>) => {
-  return schema.annotations({ [GeneratedId]: true }); // Just a marker
+export const generated = <SType, SEncoded, R>(
+  schema: Schema.Schema<SType, SEncoded, R>
+): Schema.Schema<SType, SEncoded, R> => {
+  return Schema.asSchema(schema.annotations({ [GeneratedId]: true }));
 };
 
 /**
  * Create selectable schema from base schema
  */
 export const selectable = <Type, Encoded>(
-  schema: S.Schema<Type, Encoded>
-): S.Schema<Selectable<Type>, Selectable<Encoded>, never> => {
+  schema: Schema.Schema<Type, Encoded>
+): Schema.Schema<Selectable<Type>, Selectable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.asSchema(S.make(ast)) as S.Schema<Selectable<Type>, Selectable<Encoded>, never>;
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      Selectable<Type>,
+      Selectable<Encoded>,
+      never
+    >;
   }
-  return S.asSchema(
-    S.make(
+  return Schema.asSchema(
+    Schema.make(
       new AST.TypeLiteral(
         extractParametersFromTypeLiteral(ast, 'selectSchema'),
         ast.indexSignatures,
         ast.annotations
       )
     )
-  ) as S.Schema<Selectable<Type>, Selectable<Encoded>, never>;
+  ) as Schema.Schema<Selectable<Type>, Selectable<Encoded>, never>;
 };
 
 /**
@@ -72,11 +78,15 @@ export const selectable = <Type, Encoded>(
  * Filters out generated fields (@effect/sql Model.Generated pattern)
  */
 export const insertable = <Type, Encoded>(
-  schema: S.Schema<Type, Encoded>
-): S.Schema<Insertable<Type>, Insertable<Encoded>, never> => {
+  schema: Schema.Schema<Type, Encoded>
+): Schema.Schema<Insertable<Type>, Insertable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.asSchema(S.make(ast)) as S.Schema<Insertable<Type>, Insertable<Encoded>, never>;
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      Insertable<Type>,
+      Insertable<Encoded>,
+      never
+    >;
   }
 
   // Extract and filter out generated fields entirely
@@ -115,18 +125,26 @@ export const insertable = <Type, Encoded>(
     });
 
   const res = new AST.TypeLiteral(extracted, ast.indexSignatures, ast.annotations);
-  return S.asSchema(S.make(res)) as S.Schema<Insertable<Type>, Insertable<Encoded>, never>;
+  return Schema.asSchema(Schema.make(res)) as Schema.Schema<
+    Insertable<Type>,
+    Insertable<Encoded>,
+    never
+  >;
 };
 
 /**
  * Create updateable schema from base schema
  */
 export const updateable = <Type, Encoded>(
-  schema: S.Schema<Type, Encoded>
-): S.Schema<Updateable<Type>, Updateable<Encoded>, never> => {
+  schema: Schema.Schema<Type, Encoded>
+): Schema.Schema<Updateable<Type>, Updateable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return S.asSchema(S.make(ast)) as S.Schema<Updateable<Type>, Updateable<Encoded>, never>;
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      Updateable<Type>,
+      Updateable<Encoded>,
+      never
+    >;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
@@ -146,13 +164,17 @@ export const updateable = <Type, Encoded>(
     ast.annotations
   );
 
-  return S.asSchema(S.make(res)) as S.Schema<Updateable<Type>, Updateable<Encoded>, never>;
+  return Schema.asSchema(Schema.make(res)) as Schema.Schema<
+    Updateable<Type>,
+    Updateable<Encoded>,
+    never
+  >;
 };
 
 export interface Schemas<Type, Encoded> {
-  Selectable: S.Schema<Selectable<Type>, Selectable<Encoded>>;
-  Insertable: S.Schema<Insertable<Type>, Insertable<Encoded>>;
-  Updateable: S.Schema<Updateable<Type>, Updateable<Encoded>>;
+  Selectable: Schema.Schema<Selectable<Type>, Selectable<Encoded>>;
+  Insertable: Schema.Schema<Insertable<Type>, Insertable<Encoded>>;
+  Updateable: Schema.Schema<Updateable<Type>, Updateable<Encoded>>;
 }
 
 /**
@@ -160,7 +182,7 @@ export interface Schemas<Type, Encoded> {
  * Used in generated code
  */
 export const getSchemas = <Type, Encoded>(
-  baseSchema: S.Schema<Type, Encoded>
+  baseSchema: Schema.Schema<Type, Encoded>
 ): Schemas<Type, Encoded> => ({
   Selectable: selectable(baseSchema),
   Insertable: insertable(baseSchema),
@@ -168,9 +190,9 @@ export const getSchemas = <Type, Encoded>(
 });
 
 export interface GetTypes<T extends Schemas<unknown, unknown>> {
-  Selectable: S.Schema.Type<T['Selectable']>;
-  Insertable: S.Schema.Type<T['Insertable']>;
-  Updateable: S.Schema.Type<T['Updateable']>;
+  Selectable: Schema.Schema.Type<T['Selectable']>;
+  Insertable: Schema.Schema.Type<T['Insertable']>;
+  Updateable: Schema.Schema.Type<T['Updateable']>;
 }
 
 type AnyColumnTypeSchemas = ColumnTypeSchemas<

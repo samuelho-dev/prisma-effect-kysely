@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2025-10-17
+
+### Fixed
+
+#### TypeScript Schema [TypeId] Preservation Bug
+- **Fixed `generated()` and `columnType()` helpers losing Schema [TypeId] symbol**
+  - **Problem**: Helpers returned result of `.annotations()` directly, causing TypeScript compilation errors in generated code: `Property '[TypeId]' is missing in type 'typeof Date$'`
+  - **Root Cause**: `.annotations()` doesn't automatically preserve Schema type for TypeScript's type system without explicit wrapping
+  - **Solution**:
+    - Added explicit return type annotations: `: Schema.Schema<T, E, R>`
+    - Wrapped results with `Schema.asSchema()` to preserve [TypeId] symbol
+  - **Impact**: All generated code using `generated(Schema.Date)` or `columnType(Schema.UUID, ...)` now compiles correctly in downstream projects
+  - **Files Modified**:
+    - `src/kysely/helpers.ts:23-35` (columnType fix)
+    - `src/kysely/helpers.ts:45-48` (generated fix)
+
+### Added
+
+#### Enhanced Test Coverage for Type Safety
+- **Added TypeScript compile-time validation tests** to prevent future regressions
+  - Type assertions that fail at compile-time if Schema types lose [TypeId]
+  - Runtime validation using `Schema.isSchema()` checks
+  - Generation validation to ensure correct helper usage in generated code
+- **Test Files Enhanced**:
+  - `src/__tests__/effect-schema.test.ts`: Added "TypeScript Type Safety" test suite (3 tests)
+  - `src/__tests__/code-generation.test.ts`: Added "Generated Code TypeScript Compilation" test (1 test)
+- **Test Suite Consolidation**: Reduced from 14 files to 7 files while maintaining 139 passing tests
+  - Eliminated duplicate test coverage
+  - Grouped tests by functional domain
+  - Improved maintainability and clarity
+
+### Technical Details
+
+**Why the Bug Occurred**:
+- Effect Schema's `.annotations()` method creates a new schema with modified annotations
+- TypeScript's type inference doesn't automatically preserve the `Schema<T>` type with its `[TypeId]` symbol
+- Without `Schema.asSchema()` wrapper, TypeScript sees the result as a plain object losing Schema type information
+
+**Prevention Strategy**:
+- Always use explicit return types for functions returning schemas
+- Always wrap `.annotations()` results with `Schema.asSchema()`
+- Include both compile-time type assertions AND runtime validation in tests
+
+**Example Fix**:
+```typescript
+// Before (incorrect):
+export const generated = <T>(schema: Schema.Schema<T>) => {
+  return schema.annotations({ [GeneratedId]: true });
+};
+
+// After (correct):
+export const generated = <T>(schema: Schema.Schema<T>): Schema.Schema<T> => {
+  return Schema.asSchema(schema.annotations({ [GeneratedId]: true }));
+};
+```
+
 ## [1.9.0] - 2025-10-13
 
 ### Fixed

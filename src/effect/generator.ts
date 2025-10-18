@@ -5,35 +5,6 @@ import { toPascalCase } from '../utils/naming';
 import { generateFileHeader } from '../utils/codegen';
 import { generateJoinTableSchema } from './join-table';
 import type { JoinTableInfo } from '../prisma/relation';
-import { hasDefaultValue } from '../prisma/type';
-
-/**
- * Identify fields that should be omitted from Insert types
- *
- * Includes:
- * - Fields with @default (both ID and non-ID fields) - wrapped with generated() or columnType with Never
- * - Fields with @updatedAt directive - auto-managed by database
- *
- * Note: These fields are already filtered at runtime by v1.8.4 implementation.
- * We explicitly omit them in TypeScript types for compile-time safety.
- */
-function getOmittedInsertFields(fields: readonly DMMF.Field[]): string[] {
-  return fields
-    .filter((field) => {
-      // Fields with @default (includes IDs and regular generated fields)
-      if (hasDefaultValue(field)) {
-        return true;
-      }
-
-      // Fields with @updatedAt directive (DMMF provides isUpdatedAt property)
-      if (field.isUpdatedAt === true) {
-        return true;
-      }
-
-      return false;
-    })
-    .map((field) => field.name);
-}
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -78,35 +49,24 @@ ${fieldDefinitions}
   }
 
   /**
-   * Generate TypeScript type exports with explicit Omit for generated fields
+   * Generate TypeScript type exports
+   *
+   * Trusts runtime schema transformation - insertable() helper filters generated fields
    */
-  generateTypeExports(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+  generateTypeExports(model: DMMF.Model, _fields: readonly DMMF.Field[]) {
     const name = toPascalCase(model.name);
-    const omittedFields = getOmittedInsertFields(fields);
-
-    // Generate Insert type with explicit Omit for generated/auto-managed fields
-    const insertType =
-      omittedFields.length > 0
-        ? `Omit<Schema.Schema.Type<typeof ${name}.Insertable>, ${omittedFields.map((f) => `'${f}'`).join(' | ')}>`
-        : `Schema.Schema.Type<typeof ${name}.Insertable>`;
-
-    const insertEncodedType =
-      omittedFields.length > 0
-        ? `Omit<Schema.Schema.Encoded<typeof ${name}.Insertable>, ${omittedFields.map((f) => `'${f}'`).join(' | ')}>`
-        : `Schema.Schema.Encoded<typeof ${name}.Insertable>`;
 
     // Application-side types (decoded - for repository layer)
     const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
-export type ${name}Insert = ${insertType};
+export type ${name}Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
 export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
 
     // Database-side encoded types (for queries layer)
-    const encodedTypes = `
-export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
-export type ${name}InsertEncoded = ${insertEncodedType};
+    const encodedTypes = `export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
+export type ${name}InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
 export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
 
-    return applicationTypes + encodedTypes;
+    return applicationTypes + '\n' + encodedTypes;
   }
 
   /**
