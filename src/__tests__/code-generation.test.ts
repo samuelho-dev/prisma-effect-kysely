@@ -186,11 +186,11 @@ describe('Code Generation - E2E and Validation', () => {
       );
     });
 
-    it('should generate DB interface with SelectEncoded types', () => {
+    it('should generate DB interface with Kysely Table types', () => {
       expect(typesContent).toContain('export interface DB');
-      expect(typesContent).toMatch(/:\s*\w+SelectEncoded;/);
+      expect(typesContent).toMatch(/:\s*\w+Table;/);
 
-      // Should NOT use Schema.Schema.Encoded inline
+      // Should use Kysely table interfaces, not Schema.Schema.Encoded
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
       const dbContent = dbMatch![1];
@@ -226,7 +226,7 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should not have obvious syntax errors', () => {
       expect(typesContent).not.toContain('undefined;');
-      expect(typesContent).not.toContain('null;');
+      // Note: 'null;' is now valid in Kysely table interfaces for optional fields (e.g., 'string | null')
     });
 
     it('should use proper columnType and generated helpers', () => {
@@ -271,7 +271,7 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should use @@map for table names in DB interface', () => {
       // CompositeIdModel has @@map("composite_id_table")
-      expect(typesContent).toMatch(/composite_id_table:\s*CompositeIdModelSelectEncoded/);
+      expect(typesContent).toMatch(/composite_id_table:\s*CompositeIdModelTable/);
     });
   });
 
@@ -372,8 +372,8 @@ describe('Code Generation - E2E and Validation', () => {
 
       const dbContent = dbMatch![1];
 
-      // Should have entries for models using SelectEncoded types
-      expect(dbContent).toMatch(/:\s*\w+SelectEncoded;/);
+      // Should have entries for models using Kysely Table types
+      expect(dbContent).toMatch(/:\s*\w+Table;/);
     });
   });
 

@@ -3,6 +3,25 @@ import type { JoinTableInfo } from '../prisma/relation';
 import { toSnakeCase } from '../utils/naming';
 
 /**
+ * Generate Kysely table interface for a join table
+ */
+export function generateJoinTableKyselyInterface(joinTable: JoinTableInfo): string {
+  const { relationName, modelA, modelB, columnAIsUuid, columnBIsUuid } = joinTable;
+
+  const modelAField = toSnakeCase(modelA);
+  const modelBField = toSnakeCase(modelB);
+
+  const aType = columnAIsUuid ? 'string' : 'number';
+  const bType = columnBIsUuid ? 'string' : 'number';
+
+  return `// Kysely table interface for ${relationName}
+export interface ${relationName}Table {
+  ${modelAField}: ColumnType<${aType}, never, never>;
+  ${modelBField}: ColumnType<${bType}, never, never>;
+}`;
+}
+
+/**
  * Map join table column type to Effect Schema type
  * Uses same mapping as regular fields
  */

@@ -3,7 +3,7 @@ import { generateEnumsFile } from './enum';
 import { buildFieldType } from './type';
 import { toPascalCase } from '../utils/naming';
 import { generateFileHeader } from '../utils/codegen';
-import { generateJoinTableSchema } from './join-table';
+import { generateJoinTableSchema, generateJoinTableKyselyInterface } from './join-table';
 import type { JoinTableInfo } from '../prisma/relation';
 
 /**
@@ -90,6 +90,7 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
 
     const imports = [
       `import { Schema } from "effect";`,
+      `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
     ];
 
@@ -115,5 +116,12 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
    */
   generateJoinTableSchemas(joinTables: JoinTableInfo[]) {
     return joinTables.map((jt) => generateJoinTableSchema(jt, this.dmmf)).join('\n\n');
+  }
+
+  /**
+   * Generate Kysely table interfaces for join tables
+   */
+  generateJoinTableKyselyInterfaces(joinTables: JoinTableInfo[]) {
+    return joinTables.map(generateJoinTableKyselyInterface).join('\n\n');
   }
 }

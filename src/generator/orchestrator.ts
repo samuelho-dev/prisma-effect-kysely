@@ -75,11 +75,14 @@ export class GeneratorOrchestrator {
     // Generate header with imports
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
-    // Generate all model schemas
+    // Generate all model schemas (Kysely tables + Effect schemas)
     const modelSchemas = models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
         const baseSchemaName = `_${model.name}`;
+
+        // Generate Kysely table interface
+        const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
         // Generate base schema with Kysely fields
         const kyselyFields = this.kyselyGen.generateModelFields(fields);
@@ -92,9 +95,13 @@ ${kyselyFields}
         const operationalSchema = this.effectGen.generateOperationalSchemas(model);
         const typeExports = this.effectGen.generateTypeExports(model, fields);
 
-        return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
+        return `${kyselyTable}\n\n${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
       })
       .join('\n\n');
+
+    // Generate join table Kysely interfaces
+    const joinTableKyselyInterfaces =
+      joinTables.length > 0 ? this.effectGen.generateJoinTableKyselyInterfaces(joinTables) : '';
 
     // Generate join table schemas
     const joinTableSchemas =
@@ -103,9 +110,16 @@ ${kyselyFields}
     // Generate DB interface with join tables
     const dbInterface = this.kyselyGen.generateDBInterface(models, joinTables);
 
-    const content = joinTableSchemas
-      ? `${header}\n\n${modelSchemas}\n\n${joinTableSchemas}\n\n${dbInterface}`
-      : `${header}\n\n${modelSchemas}\n\n${dbInterface}`;
+    // Assemble content with proper spacing
+    let content = `${header}\n\n${modelSchemas}`;
+    if (joinTableKyselyInterfaces) {
+      content += `\n\n${joinTableKyselyInterfaces}`;
+    }
+    if (joinTableSchemas) {
+      content += `\n\n${joinTableSchemas}`;
+    }
+    content += `\n\n${dbInterface}`;
+
     await this.fileManager.writeFile('types.ts', content);
   }
 

@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { buildKyselyFieldType, generateDBInterface } from './type';
+import { buildKyselyFieldType, generateDBInterface, generateKyselyTableInterface } from './type';
 import { buildFieldType } from '../effect/type';
 import type { JoinTableInfo } from '../prisma/relation';
 
@@ -30,6 +30,13 @@ export class KyselyGenerator {
     return Array.from(fields)
       .map((field) => this.generateFieldWithKysely(field))
       .join(',\n');
+  }
+
+  /**
+   * Generate Kysely table interface for a model
+   */
+  generateTableInterface(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    return generateKyselyTableInterface(model, fields, this.dmmf);
   }
 
   /**

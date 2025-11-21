@@ -75,10 +75,10 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/export const User = getSchemas/);
     });
 
-    it('should generate DB interface with SelectEncoded types', () => {
-      // DB interface should use *SelectEncoded types for Kysely compatibility
+    it('should generate DB interface with Kysely Table types', () => {
+      // DB interface should use Kysely *Table types for native Kysely compatibility
       expect(typesContent).toContain('export interface DB');
-      expect(typesContent).toMatch(/:\s*\w+SelectEncoded;/);
+      expect(typesContent).toMatch(/:\s*\w+Table;/);
     });
 
     it('should define DB as interface not type', () => {
@@ -114,8 +114,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should use @@map for table names in DB interface', () => {
       // CompositeIdModel has @@map("composite_id_table")
-      // DB interface should use the mapped table name with SelectEncoded type
-      expect(typesContent).toMatch(/composite_id_table:\s*CompositeIdModelSelectEncoded/);
+      // DB interface should use the mapped table name with Kysely Table type
+      expect(typesContent).toMatch(/composite_id_table:\s*CompositeIdModelTable/);
     });
   });
 
@@ -158,8 +158,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
       const dbContent = dbMatch![1];
 
-      // Should have entries for each model using SelectEncoded types
-      expect(dbContent).toMatch(/:\s*\w+SelectEncoded;/);
+      // Should have entries for each model using Kysely Table types
+      expect(dbContent).toMatch(/:\s*\w+Table;/);
     });
   });
 
@@ -186,14 +186,14 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should generate DB interface with resolved types', () => {
-      // DB interface should use SelectEncoded, not Schema.Schema.Encoded directly
+      // DB interface should use Kysely Table types, not Schema.Schema.Encoded directly
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
       const dbContent = dbMatch![1];
 
-      // Should use pre-resolved types
-      expect(dbContent).toMatch(/:\s*\w+SelectEncoded;/);
+      // Should use Kysely Table types
+      expect(dbContent).toMatch(/:\s*\w+Table;/);
 
       // Should NOT use Schema.Schema.Encoded inline
       expect(dbContent).not.toMatch(/Schema\.Schema\.Encoded/);
@@ -202,7 +202,7 @@ describe('Kysely Integration - Functional Tests', () => {
     it('should support junction table queries with simple types', () => {
       // Junction tables (implicit M2M) should be in DB interface
       // Example: _product_tags, _CategoryToPost
-      expect(typesContent).toMatch(/_product_tags:\s*\w+SelectEncoded/);
+      expect(typesContent).toMatch(/_product_tags:\s*\w+Table/);
     });
   });
 
@@ -232,7 +232,7 @@ describe('Kysely Integration - Functional Tests', () => {
 
       // Should not have obvious syntax errors
       expect(typesContent).not.toContain('undefined;');
-      expect(typesContent).not.toContain('null;');
+      // Note: 'null;' is now valid in Kysely table interfaces for optional fields (e.g., 'string | null')
     });
 
     it('should import required dependencies', () => {
@@ -285,8 +285,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
       const dbContent = dbMatch![1];
 
-      // Should have table entries for queries
-      expect(dbContent).toMatch(/\w+:\s*\w+SelectEncoded;/);
+      // Should have table entries with Kysely table interfaces
+      expect(dbContent).toMatch(/\w+:\s*\w+Table;/);
     });
 
     it('should generate schemas compatible with Effect runtime', () => {

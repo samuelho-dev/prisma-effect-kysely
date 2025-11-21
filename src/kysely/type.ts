@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { hasDefaultValue, isIdField, getFieldDbName } from '../prisma/type';
+import { hasDefaultValue, isIdField, getFieldDbName, isUuidField } from '../prisma/type';
 import type { JoinTableInfo } from '../prisma/relation';
 import { toPascalCase } from '../utils/naming';
 
@@ -57,22 +57,114 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field) {
 }
 
 /**
+ * Map Prisma scalar types to plain TypeScript types (for Kysely)
+ */
+export function mapPrismaTypeToTS(field: DMMF.Field, _dmmf: DMMF.Document): string {
+  // Handle enums
+  if (field.kind === 'enum') {
+    return field.type;
+  }
+
+  // UUID detection
+  if (isUuidField(field)) {
+    return 'string'; // Kysely uses string for UUIDs
+  }
+
+  // Standard Prisma → TS mappings
+  const typeMap: Record<string, string> = {
+    String: 'string',
+    Int: 'number',
+    Float: 'number',
+    Boolean: 'boolean',
+    DateTime: 'Date',
+    Json: 'unknown',
+    Bytes: 'Buffer',
+    Decimal: 'string',
+    BigInt: 'string', // Kysely convention
+  };
+
+  const baseType = typeMap[field.type] || field.type;
+  return field.isList ? `Array<${baseType}>` : baseType;
+}
+
+/**
+ * Generate ColumnType wrapper for a field based on Prisma metadata
+ * Returns parameters for ColumnType<SelectType, InsertType, UpdateType>
+ */
+export function generateColumnTypeWrapper(field: DMMF.Field, baseType: string): string | null {
+  // Read-only fields (ID with @default)
+  if (hasDefaultValue(field) && isIdField(field)) {
+    return 'never, never'; // ColumnType<T, never, never>
+  }
+
+  // Generated fields (@default, @updatedAt)
+  if (hasDefaultValue(field) || field.isUpdatedAt) {
+    return `${baseType} | undefined, ${baseType} | undefined`; // ColumnType<T, T?, T?>
+  }
+
+  return null; // Plain type, no wrapper needed
+}
+
+/**
+ * Generate field type for Kysely table interface
+ */
+export function generateKyselyFieldType(field: DMMF.Field, dmmf: DMMF.Document): string {
+  const baseType = mapPrismaTypeToTS(field, dmmf);
+
+  const columnTypeParams = generateColumnTypeWrapper(field, baseType);
+  if (columnTypeParams) {
+    const [insertType, updateType] = columnTypeParams.split(', ');
+    return `ColumnType<${baseType}, ${insertType}, ${updateType}>`;
+  }
+
+  // Optional fields
+  if (!field.isRequired) {
+    return `${baseType} | null`;
+  }
+
+  return baseType;
+}
+
+/**
+ * Generate Kysely table interface for a model
+ */
+export function generateKyselyTableInterface(
+  model: DMMF.Model,
+  fields: readonly DMMF.Field[],
+  dmmf: DMMF.Document
+): string {
+  const tableName = `${toPascalCase(model.name)}Table`;
+
+  const fieldDefs = fields
+    .map((field) => {
+      const fieldType = generateKyselyFieldType(field, dmmf);
+      return `  ${field.name}: ${fieldType};`;
+    })
+    .join('\n');
+
+  return `// Kysely table interface for ${model.name}
+export interface ${tableName} {
+${fieldDefs}
+}`;
+}
+
+/**
  * Generate DB interface entry for a model
- * Uses pre-resolved *SelectEncoded type for Kysely compatibility
+ * Uses Kysely table interface for native compatibility
  */
 export function generateDBInterfaceEntry(model: DMMF.Model) {
   const tableName = model.dbName || model.name;
   const pascalName = toPascalCase(model.name);
-  return `  ${tableName}: ${pascalName}SelectEncoded;`;
+  return `  ${tableName}: ${pascalName}Table;`;
 }
 
 /**
  * Generate DB interface entry for a join table
- * Uses pre-resolved *SelectEncoded type for Kysely compatibility
+ * Uses Kysely table interface for native compatibility
  */
 export function generateJoinTableDBInterfaceEntry(joinTable: JoinTableInfo) {
   const { tableName, relationName } = joinTable;
-  return `  ${tableName}: ${relationName}SelectEncoded;`;
+  return `  ${tableName}: ${relationName}Table;`;
 }
 
 /**

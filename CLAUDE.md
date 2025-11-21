@@ -105,9 +105,12 @@ The generator includes deep Kysely integration for type-safe database operations
 **DB Interface**: Generated Kysely database interface with table mappings:
 ```typescript
 export interface DB {
-  User: Schema.Schema.Encoded<typeof _User>;
+  User: UserSelectEncoded;
   // Uses @@map directive if present, otherwise model name
 }
+
+// Where UserSelectEncoded is pre-resolved to avoid deep type instantiation:
+export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
 ```
 
 **Implicit Many-to-Many Join Tables**: The generator automatically detects and generates schemas for Prisma's implicit M2M relations:
