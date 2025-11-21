@@ -21,7 +21,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -59,7 +58,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Product {
@@ -90,7 +88,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -116,7 +113,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -141,7 +137,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -170,7 +165,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -197,7 +191,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -226,7 +219,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -251,7 +243,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -276,7 +267,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -307,7 +297,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model User {
@@ -339,7 +328,6 @@ describe('Join Table Generation - Functional Tests', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model UserProfile {

@@ -1,6 +1,6 @@
 {
   "name": "prisma-effect-kysely",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "description": "Prisma generator that creates Effect Schema types from Prisma schema compatible with Kysely",
   "license": "MIT",
   "author": "Samuel Ho",
@@ -68,12 +68,12 @@
     ]
   },
   "dependencies": {
-    "@prisma/generator-helper": "^6.17.0",
+    "@prisma/generator-helper": "^7.0.0",
     "prettier": "^3.6.2"
   },
   "peerDependencies": {
-    "effect": "^3.18.4",
-    "kysely": "^0.28.0"
+    "effect": "^3.19.6",
+    "kysely": "^0.28.8"
   },
   "peerDependenciesMeta": {
     "kysely": {
@@ -81,24 +81,25 @@
     }
   },
   "devDependencies": {
-    "@eslint/js": "^9.37.0",
-    "@prisma/internals": "^6.17.0",
-    "@types/jest": "^29.5.14",
-    "@types/node": "^22.18.8",
-    "@typescript-eslint/eslint-plugin": "^8.46.0",
-    "@typescript-eslint/parser": "^8.46.0",
-    "eslint": "^9.37.0",
+    "@eslint/js": "^9.39.1",
+    "@prisma/internals": "^7.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.47.0",
+    "@typescript-eslint/parser": "^8.47.0",
+    "effect": "^3.19.6",
+    "eslint": "^9.39.1",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jest": "^29.0.1",
+    "eslint-plugin-jest": "^29.2.0",
     "husky": "^9.1.7",
-    "jest": "^29.7.0",
-    "kysely": "^0.28.7",
-    "lint-staged": "^16.2.4",
-    "prisma": "^6.17.0",
-    "ts-jest": "^29.4.4",
+    "jest": "^30.2.0",
+    "kysely": "^0.28.8",
+    "lint-staged": "^16.2.7",
+    "prisma": "^6.19.0",
+    "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.0"
+    "typescript-eslint": "^8.47.0"
   }
 }

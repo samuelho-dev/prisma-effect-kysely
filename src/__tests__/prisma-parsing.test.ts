@@ -198,7 +198,6 @@ describe('Prisma Parsing & Domain Logic', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -225,7 +224,6 @@ describe('Prisma Parsing & Domain Logic', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -250,7 +248,6 @@ describe('Prisma Parsing & Domain Logic', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -282,7 +279,6 @@ describe('Prisma Parsing & Domain Logic', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model Post {
@@ -315,7 +311,6 @@ describe('Prisma Parsing & Domain Logic', () => {
       const schema = `
         datasource db {
           provider = "postgresql"
-          url = "postgresql://localhost:5432/test"
         }
 
         model User {

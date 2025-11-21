@@ -3,7 +3,6 @@
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://localhost:5432/test"
 }
 
 generator test_client {
