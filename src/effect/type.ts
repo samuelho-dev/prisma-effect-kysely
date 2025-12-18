@@ -1,27 +1,28 @@
-import type { DMMF } from "@prisma/generator-helper";
-import {
-  isUuidField,
-  isListField,
-  isRequiredField,
-  hasDefaultValue,
-} from "../prisma/type";
-import { extractEffectTypeOverride } from "../utils/annotations";
-import { toPascalCase } from "../utils/naming";
+import type { DMMF } from '@prisma/generator-helper';
+import { isUuidField, isListField, isRequiredField, hasDefaultValue } from '../prisma/type';
+import { extractEffectTypeOverride } from '../utils/annotations';
+import { toPascalCase } from '../utils/naming';
 
 /**
  * Prisma scalar type mapping to Effect Schema types
  * Uses const assertion to avoid type guards
+ *
+ * Note: DateTime uses Schema.DateFromSelf (not Schema.Date) so that:
+ * - Type = Date (runtime)
+ * - Encoded = Date (database)
+ * This allows Kysely to work with native Date objects directly.
+ * Schema.Date would encode to string, requiring ISO string conversions.
  */
 const PRISMA_SCALAR_MAP = {
-  String: "Schema.String",
-  Int: "Schema.Number",
-  Float: "Schema.Number",
-  BigInt: "Schema.BigInt",
-  Decimal: "Schema.String", // For precision
-  Boolean: "Schema.Boolean",
-  DateTime: "Schema.Date",
-  Json: "Schema.Unknown", // Safe unknown type
-  Bytes: "Schema.Uint8Array",
+  String: 'Schema.String',
+  Int: 'Schema.Number',
+  Float: 'Schema.Number',
+  BigInt: 'Schema.BigInt',
+  Decimal: 'Schema.String', // For precision
+  Boolean: 'Schema.Boolean',
+  DateTime: 'Schema.DateFromSelf', // Native Date type for Kysely compatibility
+  Json: 'Schema.Unknown', // Safe unknown type
+  Bytes: 'Schema.Uint8Array',
 } as const;
 
 /**
@@ -36,13 +37,12 @@ export function mapFieldToEffectType(field: DMMF.Field, dmmf: DMMF.Document) {
   }
 
   // PRIORITY 2: Handle String type with UUID detection
-  if (field.type === "String" && isUuidField(field)) {
-    return "Schema.UUID";
+  if (field.type === 'String' && isUuidField(field)) {
+    return 'Schema.UUID';
   }
 
   // PRIORITY 3: Handle scalar types with const assertion lookup
-  const scalarType =
-    PRISMA_SCALAR_MAP[field.type as keyof typeof PRISMA_SCALAR_MAP];
+  const scalarType = PRISMA_SCALAR_MAP[field.type as keyof typeof PRISMA_SCALAR_MAP];
   if (scalarType) {
     return scalarType;
   }
@@ -57,7 +57,7 @@ export function mapFieldToEffectType(field: DMMF.Field, dmmf: DMMF.Document) {
   }
 
   // PRIORITY 5: Fallback to Unknown
-  return "Schema.Unknown";
+  return 'Schema.Unknown';
 }
 
 /**

@@ -59,7 +59,7 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field) {
 /**
  * Map Prisma scalar types to plain TypeScript types (for Kysely)
  */
-export function mapPrismaTypeToTS(field: DMMF.Field, _dmmf: DMMF.Document): string {
+export function mapPrismaTypeToTS(field: DMMF.Field, _dmmf: DMMF.Document) {
   // Handle enums
   if (field.kind === 'enum') {
     return field.type;
@@ -91,7 +91,7 @@ export function mapPrismaTypeToTS(field: DMMF.Field, _dmmf: DMMF.Document): stri
  * Generate ColumnType wrapper for a field based on Prisma metadata
  * Returns parameters for ColumnType<SelectType, InsertType, UpdateType>
  */
-export function generateColumnTypeWrapper(field: DMMF.Field, baseType: string): string | null {
+export function generateColumnTypeWrapper(field: DMMF.Field, baseType: string) {
   // Read-only fields (ID with @default)
   if (hasDefaultValue(field) && isIdField(field)) {
     return 'never, never'; // ColumnType<T, never, never>
@@ -108,7 +108,7 @@ export function generateColumnTypeWrapper(field: DMMF.Field, baseType: string): 
 /**
  * Generate field type for Kysely table interface
  */
-export function generateKyselyFieldType(field: DMMF.Field, dmmf: DMMF.Document): string {
+export function generateKyselyFieldType(field: DMMF.Field, dmmf: DMMF.Document) {
   const baseType = mapPrismaTypeToTS(field, dmmf);
 
   const columnTypeParams = generateColumnTypeWrapper(field, baseType);

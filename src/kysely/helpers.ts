@@ -42,18 +42,106 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  */
-export const generated = <SType, SEncoded, R>(
-  schema: Schema.Schema<SType, SEncoded, R>
-): Schema.Schema<SType, SEncoded, R> => {
+export const generated = <SType, SEncoded, R>(schema: Schema.Schema<SType, SEncoded, R>) => {
   return Schema.asSchema(schema.annotations({ [GeneratedId]: true }));
 };
+
+// ============================================================================
+// Type Helpers (defined early for use in schema functions)
+// ============================================================================
+
+type AnyColumnTypeSchemas = ColumnTypeSchemas<
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown,
+  unknown
+>;
+
+/**
+ * Schema for validating column type annotations structure
+ */
+const ColumnTypeSchemasValidator = Schema.Struct({
+  selectSchema: Schema.Any,
+  insertSchema: Schema.Any,
+  updateSchema: Schema.Any,
+});
+
+/**
+ * Extract and validate column type schemas from AST annotations
+ * Returns null if not a column type or validation fails
+ */
+function getColumnTypeSchemas(ast: AST.AST): AnyColumnTypeSchemas | null {
+  if (!(ColumnTypeId in ast.annotations)) {
+    return null;
+  }
+
+  const annotation = ast.annotations[ColumnTypeId];
+  const decoded = Schema.decodeUnknownOption(ColumnTypeSchemasValidator)(annotation);
+
+  if (decoded._tag === 'None') {
+    return null;
+  }
+
+  // The decoded value has the correct structure, and the annotation
+  // was created by columnType() which ensures proper Schema types
+  return annotation as AnyColumnTypeSchemas;
+}
+
+const isGeneratedType = (ast: AST.AST): boolean => GeneratedId in ast.annotations;
+
+const isOptionalType = (ast: AST.AST): boolean => {
+  // Check for Union(T, Undefined) pattern
+  if (!AST.isUnion(ast)) {
+    return false;
+  }
+
+  return (
+    ast.types.some((t: AST.AST) => AST.isUndefinedKeyword(t)) ||
+    ast.types.some((t: AST.AST) => isNullType(t))
+  );
+};
+
+const isNullType = (ast: AST.AST) =>
+  AST.isLiteral(ast) &&
+  Object.entries(ast.annotations).find(
+    ([sym, value]) => sym === AST.IdentifierAnnotationId.toString() && value === 'null'
+  );
+
+const extractParametersFromTypeLiteral = (
+  ast: AST.TypeLiteral,
+  schemaType: keyof AnyColumnTypeSchemas
+) => {
+  return ast.propertySignatures
+    .map((prop: AST.PropertySignature) => {
+      const columnSchemas = getColumnTypeSchemas(prop.type);
+      if (columnSchemas !== null) {
+        return new AST.PropertySignature(
+          prop.name,
+          columnSchemas[schemaType].ast,
+          prop.isOptional,
+          prop.isReadonly,
+          prop.annotations
+        );
+      }
+      // Generated fields are just markers now, return as-is
+      return prop;
+    })
+    .filter((prop: AST.PropertySignature) => prop.type._tag !== 'NeverKeyword');
+};
+
+// ============================================================================
+// Schema Functions
+// ============================================================================
 
 /**
  * Create selectable schema from base schema
  */
-export const selectable = <Type, Encoded>(
-  schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<Selectable<Type>, Selectable<Encoded>, never> => {
+export const selectable = <Type, Encoded>(schema: Schema.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
     return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
@@ -77,26 +165,20 @@ export const selectable = <Type, Encoded>(
  * Create insertable schema from base schema
  * Filters out generated fields (@effect/sql Model.Generated pattern)
  */
-export const insertable = <Type, Encoded>(
-  schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<Insertable<Type>, Insertable<Encoded>, never> => {
+export const insertable = <Type, Encoded>(schema: Schema.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
-      Insertable<Type>,
-      Insertable<Encoded>,
-      never
-    >;
+    return Schema.asSchema(Schema.make(ast));
   }
 
   // Extract and filter out generated fields entirely
   const extracted = ast.propertySignatures
-    .map((prop: AST.PropertySignature) => {
-      if (isColumnType(prop.type)) {
-        const schemas = prop.type.annotations[ColumnTypeId] as AnyColumnTypeSchemas;
+    .map((prop: AST.PropertySignature): AST.PropertySignature | null => {
+      const columnSchemas = getColumnTypeSchemas(prop.type);
+      if (columnSchemas !== null) {
         return new AST.PropertySignature(
           prop.name,
-          schemas.insertSchema.ast,
+          columnSchemas.insertSchema.ast,
           prop.isOptional,
           prop.isReadonly,
           prop.annotations
@@ -112,9 +194,10 @@ export const insertable = <Type, Encoded>(
       // Filter out generated fields (null) and Never types
       return prop !== null && prop.type._tag !== 'NeverKeyword';
     })
-    .map((prop) => {
+    .map((prop): AST.PropertySignature => {
       // Make Union(T, Undefined) fields optional
       const isOptional = isOptionalType(prop.type);
+
       return new AST.PropertySignature(
         prop.name,
         prop.type,
@@ -135,9 +218,7 @@ export const insertable = <Type, Encoded>(
 /**
  * Create updateable schema from base schema
  */
-export const updateable = <Type, Encoded>(
-  schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<Updateable<Type>, Updateable<Encoded>, never> => {
+export const updateable = <Type, Encoded>(schema: Schema.Schema<Type, Encoded>) => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
     return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
@@ -181,9 +262,7 @@ export interface Schemas<Type, Encoded> {
  * Generate all operational schemas (Selectable/Insertable/Updateable) from base schema
  * Used in generated code
  */
-export const getSchemas = <Type, Encoded>(
-  baseSchema: Schema.Schema<Type, Encoded>
-): Schemas<Type, Encoded> => ({
+export const getSchemas = <Type, Encoded>(baseSchema: Schema.Schema<Type, Encoded>) => ({
   Selectable: selectable(baseSchema),
   Insertable: insertable(baseSchema),
   Updateable: updateable(baseSchema),
@@ -194,59 +273,3 @@ export interface GetTypes<T extends Schemas<unknown, unknown>> {
   Insertable: Schema.Schema.Type<T['Insertable']>;
   Updateable: Schema.Schema.Type<T['Updateable']>;
 }
-
-type AnyColumnTypeSchemas = ColumnTypeSchemas<
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown,
-  unknown
->;
-
-const extractParametersFromTypeLiteral = (
-  ast: AST.TypeLiteral,
-  schemaType: keyof AnyColumnTypeSchemas
-) => {
-  return ast.propertySignatures
-    .map((prop: AST.PropertySignature) => {
-      if (isColumnType(prop.type)) {
-        const schemas = prop.type.annotations[ColumnTypeId] as AnyColumnTypeSchemas;
-        return new AST.PropertySignature(
-          prop.name,
-          schemas[schemaType].ast,
-          prop.isOptional,
-          prop.isReadonly,
-          prop.annotations
-        );
-      }
-      // Generated fields are just markers now, return as-is
-      return prop;
-    })
-    .filter((prop: AST.PropertySignature) => prop.type._tag !== 'NeverKeyword');
-};
-
-const isColumnType = (ast: AST.AST) => ColumnTypeId in ast.annotations;
-
-const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
-
-const isOptionalType = (ast: AST.AST) => {
-  // Check for Union(T, Undefined) pattern
-  if (!AST.isUnion(ast)) {
-    return false;
-  }
-
-  return (
-    ast.types.some((t: AST.AST) => AST.isUndefinedKeyword(t)) ||
-    ast.types.some((t: AST.AST) => isNullType(t))
-  );
-};
-
-const isNullType = (ast: AST.AST) =>
-  AST.isLiteral(ast) &&
-  Object.entries(ast.annotations).find(
-    ([sym, value]) => sym === AST.IdentifierAnnotationId.toString() && value === 'null'
-  );

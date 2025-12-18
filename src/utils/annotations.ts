@@ -23,7 +23,7 @@ import type { DMMF } from '@prisma/generator-helper';
  * @param field - Prisma DMMF field
  * @returns Extracted type string or null if no annotation found
  */
-export function extractEffectTypeOverride(field: DMMF.Field): string | null {
+export function extractEffectTypeOverride(field: DMMF.Field) {
   if (!field.documentation) return null;
 
   // Match @customType annotation - handle balanced parentheses
@@ -72,7 +72,7 @@ export function extractEffectTypeOverride(field: DMMF.Field): string | null {
  * @param typeStr - Type string to check
  * @returns true if it's a custom type reference
  */
-function isCustomType(typeStr: string): boolean {
+function isCustomType(typeStr: string) {
   return /^[A-Z][A-Za-z0-9]*$/.test(typeStr);
 }
 
@@ -82,7 +82,7 @@ function isCustomType(typeStr: string): boolean {
  * @param fields - Array of Prisma fields
  * @returns true if any field uses custom types in @effectType
  */
-export function hasCustomTypeAnnotations(fields: readonly DMMF.Field[]): boolean {
+export function hasCustomTypeAnnotations(fields: readonly DMMF.Field[]) {
   return fields.some((field) => {
     const override = extractEffectTypeOverride(field);
     return override && isCustomType(override);

@@ -5,7 +5,7 @@ import { toSnakeCase } from '../utils/naming';
 /**
  * Generate Kysely table interface for a join table
  */
-export function generateJoinTableKyselyInterface(joinTable: JoinTableInfo): string {
+export function generateJoinTableKyselyInterface(joinTable: JoinTableInfo) {
   const { relationName, modelA, modelB, columnAIsUuid, columnBIsUuid } = joinTable;
 
   const modelAField = toSnakeCase(modelA);
@@ -25,7 +25,7 @@ export interface ${relationName}Table {
  * Map join table column type to Effect Schema type
  * Uses same mapping as regular fields
  */
-function mapColumnType(columnType: string, isUuid: boolean): string {
+function mapColumnType(columnType: string, isUuid: boolean) {
   if (columnType === 'String' && isUuid) {
     return 'Schema.UUID';
   }
@@ -53,7 +53,7 @@ function mapColumnType(columnType: string, isUuid: boolean): string {
  * - TypeScript fields: product_id, product_tag_id (semantic snake_case)
  * - Mapping: product_id → A, product_tag_id → B (via Schema.fromKey)
  */
-export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document): string {
+export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document) {
   const {
     tableName,
     relationName,

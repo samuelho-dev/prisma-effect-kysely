@@ -15,7 +15,7 @@
  * toPascalCase('PRODUCT_STATUS', 'Schema') // 'ProductStatusSchema'
  * toPascalCase('USER_ROLE', 'Type') // 'UserRoleType'
  */
-export function toPascalCase(str: string, suffix?: string): string {
+export function toPascalCase(str: string, suffix?: string) {
   // Handle empty string
   if (!str) return str;
 
@@ -58,7 +58,7 @@ export function toPascalCase(str: string, suffix?: string): string {
  * toSnakeCase('ProductTag') // 'product_tag'
  * toSnakeCase('ProductStatus') // 'product_status'
  */
-export function toSnakeCase(str: string): string {
+export function toSnakeCase(str: string) {
   if (!str) return str;
 
   return (

@@ -31,7 +31,7 @@ export interface JoinTableInfo {
  * - relationFromFields is empty (no foreign key on this side)
  * - relationToFields is empty (no explicit relation table)
  */
-function isImplicitManyToManyField(field: DMMF.Field): boolean {
+function isImplicitManyToManyField(field: DMMF.Field) {
   return (
     field.kind === 'object' &&
     field.isList === true &&
