@@ -15,10 +15,10 @@ export const _AllTypes = Schema.Struct({
   boolField: Schema.Boolean,
   bytesArray: Schema.Array(Schema.Uint8Array),
   bytesField: Schema.Uint8Array,
-  createdAt: generated(Schema.Date),
+  createdAt: generated(Schema.DateFromSelf),
   cuidField: generated(Schema.String),
-  dateArray: Schema.Array(Schema.Date),
-  dateField: Schema.Date,
+  dateArray: Schema.Array(Schema.DateFromSelf),
+  dateField: Schema.DateFromSelf,
   decimalArray: Schema.Array(Schema.String),
   decimalField: Schema.String,
   floatArray: Schema.Array(Schema.Number),
@@ -35,7 +35,7 @@ export const _AllTypes = Schema.Struct({
   optionalBigInt: Schema.UndefinedOr(Schema.BigInt),
   optionalBool: Schema.UndefinedOr(Schema.Boolean),
   optionalBytes: Schema.UndefinedOr(Schema.Uint8Array),
-  optionalDate: Schema.UndefinedOr(Schema.Date),
+  optionalDate: Schema.UndefinedOr(Schema.DateFromSelf),
   optionalDecimal: Schema.UndefinedOr(Schema.String),
   optionalFloat: Schema.UndefinedOr(Schema.Number),
   optionalInt: Schema.UndefinedOr(Schema.Number),
@@ -53,7 +53,7 @@ export const _AllTypes = Schema.Struct({
   tenant_id: Schema.UUID,
   ulidField: generated(Schema.String),
   uniqueEmail: Schema.String,
-  updatedAt: Schema.Date,
+  updatedAt: Schema.DateFromSelf,
 });
 
 export const AllTypes = getSchemas(_AllTypes);
@@ -69,7 +69,7 @@ export type AllTypesUpdateEncoded = Schema.Schema.Encoded<typeof AllTypes.Update
 export const _AnnotationTest = Schema.Struct({
   age: Schema.Number.pipe(Schema.positive()),
   coordinates: Schema.Array(Schema.Array(Schema.Number).pipe(Schema.itemsCount(3))),
-  createdAt: generated(Schema.Date),
+  createdAt: generated(Schema.DateFromSelf),
   email: Schema.String.pipe(Schema.email()),
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   userId: Schema.String.pipe(Schema.brand('UserId')),
@@ -102,7 +102,7 @@ export type CategoryUpdateEncoded = Schema.Schema.Encoded<typeof Category.Update
 // CompositeIdModel Base Schema
 export const _CompositeIdModel = Schema.Struct({
   postId: Schema.UUID,
-  timestamp: generated(Schema.Date),
+  timestamp: generated(Schema.DateFromSelf),
   userId: Schema.UUID,
 });
 
@@ -141,11 +141,11 @@ export type EmployeeUpdateEncoded = Schema.Schema.Encoded<typeof Employee.Update
 export const _Post = Schema.Struct({
   authorId: Schema.UUID,
   content: Schema.UndefinedOr(Schema.String),
-  createdAt: generated(Schema.Date),
+  createdAt: generated(Schema.DateFromSelf),
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   published: generated(Schema.Boolean),
   title: Schema.String,
-  updatedAt: Schema.Date,
+  updatedAt: Schema.DateFromSelf,
 });
 
 export const Post = getSchemas(_Post);
@@ -205,12 +205,12 @@ export type ProfileUpdateEncoded = Schema.Schema.Encoded<typeof Profile.Updateab
 
 // session_model_preference Base Schema
 export const _session_model_preference = Schema.Struct({
-  createdAt: generated(Schema.Date),
+  createdAt: generated(Schema.DateFromSelf),
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   language: generated(Schema.String),
   notifications: generated(Schema.Boolean),
   theme: Schema.String,
-  updatedAt: Schema.Date,
+  updatedAt: Schema.DateFromSelf,
   user_id: Schema.UUID,
 });
 
@@ -237,11 +237,11 @@ export type SessionModelPreferenceUpdateEncoded = Schema.Schema.Encoded<
 
 // User Base Schema
 export const _User = Schema.Struct({
-  createdAt: generated(Schema.Date),
+  createdAt: generated(Schema.DateFromSelf),
   email: Schema.String,
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   name: Schema.String,
-  updatedAt: Schema.Date,
+  updatedAt: Schema.DateFromSelf,
 });
 
 export const User = getSchemas(_User);

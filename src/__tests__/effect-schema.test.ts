@@ -161,7 +161,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         const baseSchema = Schema.Struct({
           id: generated(Schema.UUID),
           session_id: generated(Schema.UUID),
-          created_at: generated(Schema.Date),
+          created_at: generated(Schema.DateFromSelf),
           name: Schema.String,
         });
 
@@ -181,7 +181,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         name: Schema.String,
         email: Schema.String,
         age: Schema.Number,
-        createdAt: Schema.Date,
+        createdAt: Schema.DateFromSelf,
       });
 
       it('selectable() should return valid schema', () => {
@@ -236,7 +236,7 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should allow insert without @default fields', () => {
       const _User = Schema.Struct({
         id: generated(Schema.UUID),
-        createdAt: generated(Schema.Date),
+        createdAt: generated(Schema.DateFromSelf),
         name: Schema.String,
         email: Schema.String,
       });
@@ -286,8 +286,8 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should handle models with only generated fields', () => {
       const _Metadata = Schema.Struct({
         id: generated(Schema.UUID),
-        createdAt: generated(Schema.Date),
-        updatedAt: generated(Schema.Date),
+        createdAt: generated(Schema.DateFromSelf),
+        updatedAt: generated(Schema.DateFromSelf),
       });
 
       const Metadata = getSchemas(_Metadata);
@@ -305,7 +305,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
         email: Schema.String,
-        updatedAt: generated(Schema.Date),
+        updatedAt: generated(Schema.DateFromSelf),
       });
 
       const User = getSchemas(_User);
@@ -360,7 +360,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         id: generated(Schema.UUID),
         name: Schema.String,
         email: Schema.String,
-        createdAt: generated(Schema.Date),
+        createdAt: generated(Schema.DateFromSelf),
       });
 
       const User = getSchemas(_User);
@@ -508,7 +508,7 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should correctly encode Date fields to ISO strings', () => {
       const _Event = Schema.Struct({
         id: Schema.UUID,
-        occurredAt: Schema.Date,
+        occurredAt: Schema.DateFromSelf,
       });
 
       const Event = getSchemas(_Event);
@@ -561,7 +561,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         // Read-only ID
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         // Generated timestamp
-        created_at: generated(Schema.Date),
+        created_at: generated(Schema.DateFromSelf),
         // Required fields
         email: Schema.String,
         username: Schema.String,
@@ -612,8 +612,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         bio: Schema.UndefinedOr(Schema.String),
         avatar: Schema.UndefinedOr(Schema.String),
         // Generated timestamps
-        createdAt: generated(Schema.Date),
-        updatedAt: generated(Schema.Date),
+        createdAt: generated(Schema.DateFromSelf),
+        updatedAt: generated(Schema.DateFromSelf),
         // Array field
         roles: Schema.Array(Schema.String),
       });
@@ -665,12 +665,12 @@ describe('Effect Schema - Runtime Behavior', () => {
 
   describe('TypeScript Type Safety', () => {
     it('should preserve Schema type for generated() - compile-time check', () => {
-      const dateSchema = generated(Schema.Date);
+      const dateSchema = generated(Schema.DateFromSelf);
       const numberSchema = generated(Schema.Number);
       const uuidSchema = generated(Schema.UUID);
 
       // Type assertions - will fail at compile time if types are wrong
-      const _dateCheck: Schema.Schema<Date, string> = dateSchema;
+      const _dateCheck: Schema.Schema<Date, Date> = dateSchema;
       const _numberCheck: Schema.Schema<number, number> = numberSchema;
       const _uuidCheck: Schema.Schema<string, string> = uuidSchema;
 
@@ -683,12 +683,12 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should preserve Schema type for columnType() - compile-time check', () => {
       const uuidSchema = columnType(Schema.UUID, Schema.Never, Schema.Never);
       const numberSchema = columnType(Schema.Number, Schema.Never, Schema.Never);
-      const dateSchema = columnType(Schema.Date, Schema.Never, Schema.Never);
+      const dateSchema = columnType(Schema.DateFromSelf, Schema.Never, Schema.Never);
 
       // Type assertions - will fail at compile time if types are wrong
       const _uuidCheck: Schema.Schema<string, string> = uuidSchema;
       const _numberCheck: Schema.Schema<number, number> = numberSchema;
-      const _dateCheck: Schema.Schema<Date, string> = dateSchema;
+      const _dateCheck: Schema.Schema<Date, Date> = dateSchema;
 
       // Runtime validation - verify Schema type is preserved
       expect(Schema.isSchema(uuidSchema)).toBe(true);
@@ -699,7 +699,7 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should return schemas with preserved TypeScript types from getSchemas()', () => {
       const baseSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-        createdAt: generated(Schema.Date),
+        createdAt: generated(Schema.DateFromSelf),
         name: Schema.String,
       });
 

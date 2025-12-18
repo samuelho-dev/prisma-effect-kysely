@@ -393,7 +393,7 @@ describe('Code Generation - E2E and Validation', () => {
       const typesFileContent = readFileSync(typesPath, 'utf-8');
 
       // Check that generated() and columnType() are used correctly
-      expect(typesFileContent).toContain('generated(Schema.Date)');
+      expect(typesFileContent).toContain('generated(Schema.DateFromSelf)');
       expect(typesFileContent).toContain('columnType(Schema.UUID, Schema.Never, Schema.Never)');
 
       // These patterns would fail to compile if TypeId is missing

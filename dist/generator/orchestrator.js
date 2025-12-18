@@ -62,7 +62,7 @@ class GeneratorOrchestrator {
         // 1. Detect domains from schema structure
         const schemaPath = options.schemaPath;
         const domains = (0, domain_detector_1.detectDomains)(options.dmmf, schemaPath);
-        console.log(`[Multi-Domain] Detected ${domains.length} domains:`, domains.map(d => d.name).join(', '));
+        console.log(`[Multi-Domain] Detected ${domains.length} domains:`, domains.map((d) => d.name).join(', '));
         // 2. Scaffold contract libraries if enabled
         if ((0, config_1.isScaffoldingEnabled)(this.config)) {
             const scaffoldResults = await (0, contract_scaffolder_1.scaffoldContractLibraries)(domains, this.config);
@@ -91,7 +91,7 @@ class GeneratorOrchestrator {
         const joinTables = this.prismaGen.getManyToManyJoinTables();
         const hasEnums = enums.length > 0;
         // Filter join tables to only those relevant to this domain
-        const domainJoinTables = joinTables.filter(jt => domain.models.some(m => m.name === jt.modelA || m.name === jt.modelB));
+        const domainJoinTables = joinTables.filter((jt) => domain.models.some((m) => m.name === jt.modelA || m.name === jt.modelB));
         // Generate header with imports
         const header = this.effectGen.generateTypesHeader(hasEnums);
         // Generate model schemas for this domain only
@@ -118,9 +118,7 @@ ${kyselyFields}
             ? this.effectGen.generateJoinTableKyselyInterfaces(domainJoinTables)
             : '';
         // Generate join table schemas for this domain
-        const joinTableSchemas = domainJoinTables.length > 0
-            ? this.effectGen.generateJoinTableSchemas(domainJoinTables)
-            : '';
+        const joinTableSchemas = domainJoinTables.length > 0 ? this.effectGen.generateJoinTableSchemas(domainJoinTables) : '';
         // Generate DB interface for this domain
         const dbInterface = this.kyselyGen.generateDBInterface(domain.models, domainJoinTables);
         // Assemble content with proper spacing
