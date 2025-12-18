@@ -401,4 +401,48 @@ describe('Code Generation - E2E and Validation', () => {
       expect(true).toBe(true);
     }, 30000); // 30s timeout for tsc compilation
   });
+
+  describe('Kysely Table Interface Enum Types', () => {
+    let typesContent: string;
+
+    beforeEach(async () => {
+      const options: GeneratorOptions = {
+        generator: { output: { value: testOutputPath } },
+        dmmf,
+      } as GeneratorOptions;
+
+      const orchestrator = new GeneratorOrchestrator(options);
+      await orchestrator.generate(options);
+
+      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
+    });
+
+    it('should use Schema.Schema.Type for enum fields in Kysely table interfaces', () => {
+      // Kysely table interfaces should reference enum types via Schema type extraction
+      // This ensures we only need to import the Schema wrappers (e.g., RoleSchema)
+      // and not the raw enum types (e.g., Role)
+      expect(typesContent).toMatch(/role:\s*Schema\.Schema\.Type<typeof RoleSchema>/);
+      expect(typesContent).toMatch(/status:\s*Schema\.Schema\.Type<typeof StatusSchema>/);
+    });
+
+    it('should use nullable Schema types for optional enum fields', () => {
+      // Optional enum fields should use Schema.Schema.Type with | null
+      expect(typesContent).toMatch(
+        /optionalRole:\s*Schema\.Schema\.Type<typeof RoleSchema> \| null/
+      );
+      expect(typesContent).toMatch(
+        /optionalStatus:\s*Schema\.Schema\.Type<typeof StatusSchema> \| null/
+      );
+    });
+
+    it('should NOT reference raw SCREAMING_SNAKE_CASE enum names in Kysely interfaces', () => {
+      // Kysely table interfaces should NOT contain raw enum references like:
+      // role: Role  or  role: ROLE
+      // This would cause "Cannot find name" errors since we only import Schema wrappers
+      expect(typesContent).not.toMatch(/role:\s*Role[^S]/);
+      expect(typesContent).not.toMatch(/role:\s*ROLE/);
+      expect(typesContent).not.toMatch(/status:\s*Status[^S]/);
+      expect(typesContent).not.toMatch(/status:\s*STATUS/);
+    });
+  });
 });

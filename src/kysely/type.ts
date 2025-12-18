@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
 import { hasDefaultValue, isIdField, getFieldDbName, isUuidField } from '../prisma/type';
 import type { JoinTableInfo } from '../prisma/relation';
-import { toPascalCase } from '../utils/naming';
+import { toPascalCase, toEnumSchemaName } from '../utils/naming';
 
 /**
  * Determine if field needs Kysely columnType wrapper
@@ -58,11 +58,13 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field) {
 
 /**
  * Map Prisma scalar types to plain TypeScript types (for Kysely)
+ * For enums, uses Schema.Schema.Type extraction to get the type from the imported Schema
  */
 export function mapPrismaTypeToTS(field: DMMF.Field, _dmmf: DMMF.Document) {
-  // Handle enums
+  // Handle enums - use Schema type extraction since we only import Schema wrappers
   if (field.kind === 'enum') {
-    return field.type;
+    const schemaName = toEnumSchemaName(field.type);
+    return `Schema.Schema.Type<typeof ${schemaName}>`;
   }
 
   // UUID detection
