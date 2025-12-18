@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.13.0
+
+### Minor Changes
+
+- feat: use Schema.DateFromSelf for native Date types
+
+  BREAKING CHANGE: DateTime fields now use Schema.DateFromSelf instead of Schema.Date
+  - DateTime fields now encode to native Date objects instead of ISO strings
+  - This enables Kysely to work with native Date objects directly without requiring `.toISOString()` conversions
+  - Added Effect Schema validation for generator config and scaffold results
+  - Removed type assertions in favor of strict Schema validation
+  - Added multi-domain support with contract library scaffolding
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
@@ -10,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 #### Dependency Configuration
+
 - **Fixed Effect as peer dependency** to prevent version conflicts and follow best practices
   - **Problem**: `effect` was listed as a regular dependency, causing potential version conflicts in user projects
   - **Solution**: Moved `effect` to `peerDependencies` (required, not optional)
@@ -23,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 #### Unused Dependencies
+
 - **Removed `@prisma/client` and `@prisma/dmmf`** from dependencies
   - **Analysis**: Code analysis revealed these packages are never imported in the codebase
   - **Impact**: Smaller package size, cleaner dependency tree
@@ -30,7 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 #### Package Structure
+
 **Before:**
+
 ```json
 "dependencies": {
   "@prisma/client": "6.16.3",
@@ -42,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ```
 
 **After:**
+
 ```json
 "dependencies": {
   "@prisma/generator-helper": "^6.17.0",
@@ -56,14 +74,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Migration Guide
 
 **For New Users:**
+
 - Install Effect explicitly: `npm install effect` or `pnpm install effect`
 
 **For Existing Users:**
+
 - If you already have `effect` installed: No action needed
 - If you don't have `effect`: Run `npm install effect` or `pnpm install effect`
 - npm 7+ will automatically install peer dependencies
 
 **Benefits:**
+
 - ✅ Prevents Effect version conflicts between your project and the generator
 - ✅ You control which Effect version to use
 - ✅ Smaller package size (removed unused dependencies)
@@ -74,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 #### TypeScript Schema [TypeId] Preservation Bug
+
 - **Fixed `generated()` and `columnType()` helpers losing Schema [TypeId] symbol**
   - **Problem**: Helpers returned result of `.annotations()` directly, causing TypeScript compilation errors in generated code: `Property '[TypeId]' is missing in type 'typeof Date$'`
   - **Root Cause**: `.annotations()` doesn't automatically preserve Schema type for TypeScript's type system without explicit wrapping
@@ -88,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Enhanced Test Coverage for Type Safety
+
 - **Added TypeScript compile-time validation tests** to prevent future regressions
   - Type assertions that fail at compile-time if Schema types lose [TypeId]
   - Runtime validation using `Schema.isSchema()` checks
@@ -103,16 +126,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 
 **Why the Bug Occurred**:
+
 - Effect Schema's `.annotations()` method creates a new schema with modified annotations
 - TypeScript's type inference doesn't automatically preserve the `Schema<T>` type with its `[TypeId]` symbol
 - Without `Schema.asSchema()` wrapper, TypeScript sees the result as a plain object losing Schema type information
 
 **Prevention Strategy**:
+
 - Always use explicit return types for functions returning schemas
 - Always wrap `.annotations()` results with `Schema.asSchema()`
 - Include both compile-time type assertions AND runtime validation in tests
 
 **Example Fix**:
+
 ```typescript
 // Before (incorrect):
 export const generated = <T>(schema: Schema.Schema<T>) => {
@@ -130,6 +156,7 @@ export const generated = <T>(schema: Schema.Schema<T>): Schema.Schema<T> => {
 ### Fixed
 
 #### TypeScript Type Inference for Generated Fields - Explicit Omit Types
+
 - **Generate explicit Insert type definitions using TypeScript's Omit utility for compile-time type safety**
   - **Problem**: v1.8.4 fixed runtime behavior (generated fields correctly omitted from Insertable schema), but TypeScript's `Schema.Schema.Type` inference couldn't see runtime AST field filtering, causing all fields to appear in Insert types
   - **Root Cause**: TypeScript's structural type inference works on static schema structure; runtime AST transformations are invisible to the type system
@@ -145,6 +172,7 @@ export const generated = <T>(schema: Schema.Schema<T>): Schema.Schema<T> => {
     - Non-ID fields with `@default` (e.g., `@default(now())`)
     - Fields with `@updatedAt` directive (auto-managed by database)
   - **Example**:
+
     ```typescript
     // Prisma schema:
     model User {
@@ -173,6 +201,7 @@ export const generated = <T>(schema: Schema.Schema<T>): Schema.Schema<T> => {
       name: 'John Doe'
     };
     ```
+
   - **Implementation**:
     - Added `getOmittedInsertFields()` helper in `src/effect/generator.ts` to identify fields during code generation
     - Uses DMMF properties: `hasDefaultValue` and `isUpdatedAt`
@@ -182,6 +211,7 @@ export const generated = <T>(schema: Schema.Schema<T>): Schema.Schema<T> => {
   - Tests: `src/__tests__/type-inference-generated.test.ts` (10 new tests, all passing)
 
 ### Technical Details
+
 - **Architecture**: Explicit type generation (industry standard for code generators)
 - **Rationale**: TypeScript's structural type inference works on static schema structure; runtime AST transformations are invisible to the type system
 - **Not a Workaround**: Standard practice when type inference can't capture runtime behavior (same approach as Prisma Client, Drizzle ORM, tRPC)
@@ -191,7 +221,9 @@ export const generated = <T>(schema: Schema.Schema<T>): Schema.Schema<T> => {
 - **Type Safety Guarantee**: Models without generated fields continue to use plain `Schema.Schema.Type` (no unnecessary `Omit`)
 
 ### Breaking Changes
+
 None - This is a non-breaking enhancement. The change is purely additive at the type level:
+
 - Runtime behavior unchanged from v1.8.4
 - Generated schemas remain the same
 - Only TypeScript type definitions become more restrictive (catching bugs earlier)
@@ -201,6 +233,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
 ### Fixed
 
 #### Native @effect/sql Pattern for Generated Fields
+
 - **Implemented native field filtering for `generated()` fields following @effect/sql Model.Generated pattern**
   - **Problem**: Generated fields (those with `@default` in Prisma schema) were incorrectly made optional in Insertable schema using `Union(T, Undefined)`, which doesn't properly reflect TypeScript optionality and doesn't follow Effect ecosystem patterns
   - **Solution**: OMIT generated fields entirely from Insertable schema (not make them optional) following @effect/sql's `Model.Generated` pattern
@@ -217,6 +250,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
     - Respects TypeScript optionality semantics (property optional `?:` vs value optional `| undefined`)
     - Cleaner implementation with fewer special cases
   - **Example**:
+
     ```typescript
     // Prisma schema:
     model Agent {
@@ -238,6 +272,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
     // Insert only requires 'name' - generated fields completely absent
     const insert: AgentInsert = { name: 'test' };
     ```
+
   - **Test Coverage**: 15 tests passing including comprehensive runtime validation and AST structure verification
   - Location: `src/kysely/helpers.ts:43-119, 188-224`
   - Tests: `src/__tests__/kysely-helpers.test.ts:186-283`
@@ -245,21 +280,28 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
 ### Known Limitations
 
 #### TypeScript Type Inference for Insertable Types
+
 - **TypeScript's `Schema.Schema.Type` inference still includes all fields in Insert types**
   - **Issue**: While runtime validation correctly omits generated fields, TypeScript type inference from `Schema.Schema.Type<typeof Model.Insertable>` cannot see runtime AST field filtering and still infers all fields as required
   - **Root Cause**: TypeScript's structural type inference works on the base schema structure before runtime transformations
   - **Workaround**: Use explicit type annotations or runtime validation (Effect Schema will filter out extra fields)
   - **Planned Fix**: Update code generator (`src/effect/generator.ts`) to create explicit TypeScript type definitions using `Omit` utility type:
+
     ```typescript
     // Current:
     export type AgentInsert = Schema.Schema.Type<typeof Agent.Insertable>;
 
     // Planned:
-    export type AgentInsert = Omit<Schema.Schema.Type<typeof Agent.Insertable>, 'id' | 'session_id'>;
+    export type AgentInsert = Omit<
+      Schema.Schema.Type<typeof Agent.Insertable>,
+      'id' | 'session_id'
+    >;
     ```
+
   - **Status**: Code generation fix planned for v1.9.0
 
 ### Technical Details
+
 - **Quality Assurance**: All 15 kysely-helpers tests passing, zero TypeScript errors in implementation
 - **Test Approach**: TDD (Test-Driven Development) - wrote failing tests first, then implemented to make them pass
 - **Research**: Validated approach against @effect/sql's `Model.Generated` pattern (official Effect ecosystem standard)
@@ -271,6 +313,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
 ### Added
 
 #### Semantic Join Table Column Names
+
 - **Generated join tables now use semantic snake_case field names** instead of Prisma's generic A/B columns
   - **Problem**: Prisma's implicit M2M join tables use non-semantic `A` and `B` column names, causing poor developer experience and forcing developers to remember alphabetical model ordering
   - **Solution**: Map semantic names like `product_id`, `product_tag_id` to actual database columns using Effect Schema's `propertySignature` with `fromKey`
@@ -280,6 +323,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
     - Type-safe bidirectional transformation (encode/decode)
     - Follows snake_case convention for database identifiers (Prisma best practice)
   - **Example**:
+
     ```typescript
     // Before (v1.8.2):
     export const _ProductToProductTag = Schema.Struct({
@@ -289,16 +333,22 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
 
     // After (v1.8.3):
     export const _ProductToProductTag = Schema.Struct({
-      product_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
-      product_tag_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
+      product_id: Schema.propertySignature(
+        columnType(Schema.UUID, Schema.Never, Schema.Never)
+      ).pipe(Schema.fromKey('A')),
+      product_tag_id: Schema.propertySignature(
+        columnType(Schema.UUID, Schema.Never, Schema.Never)
+      ).pipe(Schema.fromKey('B')),
     });
     ```
+
   - Location: `src/effect/join-table.ts:37-69`
   - New utility: `toSnakeCase()` in `src/utils/naming.ts:61-73`
 
 ### Fixed
 
 #### Unused Enum Type Imports
+
 - **types.ts now imports only Schema wrappers**: Eliminated TypeScript "declared but never read" warnings
   - **Problem**: Generated `types.ts` imported both plain enum types (e.g., `BudgetStatus`) and schema wrappers (e.g., `BudgetStatusSchema`), but only schema wrappers were used
   - **Solution**: Import generation now only includes `*Schema` wrappers
@@ -306,6 +356,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
   - Location: `src/effect/generator.ts:95-107`
 
 ### Technical Details
+
 - **Quality Assurance**: All 165 tests passing (15 naming tests + 10 join table tests + 140 existing), zero TypeScript errors
 - **Test Coverage**: New comprehensive tests for `toSnakeCase` utility and semantic join table column generation
 - **Documentation**: Updated CLAUDE.md with join table naming behavior explanation
@@ -320,6 +371,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
 This release transforms the project into an enterprise-ready open source package following 2025 best practices.
 
 #### Code Quality & Formatting
+
 - **ESLint 9**: Flat config format with TypeScript and Jest support (2025 standard)
   - Comprehensive rules for source and test files
   - Automatic unused import detection
@@ -338,6 +390,7 @@ This release transforms the project into an enterprise-ready open source package
   - `npm run format:check` - Check formatting without changes
 
 #### Governance Documentation
+
 - **SECURITY.md**: Professional vulnerability reporting process
   - Supported versions table
   - Response timeline SLAs (Critical: 7 days, High: 14 days, Medium: 30 days)
@@ -357,6 +410,7 @@ This release transforms the project into an enterprise-ready open source package
 - **Governance docs added to npm package**: All governance files now distributed with package
 
 #### Automated Dependency Management
+
 - **renovate.json**: Renovate Cloud (free tier) configuration
   - Weekly automated updates (Mondays at 3am UTC)
   - Auto-merge for patch updates after CI passes
@@ -369,6 +423,7 @@ This release transforms the project into an enterprise-ready open source package
   - Effect package pinned to prevent breaking changes
 
 ### Changed
+
 - **prepublishOnly script**: Now includes linting step (`npm run lint && npm run typecheck && npm run test && npm run build`)
 - **prepare script**: Updated from `npm run build` to `husky` for pre-commit hook initialization
 - **Source code cleanup**: Removed unused imports detected by ESLint
@@ -378,6 +433,7 @@ This release transforms the project into an enterprise-ready open source package
   - `src/effect/join-table.ts`: Prefixed unused parameter with underscore
 
 ### Technical Details
+
 - **Quality Assurance**: All 154 tests passing, zero TypeScript errors
 - **ESLint Status**: Passing with 2 minor warnings in test files (acceptable for test code)
 - **Build**: Clean compilation to dist/ directory
@@ -385,6 +441,7 @@ This release transforms the project into an enterprise-ready open source package
 - **Compliance**: Follows OpenSSF Best Practices baseline
 
 ### Dependencies
+
 - **Added devDependencies**:
   - `@eslint/js@^9.37.0`
   - `typescript-eslint@^8.46.0`
@@ -421,15 +478,15 @@ This release transforms the project into an enterprise-ready open source package
 ```typescript
 // Generated from: enum ACTIVE_STATUS { ACTIVE, INACTIVE }
 export enum ACTIVE_STATUS {
-  ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE"
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 export const ActiveStatusSchema = Schema.Enums(ACTIVE_STATUS);
 export type ActiveStatusType = Schema.Schema.Type<typeof ActiveStatusSchema>;
 
 // Usage:
-const status = ACTIVE_STATUS.ACTIVE;  // Direct enum access
-Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
+const status = ACTIVE_STATUS.ACTIVE; // Direct enum access
+Schema.decodeSync(ActiveStatusSchema)(input); // Validation
 ```
 
 ## [1.5.3] - 2025-10-12
@@ -452,6 +509,7 @@ Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
   - Generates operational schemas (`Selectable`, `Insertable`, `Updateable`) for join tables
   - Both `Type` and `Encoded` exports for complete type coverage
   - Example:
+
     ```typescript
     // Generated join table schema
     export const _CategoryToPost = Schema.Struct({
@@ -468,6 +526,7 @@ Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
       _CategoryToPost: Schema.Schema.Encoded<typeof _CategoryToPost>;
     }
     ```
+
   - **Benefits**:
     - ✨ Type-safe Kysely queries through intermediate tables
     - ✨ Complete database schema representation
@@ -515,9 +574,9 @@ Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
   - ✅ **New Pattern**: Native TypeScript enum + Effect Schema wrapper
     ```typescript
     export enum ProductStatus {
-      ACTIVE = "ACTIVE",
-      DRAFT = "DRAFT",
-      ARCHIVED = "ARCHIVED"
+      ACTIVE = 'ACTIVE',
+      DRAFT = 'DRAFT',
+      ARCHIVED = 'ARCHIVED',
     }
     export const ProductStatusSchema = Schema.Enums(ProductStatus);
     export type ProductStatusType = Schema.Schema.Type<typeof ProductStatusSchema>;
@@ -562,15 +621,18 @@ Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
 ### Technical Details
 
 **TDD Implementation**: All changes developed using Test-Driven Development (Red-Green-Refactor)
+
 - 18+ new tests covering enum generation, property access, field mapping, and imports
 - All 134 tests passing with strict TypeScript configuration
 - Zero type coercions - maintains full type safety
 
 **Expert Validation**:
+
 - ✅ Effect Architecture Specialist: Confirmed Schema.Enums is canonical pattern for Effect v3.18+
 - ✅ TypeScript Pro: Validated all optimizations are type-safe with zero runtime overhead
 
 **Changed Files**:
+
 - `src/effect/enum.ts`: Complete rewrite of enum generation logic
 - `src/effect/type.ts`: Updated to return Schema wrappers for enum fields
 - `src/effect/generator.ts`: Optimized import generation, removed Array.from()
@@ -579,6 +641,7 @@ Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
 - `src/__tests__/helpers/dmmf-mocks.ts`: New test helpers without type coercions
 
 **Test Coverage**:
+
 - `src/__tests__/enum-generation.test.ts`: Tests 1-6 (Schema.Enums pattern)
 - `src/__tests__/enum-property-access.test.ts`: Tests 7-10 (property access validation)
 - `src/__tests__/field-type-generation.test.ts`: Tests 11-12 (field type mapping)
@@ -588,21 +651,23 @@ Schema.decodeSync(ActiveStatusSchema)(input);  // Validation
 **Migration Guide**:
 
 Before (v1.4.x):
+
 ```typescript
 // Generated code
-export const PRODUCT_STATUS = Schema.Literal("ACTIVE", "DRAFT", "ARCHIVED");
+export const PRODUCT_STATUS = Schema.Literal('ACTIVE', 'DRAFT', 'ARCHIVED');
 
 // Usage
 const status = PRODUCT_STATUS.literals[0]; // "ACTIVE"
 ```
 
 After (v1.5.0):
+
 ```typescript
 // Generated code
 export enum ProductStatus {
-  ACTIVE = "ACTIVE",
-  DRAFT = "DRAFT",
-  ARCHIVED = "ARCHIVED"
+  ACTIVE = 'ACTIVE',
+  DRAFT = 'DRAFT',
+  ARCHIVED = 'ARCHIVED',
 }
 export const ProductStatusSchema = Schema.Enums(ProductStatus);
 
@@ -630,6 +695,7 @@ const status = ProductStatus.ACTIVE; // "ACTIVE"
 **Problem**: When TypeScript compiled helper functions to `.d.ts` files, the return types of AST transformation functions (`selectable()`, `insertable()`, `updateable()`) were inferred as `S.Schema<unknown, unknown, never>` instead of preserving the Kysely mapped types. This caused downstream type resolution to fail when consumers used compiled declaration files (dist/ paths) instead of source files.
 
 **Solution**: Added explicit return type annotations with type assertions to all helper functions:
+
 - `selectable()` → `: S.Schema<Selectable<Type>, Selectable<Encoded>, never>`
 - `insertable()` → `: S.Schema<Insertable<Type>, Insertable<Encoded>, never>`
 - `updateable()` → `: S.Schema<Updateable<Type>, Updateable<Encoded>, never>`
@@ -640,6 +706,7 @@ const status = ProductStatus.ACTIVE; // "ACTIVE"
 **Testing**: Added comprehensive test suite (`declaration-inference.test.ts`) with 7 tests validating type preservation in compiled declarations, following TDD principles (Red-Green-Refactor).
 
 **Changed files:**
+
 - `src/kysely/helpers.ts`: Added return type annotations (4 functions)
 - `src/__tests__/declaration-inference.test.ts`: New test suite (260 lines)
 
@@ -669,6 +736,7 @@ const status = ProductStatus.ACTIVE; // "ACTIVE"
 **Impact**: Projects using `prisma-effect-kysely` v1.4.0 or earlier may have experienced TypeScript compilation errors when using `Schema.decode()` or `Schema.decodeUnknownSync()`. This release resolves those errors without requiring any code changes in consuming projects.
 
 **Changed files:**
+
 - `src/kysely/helpers.ts`: Added `S.asSchema()` wrappers (6 locations)
 - `src/prisma/enum.ts`: Added return type annotation
 - `src/prisma/generator.ts`: Added return type annotations (3 methods)
@@ -699,6 +767,7 @@ The generator now converts all model names to PascalCase when creating TypeScrip
 **Impact**: Projects using snake_case model names will see different export names (breaking change for those projects). Projects using PascalCase models (recommended Prisma convention) will see no changes.
 
 **Changed files:**
+
 - `src/utils/naming.ts`: New naming utility
 - `src/effect/generator.ts`: Updated to use PascalCase for all exports
 - `src/__tests__/fixtures/test.prisma`: Added snake_case test model
@@ -725,20 +794,24 @@ The generator now converts all model names to PascalCase when creating TypeScrip
 ### Why This Matters
 
 Effect Schema has bidirectional transformations:
+
 - **Application types** (`Schema.Schema.Type`) - Decoded types with `Date` objects (for repository layer)
 - **Database types** (`Schema.Schema.Encoded`) - Encoded types with ISO strings (for queries layer)
 
 Previously, only Application types were exported, forcing queries to use `any` types. Now both sides of the transformation are properly typed.
 
 **Example Usage:**
+
 ```typescript
 import { agentInsertEncoded } from '@libs/types';
 
 // Queries layer - uses Encoded types (ISO strings)
-insert: (rowData: agentInsertEncoded) => db.insertInto('agent').values(rowData)
+insert: (rowData: agentInsertEncoded) => db.insertInto('agent').values(rowData);
 
 // Repository layer - uses Application types (Date objects)
-const input: CreateAgentInput = { /* ... Date objects ... */ };
+const input: CreateAgentInput = {
+  /* ... Date objects ... */
+};
 const encoded = Schema.encode(AgentSchemas.Insertable)(input); // Encoded to ISO strings
 ```
 
