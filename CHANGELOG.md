@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.1
+
+### Patch Changes
+
+- Fix Kysely table interface enum types to use Schema type extraction instead of raw enum names
+
+  Previously, Kysely table interfaces referenced raw enum type names (e.g., MATCH_TYPE) which weren't imported - only Schema wrappers (e.g., MatchTypeSchema) were imported. This caused "Cannot find name" TypeScript errors.
+
+  Now enum fields in Kysely interfaces use `Schema.Schema.Type<typeof EnumSchema>` to extract the type from the imported Schema wrapper.
+
 ## 1.13.0
 
 ### Minor Changes
