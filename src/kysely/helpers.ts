@@ -165,10 +165,16 @@ export const selectable = <Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
  * Create insertable schema from base schema
  * Filters out generated fields (@effect/sql Model.Generated pattern)
  */
-export const insertable = <Type, Encoded>(schema: Schema.Schema<Type, Encoded>) => {
+export const insertable = <Type, Encoded>(
+  schema: Schema.Schema<Type, Encoded>
+): Schema.Schema<Insertable<Type>, Insertable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make(ast));
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      Insertable<Type>,
+      Insertable<Encoded>,
+      never
+    >;
   }
 
   // Extract and filter out generated fields entirely

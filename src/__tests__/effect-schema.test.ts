@@ -194,7 +194,7 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: 'Test User',
           email: 'test@example.com',
           age: 30,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(),
         });
 
         expect(decoded).toHaveProperty('id');
@@ -212,7 +212,7 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: 'Test User',
           email: 'test@example.com',
           age: 30,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(),
         });
 
         expect(decoded).toHaveProperty('name');
@@ -369,7 +369,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
         email: 'john@example.com',
-        createdAt: new Date('2024-01-01').toISOString(),
+        createdAt: new Date('2024-01-01'),
       };
 
       const result = Schema.decodeUnknownSync(User.Selectable)(fullObject);
@@ -523,7 +523,7 @@ describe('Effect Schema - Runtime Behavior', () => {
       const encoded = Schema.encodeUnknownSync(Event.Selectable)(event);
       expect(encoded).toEqual({
         id: '123e4567-e89b-12d3-a456-426614174000',
-        occurredAt: testDate.toISOString(),
+        occurredAt: testDate,
       });
 
       // Decode back from wire format
@@ -590,7 +590,7 @@ describe('Effect Schema - Runtime Behavior', () => {
       // Selectable: all fields
       const selectResult = Schema.decodeUnknownSync(schemas.Selectable)({
         id: '123e4567-e89b-12d3-a456-426614174000',
-        created_at: new Date().toISOString(),
+        created_at: new Date(),
         email: 'test@example.com',
         username: 'testuser',
         bio: 'New bio',
@@ -646,8 +646,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         username: 'testuser',
         bio: 'New bio',
         avatar: 'https://example.com/avatar.jpg',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
         roles: ['USER'],
       };
 
