@@ -1,9 +1,14 @@
+import type { Config } from 'jest';
+import { createDefaultEsmPreset } from 'ts-jest';
+
+const presetConfig = createDefaultEsmPreset({
+  tsconfig: '<rootDir>/tsconfig.spec.json',
+});
+
 export default {
+  ...presetConfig,
   displayName: 'prisma-effect-kysely-generator',
   testEnvironment: 'node',
-  transform: {
-    '^.+\\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
-  },
   moduleFileExtensions: ['ts', 'js'],
   coverageDirectory: './coverage',
   testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/src/**/*.test.ts'],

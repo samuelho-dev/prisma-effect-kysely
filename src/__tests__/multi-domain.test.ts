@@ -16,11 +16,11 @@ import {
   isMultiDomainEnabled,
   isScaffoldingEnabled,
 } from '../generator/config';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 describe('Multi-Domain Generation', () => {
-  const testOutputDir = path.join(__dirname, 'test-output-multi-domain');
+  const testOutputDir = path.join(import.meta.dirname, 'test-output-multi-domain');
 
   beforeEach(() => {
     // Clean up test output directory

@@ -8,11 +8,15 @@
   "bin": {
     "prisma-effect-kysely": "dist/generator/index.js"
   },
-  "type": "commonjs",
+  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/generator/index.d.ts",
-      "require": "./dist/generator/index.js"
+      "import": "./dist/generator/index.js"
+    },
+    "./kysely": {
+      "types": "./dist/kysely/helpers.d.ts",
+      "import": "./dist/kysely/helpers.js"
     }
   },
   "files": [
@@ -51,9 +55,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.lib.json",
     "prepare": "husky",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.lib.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -83,6 +87,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
     "@eslint/js": "^9.39.1",
+    "@jest/globals": "^30.2.0",
     "@prisma/internals": "^7.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",

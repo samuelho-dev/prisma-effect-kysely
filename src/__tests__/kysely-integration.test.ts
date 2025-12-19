@@ -1,10 +1,13 @@
+import { jest } from '@jest/globals';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
 import type { GeneratorOptions } from '@prisma/generator-helper';
-import { getDMMF } from '@prisma/internals';
-import { readFileSync, existsSync } from 'fs';
-import { rm } from 'fs/promises';
-import { join } from 'path';
+import prismaInternals from '@prisma/internals';
+import { readFileSync, existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { Kysely } from 'kysely';
+
+const { getDMMF } = prismaInternals;
 
 /**
  * Kysely Integration - Functional Behavior Tests
@@ -25,8 +28,8 @@ jest.mock('../utils/templates', () => ({
 }));
 
 describe('Kysely Integration - Functional Tests', () => {
-  const testOutputPath = join(__dirname, '../test-output-kysely');
-  const fixtureSchemaPath = join(__dirname, 'fixtures/test.prisma');
+  const testOutputPath = join(import.meta.dirname, '../test-output-kysely');
+  const fixtureSchemaPath = join(import.meta.dirname, 'fixtures/test.prisma');
 
   let dmmf: any;
 
@@ -227,7 +230,7 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should generate valid TypeScript that would compile', () => {
       // Basic syntax checks
-      expect(typesContent).toContain('import { Schema } from "effect"');
+      expect(typesContent).toContain("import { Schema } from 'effect'");
       expect(typesContent).toContain('export interface DB');
 
       // Should not have obvious syntax errors
@@ -237,13 +240,13 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should import required dependencies', () => {
       // types.ts should import from effect and runtime
-      expect(typesContent).toContain('import { Schema } from "effect"');
+      expect(typesContent).toContain("import { Schema } from 'effect'");
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely/);
     });
 
     it('should re-export all types from index', () => {
-      expect(indexContent).toContain('export * from "./types"');
-      expect(indexContent).toContain('export * from "./enums"');
+      expect(indexContent).toContain("export * from './types'");
+      expect(indexContent).toContain("export * from './enums'");
     });
 
     it('should generate consistent naming conventions', () => {

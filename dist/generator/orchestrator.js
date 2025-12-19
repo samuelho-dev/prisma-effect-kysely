@@ -1,13 +1,10 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GeneratorOrchestrator = void 0;
-const file_manager_1 = require("../utils/file-manager");
-const generator_1 = require("../prisma/generator");
-const generator_2 = require("../effect/generator");
-const generator_3 = require("../kysely/generator");
-const config_1 = require("./config");
-const domain_detector_1 = require("./domain-detector");
-const contract_scaffolder_1 = require("./contract-scaffolder");
+import { FileManager } from '../utils/file-manager';
+import { PrismaGenerator } from '../prisma/generator';
+import { EffectGenerator } from '../effect/generator';
+import { KyselyGenerator } from '../kysely/generator';
+import { parseGeneratorConfig, isMultiDomainEnabled, isScaffoldingEnabled, } from './config';
+import { detectDomains } from './domain-detector';
+import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffolder';
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema
  * Uses domain-driven generators: Prisma → Effect → Kysely
@@ -16,13 +13,13 @@ const contract_scaffolder_1 = require("./contract-scaffolder");
  * 1. Single output (default): All schemas in one directory
  * 2. Multi-domain: Separate contract libraries per domain
  */
-class GeneratorOrchestrator {
+export class GeneratorOrchestrator {
     constructor(options) {
-        this.config = (0, config_1.parseGeneratorConfig)(options);
-        this.fileManager = new file_manager_1.FileManager(this.config.output);
-        this.prismaGen = new generator_1.PrismaGenerator(options.dmmf);
-        this.effectGen = new generator_2.EffectGenerator(options.dmmf);
-        this.kyselyGen = new generator_3.KyselyGenerator(options.dmmf);
+        this.config = parseGeneratorConfig(options);
+        this.fileManager = new FileManager(this.config.output);
+        this.prismaGen = new PrismaGenerator(options.dmmf);
+        this.effectGen = new EffectGenerator(options.dmmf);
+        this.kyselyGen = new KyselyGenerator(options.dmmf);
     }
     /**
      * Main generation entry point
@@ -36,7 +33,7 @@ class GeneratorOrchestrator {
     async generate(options) {
         this.logStart(options);
         // Check if multi-domain mode is enabled
-        if ((0, config_1.isMultiDomainEnabled)(this.config)) {
+        if (isMultiDomainEnabled(this.config)) {
             await this.generateMultiDomain(options);
         }
         else {
@@ -61,12 +58,12 @@ class GeneratorOrchestrator {
     async generateMultiDomain(options) {
         // 1. Detect domains from schema structure
         const schemaPath = options.schemaPath;
-        const domains = (0, domain_detector_1.detectDomains)(options.dmmf, schemaPath);
+        const domains = detectDomains(options.dmmf, schemaPath);
         console.log(`[Multi-Domain] Detected ${domains.length} domains:`, domains.map((d) => d.name).join(', '));
         // 2. Scaffold contract libraries if enabled
-        if ((0, config_1.isScaffoldingEnabled)(this.config)) {
-            const scaffoldResults = await (0, contract_scaffolder_1.scaffoldContractLibraries)(domains, this.config);
-            (0, contract_scaffolder_1.logScaffoldResults)(scaffoldResults);
+        if (isScaffoldingEnabled(this.config)) {
+            const scaffoldResults = await scaffoldContractLibraries(domains, this.config);
+            logScaffoldResults(scaffoldResults);
         }
         // 3. Generate schemas for each domain
         for (const domain of domains) {
@@ -78,7 +75,7 @@ class GeneratorOrchestrator {
      */
     async generateForDomain(domain) {
         const domainOutputPath = `${this.config.output}/${domain.name}/src/generated`;
-        const domainFileManager = new file_manager_1.FileManager(domainOutputPath);
+        const domainFileManager = new FileManager(domainOutputPath);
         await domainFileManager.ensureDirectory();
         console.log(`[Multi-Domain] Generating ${domain.name}...`);
         // Generate enums (shared across all domains for now)
@@ -204,9 +201,9 @@ ${kyselyFields}
         const enumCount = options.dmmf.datamodel.enums.length;
         console.log('[Prisma Effect Kysely Generator] Starting generation...');
         console.log(`[Effect Generator] Processing ${modelCount} models, ${enumCount} enums`);
-        if ((0, config_1.isMultiDomainEnabled)(this.config)) {
+        if (isMultiDomainEnabled(this.config)) {
             console.log('[Effect Generator] Multi-domain mode: ENABLED');
-            if ((0, config_1.isScaffoldingEnabled)(this.config)) {
+            if (isScaffoldingEnabled(this.config)) {
                 console.log('[Effect Generator] Library scaffolding: ENABLED');
             }
         }
@@ -216,7 +213,7 @@ ${kyselyFields}
      */
     logComplete() {
         const outputPath = this.fileManager.getOutputPath();
-        if ((0, config_1.isMultiDomainEnabled)(this.config)) {
+        if (isMultiDomainEnabled(this.config)) {
             console.log(`[Effect Generator] ✓ Multi-domain generation complete`);
             console.log(`[Effect Generator] Base output: ${this.config.output}`);
         }
@@ -226,5 +223,4 @@ ${kyselyFields}
         }
     }
 }
-exports.GeneratorOrchestrator = GeneratorOrchestrator;
 //# sourceMappingURL=orchestrator.js.map

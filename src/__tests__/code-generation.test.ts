@@ -1,11 +1,14 @@
+import { jest } from '@jest/globals';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
 import { EffectGenerator } from '../effect/generator';
 import type { GeneratorOptions } from '@prisma/generator-helper';
-import { getDMMF } from '@prisma/internals';
-import { readFileSync, existsSync } from 'fs';
-import { rm } from 'fs/promises';
-import { join } from 'path';
+import prismaInternals from '@prisma/internals';
+import { readFileSync, existsSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks';
+
+const { getDMMF } = prismaInternals;
 
 /**
  * Code Generation - E2E and Validation Tests
@@ -29,8 +32,8 @@ jest.mock('../utils/templates', () => ({
 }));
 
 describe('Code Generation - E2E and Validation', () => {
-  const testOutputPath = join(__dirname, '../test-output-codegen');
-  const fixtureSchemaPath = join(__dirname, 'fixtures/test.prisma');
+  const testOutputPath = join(import.meta.dirname, '../test-output-codegen');
+  const fixtureSchemaPath = join(import.meta.dirname, 'fixtures/test.prisma');
 
   let dmmf: any;
 
@@ -101,7 +104,7 @@ describe('Code Generation - E2E and Validation', () => {
 
       // Should have valid structure
       const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      expect(typesContent).toContain('import { Schema } from "effect"');
+      expect(typesContent).toContain("import { Schema } from 'effect'");
       expect(typesContent).toContain('export interface DB');
     });
 
@@ -145,11 +148,11 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should have correct import statements', () => {
       // types.ts imports
-      expect(typesContent).toContain('import { Schema } from "effect"');
+      expect(typesContent).toContain("import { Schema } from 'effect'");
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
 
       // enums.ts imports
-      expect(enumsContent).toContain('import { Schema } from "effect"');
+      expect(enumsContent).toContain("import { Schema } from 'effect'");
     });
 
     it('should export base schemas with underscore prefix', () => {
@@ -198,8 +201,8 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should re-export from index', () => {
-      expect(indexContent).toContain('export * from "./types"');
-      expect(indexContent).toContain('export * from "./enums"');
+      expect(indexContent).toContain("export * from './types'");
+      expect(indexContent).toContain("export * from './enums'");
     });
   });
 

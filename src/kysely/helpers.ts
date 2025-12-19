@@ -268,7 +268,9 @@ export interface Schemas<Type, Encoded> {
  * Generate all operational schemas (Selectable/Insertable/Updateable) from base schema
  * Used in generated code
  */
-export const getSchemas = <Type, Encoded>(baseSchema: Schema.Schema<Type, Encoded>) => ({
+export const getSchemas = <Type, Encoded>(
+  baseSchema: Schema.Schema<Type, Encoded>
+): Schemas<Type, Encoded> => ({
   Selectable: selectable(baseSchema),
   Insertable: insertable(baseSchema),
   Updateable: updateable(baseSchema),

@@ -1,8 +1,11 @@
+import { jest } from '@jest/globals';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
 import type { GeneratorOptions } from '@prisma/generator-helper';
-import { getDMMF } from '@prisma/internals';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import prismaInternals from '@prisma/internals';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+
+const { getDMMF } = prismaInternals;
 
 // Mock prettier to avoid dynamic import issues in Jest
 jest.mock('../utils/templates', () => ({
@@ -37,7 +40,7 @@ describe('Kysely Native Integration', () => {
     }
   `;
 
-  const outputDir = path.join(__dirname, 'test-kysely-native');
+  const outputDir = path.join(import.meta.dirname, 'test-kysely-native');
 
   beforeAll(async () => {
     const dmmf = await getDMMF({ datamodel: testSchema });
@@ -60,7 +63,7 @@ describe('Kysely Native Integration', () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
       // Should import ColumnType from kysely
-      expect(typesContent).toContain('import type { ColumnType } from "kysely"');
+      expect(typesContent).toContain("import type { ColumnType } from 'kysely'");
 
       // Should generate UserTable interface
       expect(typesContent).toMatch(/export interface UserTable \{/);

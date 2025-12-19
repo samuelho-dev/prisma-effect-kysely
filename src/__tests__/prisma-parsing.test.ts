@@ -1,6 +1,8 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { getDMMF } from '@prisma/internals';
+import prismaInternals from '@prisma/internals';
 import * as PrismaType from '../prisma/type';
+
+const { getDMMF } = prismaInternals;
 import * as PrismaEnum from '../prisma/enum';
 import { PrismaGenerator } from '../prisma/generator';
 import { detectImplicitManyToMany, getModelIdField } from '../prisma/relation';
