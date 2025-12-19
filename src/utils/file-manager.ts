@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { formatCode } from './templates';
+import { join } from 'node:path';
+import { formatCode } from './templates.js';
 
 /**
  * Manages file system operations for the generator

@@ -1,12 +1,12 @@
 import { jest } from '@jest/globals';
-import { GeneratorOrchestrator } from '../generator/orchestrator';
-import { EffectGenerator } from '../effect/generator';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
+import { EffectGenerator } from '../effect/generator.js';
 import type { GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import { readFileSync, existsSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks';
+import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks.js';
 
 const { getDMMF } = prismaInternals;
 
@@ -201,8 +201,8 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should re-export from index', () => {
-      expect(indexContent).toContain("export * from './types'");
-      expect(indexContent).toContain("export * from './enums'");
+      expect(indexContent).toContain("export * from './types.js'");
+      expect(indexContent).toContain("export * from './enums.js'");
     });
   });
 

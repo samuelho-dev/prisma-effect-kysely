@@ -1,10 +1,10 @@
-import { FileManager } from '../utils/file-manager';
-import { PrismaGenerator } from '../prisma/generator';
-import { EffectGenerator } from '../effect/generator';
-import { KyselyGenerator } from '../kysely/generator';
-import { parseGeneratorConfig, isMultiDomainEnabled, isScaffoldingEnabled, } from './config';
-import { detectDomains } from './domain-detector';
-import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffolder';
+import { FileManager } from '../utils/file-manager.js';
+import { PrismaGenerator } from '../prisma/generator.js';
+import { EffectGenerator } from '../effect/generator.js';
+import { KyselyGenerator } from '../kysely/generator.js';
+import { parseGeneratorConfig, isMultiDomainEnabled, isScaffoldingEnabled, } from './config.js';
+import { detectDomains } from './domain-detector.js';
+import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffolder.js';
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema
  * Uses domain-driven generators: Prisma → Effect → Kysely
@@ -14,6 +14,11 @@ import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffo
  * 2. Multi-domain: Separate contract libraries per domain
  */
 export class GeneratorOrchestrator {
+    config;
+    fileManager;
+    prismaGen;
+    effectGen;
+    kyselyGen;
     constructor(options) {
         this.config = parseGeneratorConfig(options);
         this.fileManager = new FileManager(this.config.output);

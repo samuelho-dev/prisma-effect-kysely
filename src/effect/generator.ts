@@ -1,10 +1,10 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { generateEnumsFile } from './enum';
-import { buildFieldType } from './type';
-import { toPascalCase } from '../utils/naming';
-import { generateFileHeader } from '../utils/codegen';
-import { generateJoinTableSchema, generateJoinTableKyselyInterface } from './join-table';
-import type { JoinTableInfo } from '../prisma/relation';
+import { generateEnumsFile } from './enum.js';
+import { buildFieldType } from './type.js';
+import { toPascalCase } from '../utils/naming.js';
+import { generateFileHeader } from '../utils/codegen.js';
+import { generateJoinTableSchema, generateJoinTableKyselyInterface } from './join-table.js';
+import type { JoinTableInfo } from '../prisma/relation.js';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -105,7 +105,7 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
         })
         .join(', ');
 
-      imports.push(`import { ${enumImports} } from "./enums";`);
+      imports.push(`import { ${enumImports} } from "./enums.js";`);
     }
 
     return `${header}\n\n${imports.join('\n')}`;

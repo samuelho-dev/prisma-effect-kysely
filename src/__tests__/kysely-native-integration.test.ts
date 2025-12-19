@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { GeneratorOrchestrator } from '../generator/orchestrator';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
 import type { GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import * as fs from 'node:fs/promises';

@@ -6,12 +6,12 @@
  * Uses Effect Schema for strict validation.
  */
 
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 import { execSync } from 'child_process';
 import { Schema } from 'effect';
-import type { DomainInfo } from './domain-detector';
-import type { GeneratorConfig } from './config';
+import type { DomainInfo } from './domain-detector.js';
+import type { GeneratorConfig } from './config.js';
 
 /**
  * Scaffold method schema
@@ -201,7 +201,7 @@ async function manualScaffold(domain: DomainInfo, config: GeneratorConfig) {
  * This file re-exports generated schemas from the generated/ directory.
  */
 
-export * from './generated';
+export * from './generated.js';
 `;
 
   fs.writeFileSync(path.join(outputPath, 'src', 'index.ts'), indexContent);

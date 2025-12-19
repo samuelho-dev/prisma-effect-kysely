@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { isUuidField } from './type';
+import { isUuidField } from './type.js';
 
 /**
  * Metadata for implicit many-to-many join tables

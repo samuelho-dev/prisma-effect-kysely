@@ -6,7 +6,7 @@ import {
   selectable,
   insertable,
   updateable,
-} from '../kysely/helpers';
+} from '../kysely/helpers.js';
 
 /**
  * Effect Schema Runtime Behavior - Comprehensive Tests

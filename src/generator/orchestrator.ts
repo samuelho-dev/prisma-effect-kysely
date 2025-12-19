@@ -1,16 +1,16 @@
 import type { GeneratorOptions } from '@prisma/generator-helper';
-import { FileManager } from '../utils/file-manager';
-import { PrismaGenerator } from '../prisma/generator';
-import { EffectGenerator } from '../effect/generator';
-import { KyselyGenerator } from '../kysely/generator';
+import { FileManager } from '../utils/file-manager.js';
+import { PrismaGenerator } from '../prisma/generator.js';
+import { EffectGenerator } from '../effect/generator.js';
+import { KyselyGenerator } from '../kysely/generator.js';
 import {
   parseGeneratorConfig,
   isMultiDomainEnabled,
   isScaffoldingEnabled,
   type GeneratorConfig,
-} from './config';
-import { detectDomains, type DomainInfo } from './domain-detector';
-import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffolder';
+} from './config.js';
+import { detectDomains, type DomainInfo } from './domain-detector.js';
+import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffolder.js';
 
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema

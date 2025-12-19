@@ -1,12 +1,12 @@
 import type { DMMF } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
-import * as PrismaType from '../prisma/type';
+import * as PrismaType from '../prisma/type.js';
 
 const { getDMMF } = prismaInternals;
-import * as PrismaEnum from '../prisma/enum';
-import { PrismaGenerator } from '../prisma/generator';
-import { detectImplicitManyToMany, getModelIdField } from '../prisma/relation';
-import { extractEffectTypeOverride } from '../utils/annotations';
+import * as PrismaEnum from '../prisma/enum.js';
+import { PrismaGenerator } from '../prisma/generator.js';
+import { detectImplicitManyToMany, getModelIdField } from '../prisma/relation.js';
+import { extractEffectTypeOverride } from '../utils/annotations.js';
 
 /**
  * Prisma Parsing & Domain Logic - Functional Behavior Tests

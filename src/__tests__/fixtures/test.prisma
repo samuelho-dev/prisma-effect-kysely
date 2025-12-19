@@ -191,7 +191,7 @@ model Employee {
 model AnnotationTest {
   id String @id @default(cuid())
 
-  /// @customType(Schema.String.pipe(Schema.email()))
+  /// @customType(Schema.String)
   email String @unique
 
   /// @customType(Schema.Number.pipe(Schema.positive()))

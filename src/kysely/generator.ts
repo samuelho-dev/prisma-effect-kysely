@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { buildKyselyFieldType, generateDBInterface, generateKyselyTableInterface } from './type';
-import { buildFieldType } from '../effect/type';
-import type { JoinTableInfo } from '../prisma/relation';
+import { buildKyselyFieldType, generateDBInterface, generateKyselyTableInterface } from './type.js';
+import { buildFieldType } from '../effect/type.js';
+import type { JoinTableInfo } from '../prisma/relation.js';
 
 /**
  * Kysely domain generator - orchestrates Kysely integration
@@ -50,6 +50,6 @@ export class KyselyGenerator {
    * Generate index.ts re-export file
    */
   generateIndexFile() {
-    return `export * from "./enums";\nexport * from "./types";`;
+    return `export * from "./enums.js";\nexport * from "./types.js";`;
   }
 }

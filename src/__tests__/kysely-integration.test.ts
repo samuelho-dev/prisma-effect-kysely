@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { GeneratorOrchestrator } from '../generator/orchestrator';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
 import type { GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import { readFileSync, existsSync } from 'node:fs';
@@ -245,8 +245,8 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should re-export all types from index', () => {
-      expect(indexContent).toContain("export * from './types'");
-      expect(indexContent).toContain("export * from './enums'");
+      expect(indexContent).toContain("export * from './types.js'");
+      expect(indexContent).toContain("export * from './enums.js'");
     });
 
     it('should generate consistent naming conventions', () => {

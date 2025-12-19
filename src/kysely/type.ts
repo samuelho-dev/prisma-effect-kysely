@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { hasDefaultValue, isIdField, getFieldDbName, isUuidField } from '../prisma/type';
-import type { JoinTableInfo } from '../prisma/relation';
-import { toPascalCase, toEnumSchemaName } from '../utils/naming';
+import { hasDefaultValue, isIdField, getFieldDbName, isUuidField } from '../prisma/type.js';
+import type { JoinTableInfo } from '../prisma/relation.js';
+import { toPascalCase, toEnumSchemaName } from '../utils/naming.js';
 
 /**
  * Determine if field needs Kysely columnType wrapper

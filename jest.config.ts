@@ -10,6 +10,9 @@ export default {
   displayName: 'prisma-effect-kysely-generator',
   testEnvironment: 'node',
   moduleFileExtensions: ['ts', 'js'],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   coverageDirectory: './coverage',
   testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/src/**/*.test.ts'],
   collectCoverageFrom: [

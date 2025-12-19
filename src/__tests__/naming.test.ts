@@ -1,4 +1,4 @@
-import { toPascalCase, toSnakeCase } from '../utils/naming';
+import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 /**
  * Naming Utilities - Essential Behavior Tests

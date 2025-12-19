@@ -1,7 +1,7 @@
-import type { DMMF } from "@prisma/generator-helper";
-import * as PrismaEnum from "./enum";
-import * as PrismaType from "./type";
-import { detectImplicitManyToMany, type JoinTableInfo } from "./relation";
+import type { DMMF } from '@prisma/generator-helper';
+import * as PrismaEnum from './enum.js';
+import * as PrismaType from './type.js';
+import { detectImplicitManyToMany, type JoinTableInfo } from './relation.js';
 
 /**
  * Prisma domain generator - orchestrates DMMF parsing and extraction
@@ -21,9 +21,7 @@ export class PrismaGenerator {
    * Get all models from DMMF (filtered and sorted)
    */
   getModels(): readonly DMMF.Model[] {
-    const filtered = PrismaType.filterInternalModels(
-      this.dmmf.datamodel.models,
-    );
+    const filtered = PrismaType.filterInternalModels(this.dmmf.datamodel.models);
     return PrismaType.sortModels(filtered);
   }
 

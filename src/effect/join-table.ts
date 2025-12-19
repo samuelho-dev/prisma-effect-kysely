@@ -1,6 +1,6 @@
 import type { DMMF } from '@prisma/generator-helper';
-import type { JoinTableInfo } from '../prisma/relation';
-import { toSnakeCase } from '../utils/naming';
+import type { JoinTableInfo } from '../prisma/relation.js';
+import { toSnakeCase } from '../utils/naming.js';
 
 /**
  * Generate Kysely table interface for a join table

@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
-import { generateEnumSchema, generateEnumsFile } from '../effect/enum';
-import { buildFieldType } from '../effect/type';
-import { createMockDMMF, createMockEnum, createMockField } from './helpers/dmmf-mocks';
+import { generateEnumSchema, generateEnumsFile } from '../effect/enum.js';
+import { buildFieldType } from '../effect/type.js';
+import { createMockDMMF, createMockEnum, createMockField } from './helpers/dmmf-mocks.js';
 import type { DMMF } from '@prisma/generator-helper';
 
 /**

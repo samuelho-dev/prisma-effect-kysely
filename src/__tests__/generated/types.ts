@@ -5,7 +5,7 @@
 
 import { Schema } from 'effect';
 import { columnType, generated, getSchemas } from 'prisma-effect-kysely';
-import { RoleSchema, StatusSchema } from './enums';
+import { RoleSchema, StatusSchema } from './enums.js';
 
 // AllTypes Base Schema
 export const _AllTypes = Schema.Struct({
@@ -70,7 +70,7 @@ export const _AnnotationTest = Schema.Struct({
   age: Schema.Number.pipe(Schema.positive()),
   coordinates: Schema.Array(Schema.Array(Schema.Number).pipe(Schema.itemsCount(3))),
   createdAt: generated(Schema.DateFromSelf),
-  email: Schema.String.pipe(Schema.email()),
+  email: Schema.String,
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   userId: Schema.String.pipe(Schema.brand('UserId')),
 });

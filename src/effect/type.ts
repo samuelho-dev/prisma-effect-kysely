@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { isUuidField, isListField, isRequiredField, hasDefaultValue } from '../prisma/type';
-import { extractEffectTypeOverride } from '../utils/annotations';
-import { toPascalCase } from '../utils/naming';
+import { isUuidField, isListField, isRequiredField, hasDefaultValue } from '../prisma/type.js';
+import { extractEffectTypeOverride } from '../utils/annotations.js';
+import { toPascalCase } from '../utils/naming.js';
 
 /**
  * Prisma scalar type mapping to Effect Schema types

@@ -9,13 +9,13 @@
 
 import type { DMMF } from '@prisma/generator-helper';
 import type { GeneratorOptions } from '@prisma/generator-helper';
-import { GeneratorOrchestrator } from '../generator/orchestrator';
-import { detectDomains } from '../generator/domain-detector';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
+import { detectDomains } from '../generator/domain-detector.js';
 import {
   parseGeneratorConfig,
   isMultiDomainEnabled,
   isScaffoldingEnabled,
-} from '../generator/config';
+} from '../generator/config.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 

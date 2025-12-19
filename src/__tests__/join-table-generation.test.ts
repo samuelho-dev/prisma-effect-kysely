@@ -1,6 +1,6 @@
 import prismaInternals from '@prisma/internals';
-import { detectImplicitManyToMany } from '../prisma/relation';
-import { generateJoinTableSchema } from '../effect/join-table';
+import { detectImplicitManyToMany } from '../prisma/relation.js';
+import { generateJoinTableSchema } from '../effect/join-table.js';
 
 const { getDMMF } = prismaInternals;
 
