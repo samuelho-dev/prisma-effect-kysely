@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { buildKyselyFieldType, generateDBInterface, generateKyselyTableInterface } from './type.js';
 import { buildFieldType } from '../effect/type.js';
 import type { JoinTableInfo } from '../prisma/relation.js';
+import { buildKyselyFieldType, generateDBInterface, generateKyselyTableInterface } from './type.js';
 
 /**
  * Kysely domain generator - orchestrates Kysely integration

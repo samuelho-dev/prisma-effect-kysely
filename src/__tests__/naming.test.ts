@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 /**

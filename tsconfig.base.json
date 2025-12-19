@@ -1,0 +1,9 @@
+{
+  "extends": "/Users/samuelho/.config/tsconfig/tsconfig.monorepo.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {}
+  },
+  "exclude": ["node_modules", "tmp", "dist"]
+}

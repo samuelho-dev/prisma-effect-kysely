@@ -1,11 +1,11 @@
-import { jest } from '@jest/globals';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
-import { EffectGenerator } from '../effect/generator.js';
-import type { GeneratorOptions } from '@prisma/generator-helper';
-import prismaInternals from '@prisma/internals';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { GeneratorOptions } from '@prisma/generator-helper';
+import prismaInternals from '@prisma/internals';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EffectGenerator } from '../effect/generator.js';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
 import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks.js';
 
 const { getDMMF } = prismaInternals;
@@ -27,8 +27,8 @@ const { getDMMF } = prismaInternals;
  */
 
 // Mock prettier
-jest.mock('../utils/templates', () => ({
-  formatCode: jest.fn((code: string) => Promise.resolve(code)),
+vi.mock('../utils/templates', () => ({
+  formatCode: vi.fn((code: string) => Promise.resolve(code)),
 }));
 
 describe('Code Generation - E2E and Validation', () => {
@@ -104,7 +104,7 @@ describe('Code Generation - E2E and Validation', () => {
 
       // Should have valid structure
       const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      expect(typesContent).toContain("import { Schema } from 'effect'");
+      expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
       expect(typesContent).toContain('export interface DB');
     });
 
@@ -148,11 +148,11 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should have correct import statements', () => {
       // types.ts imports
-      expect(typesContent).toContain("import { Schema } from 'effect'");
+      expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
 
       // enums.ts imports
-      expect(enumsContent).toContain("import { Schema } from 'effect'");
+      expect(enumsContent).toMatch(/import \{ Schema \} from ["']effect["']/);
     });
 
     it('should export base schemas with underscore prefix', () => {
@@ -196,13 +196,13 @@ describe('Code Generation - E2E and Validation', () => {
       // Should use Kysely table interfaces, not Schema.Schema.Encoded
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
-      const dbContent = dbMatch![1];
+      const dbContent = dbMatch?.[1];
       expect(dbContent).not.toMatch(/Schema\.Schema\.Encoded/);
     });
 
     it('should re-export from index', () => {
-      expect(indexContent).toContain("export * from './types.js'");
-      expect(indexContent).toContain("export * from './enums.js'");
+      expect(indexContent).toMatch(/export \* from ["']\.\/types\.js["']/);
+      expect(indexContent).toMatch(/export \* from ["']\.\/enums\.js["']/);
     });
   });
 
@@ -324,7 +324,7 @@ describe('Code Generation - E2E and Validation', () => {
           models: [],
           enums: [],
         },
-      } as unknown as any;
+      };
 
       const options = {
         generator: { output: { value: testOutputPath } },
@@ -373,7 +373,7 @@ describe('Code Generation - E2E and Validation', () => {
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
-      const dbContent = dbMatch![1];
+      const dbContent = dbMatch?.[1];
 
       // Should have entries for models using Kysely Table types
       expect(dbContent).toMatch(/:\s*\w+Table;/);

@@ -7,17 +7,17 @@
  * 3. Generates schemas in separate domain directories
  */
 
-import type { DMMF } from '@prisma/generator-helper';
-import type { GeneratorOptions } from '@prisma/generator-helper';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
-import { detectDomains } from '../generator/domain-detector.js';
-import {
-  parseGeneratorConfig,
-  isMultiDomainEnabled,
-  isScaffoldingEnabled,
-} from '../generator/config.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  isMultiDomainEnabled,
+  isScaffoldingEnabled,
+  parseGeneratorConfig,
+} from '../generator/config.js';
+import { detectDomains } from '../generator/domain-detector.js';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
 
 describe('Multi-Domain Generation', () => {
   const testOutputDir = path.join(import.meta.dirname, 'test-output-multi-domain');

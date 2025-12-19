@@ -1,5 +1,5 @@
-import * as AST from 'effect/SchemaAST';
 import { Schema } from 'effect';
+import * as AST from 'effect/SchemaAST';
 import type { Insertable, Selectable, Updateable } from 'kysely';
 
 /**
@@ -146,17 +146,15 @@ export const selectable = <Type, Encoded>(
 ): Schema.Schema<Selectable<Type>, Selectable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make(ast)) as any;
+    return Schema.make<Selectable<Type>, Selectable<Encoded>, never>(ast);
   }
-  return Schema.asSchema(
-    Schema.make(
-      new AST.TypeLiteral(
-        extractParametersFromTypeLiteral(ast, 'selectSchema'),
-        ast.indexSignatures,
-        ast.annotations
-      )
+  return Schema.make<Selectable<Type>, Selectable<Encoded>, never>(
+    new AST.TypeLiteral(
+      extractParametersFromTypeLiteral(ast, 'selectSchema'),
+      ast.indexSignatures,
+      ast.annotations
     )
-  ) as any;
+  );
 };
 
 /**
@@ -168,7 +166,7 @@ export const insertable = <Type, Encoded>(
 ): Schema.Schema<Insertable<Type>, Insertable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make(ast)) as any;
+    return Schema.make<Insertable<Type>, Insertable<Encoded>, never>(ast);
   }
 
   // Extract and filter out generated fields entirely
@@ -208,7 +206,7 @@ export const insertable = <Type, Encoded>(
     });
 
   const res = new AST.TypeLiteral(extracted, ast.indexSignatures, ast.annotations);
-  return Schema.asSchema(Schema.make(res)) as any;
+  return Schema.make<Insertable<Type>, Insertable<Encoded>, never>(res);
 };
 
 /**
@@ -219,7 +217,7 @@ export const updateable = <Type, Encoded>(
 ): Schema.Schema<Updateable<Type>, Updateable<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make(ast)) as any;
+    return Schema.make<Updateable<Type>, Updateable<Encoded>, never>(ast);
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
@@ -239,7 +237,7 @@ export const updateable = <Type, Encoded>(
     ast.annotations
   );
 
-  return Schema.asSchema(Schema.make(res)) as any;
+  return Schema.make<Updateable<Type>, Updateable<Encoded>, never>(res);
 };
 
 export interface Schemas<Type, Encoded> {

@@ -15,10 +15,6 @@ export const RoleSchema = Schema.Enums(Role);
 
 export type RoleType = Schema.Schema.Type<typeof RoleSchema>;
 
-// PascalCase aliases for better ergonomics
-export const Role = Role;
-export type Role = RoleType;
-
 export enum Status {
   ACTIVE = 'active',
   INACTIVE = 'inactive',
@@ -28,7 +24,3 @@ export enum Status {
 export const StatusSchema = Schema.Enums(Status);
 
 export type StatusType = Schema.Schema.Type<typeof StatusSchema>;
-
-// PascalCase aliases for better ergonomics
-export const Status = Status;
-export type Status = StatusType;

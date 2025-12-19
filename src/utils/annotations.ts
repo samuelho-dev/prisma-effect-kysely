@@ -45,17 +45,13 @@ export function extractEffectTypeOverride(field: DMMF.Field) {
   }
 
   if (parenCount !== 0) {
-    console.warn(`⚠️  Unbalanced parentheses in @customType for field: ${field.name}`);
     return null;
   }
 
   const typeStr = field.documentation.substring(startIdx, endIdx).trim();
 
   // Validate it's either a custom type or starts with Schema.
-  if (!typeStr.startsWith('Schema.') && !isCustomType(typeStr)) {
-    console.warn(
-      `⚠️  Invalid @customType for ${field.name}: must start with "Schema." or be a custom type (e.g., Vector1536)`
-    );
+  if (!(typeStr.startsWith('Schema.') || isCustomType(typeStr))) {
     return null;
   }
 

@@ -1,7 +1,7 @@
 // @ts-check
 import eslint from '@eslint/js';
+import vitest from '@vitest/eslint-plugin';
 import tseslint from 'typescript-eslint';
-import jestPlugin from 'eslint-plugin-jest';
 
 export default tseslint.config(
   // Base ESLint recommended rules
@@ -17,10 +17,13 @@ export default tseslint.config(
       // TypeScript specific rules
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['error', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_'
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
 
       // Best practices
       'no-console': 'off', // Generator needs console for logging
@@ -32,17 +35,13 @@ export default tseslint.config(
   // Test files configuration
   {
     files: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
-    ...jestPlugin.configs['flat/recommended'],
+    plugins: {
+      vitest,
+    },
     rules: {
-      ...jestPlugin.configs['flat/recommended'].rules,
+      ...vitest.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'off', // Allow any in tests for mocking
       '@typescript-eslint/no-unused-vars': 'off', // Allow unused vars in tests
-      'jest/expect-expect': 'error',
-      'jest/no-disabled-tests': 'warn',
-      'jest/no-focused-tests': 'error',
-      'jest/no-conditional-expect': 'warn', // Downgrade to warning
-      'jest/prefer-to-be': 'error',
-      'jest/valid-expect': 'error',
     },
   },
 
@@ -55,7 +54,6 @@ export default tseslint.config(
       '**/*.d.ts',
       'src/test-output*/**',
       'src/__tests__/generated/**',
-      'jest.config.ts',
     ],
   }
 );

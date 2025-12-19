@@ -1,8 +1,10 @@
 import type { DMMF } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
+import { describe, expect, it } from 'vitest';
 import * as PrismaType from '../prisma/type.js';
 
 const { getDMMF } = prismaInternals;
+
 import * as PrismaEnum from '../prisma/enum.js';
 import { PrismaGenerator } from '../prisma/generator.js';
 import { detectImplicitManyToMany, getModelIdField } from '../prisma/relation.js';
@@ -62,8 +64,8 @@ function createMockDMMF(overrides?: { models?: DMMF.Model[]; enums?: DMMF.Datamo
       types: [],
       indexes: [],
     },
-    schema: {} as any,
-    mappings: {} as any,
+    schema: {},
+    mappings: {},
   } as unknown as DMMF.Document;
 }
 
@@ -72,7 +74,7 @@ describe('Prisma Parsing & Domain Logic', () => {
     it('should detect UUID via @db.Uuid native type (priority 1)', () => {
       const field = createMockField({
         name: 'id',
-        nativeType: ['Uuid', []] as [string, string[]],
+        nativeType: ['Uuid', []],
       });
 
       expect(PrismaType.isUuidField(field)).toBe(true);
@@ -95,9 +97,9 @@ describe('Prisma Parsing & Domain Logic', () => {
         createMockField({ name: 'uuid' }),
       ];
 
-      uuidFields.forEach((field) => {
+      for (const field of uuidFields) {
         expect(PrismaType.isUuidField(field)).toBe(true);
-      });
+      }
     });
 
     it('should NOT detect non-UUID string fields', () => {
@@ -107,9 +109,9 @@ describe('Prisma Parsing & Domain Logic', () => {
         createMockField({ name: 'description' }),
       ];
 
-      nonUuidFields.forEach((field) => {
+      for (const field of nonUuidFields) {
         expect(PrismaType.isUuidField(field)).toBe(false);
-      });
+      }
     });
   });
 

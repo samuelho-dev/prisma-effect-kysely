@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
 import * as PrismaEnum from './enum.js';
-import * as PrismaType from './type.js';
 import { detectImplicitManyToMany, type JoinTableInfo } from './relation.js';
+import * as PrismaType from './type.js';
 
 /**
  * Prisma domain generator - orchestrates DMMF parsing and extraction

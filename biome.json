@@ -1,0 +1,43 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "extends": ["/Users/samuelho/.config/biome/biome.json"],
+  "files": {},
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 100,
+    "attributePosition": "auto",
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "expand": "auto",
+    "useEditorconfig": true,
+    "includes": [
+      "**",
+      "!**/node_modules/",
+      "!**/pnpm-lock.yaml",
+      "!**/dist/",
+      "!**/*.tsbuildinfo",
+      "!**/coverage/",
+      "!src/test-output*/",
+      "!src/__tests__/generated/",
+      "!**/.git/"
+    ]
+  },
+  "javascript": {
+    "formatter": {
+      "jsxQuoteStyle": "double",
+      "quoteProperties": "asNeeded",
+      "trailingCommas": "es5",
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "bracketSameLine": false,
+      "quoteStyle": "single",
+      "attributePosition": "auto",
+      "bracketSpacing": true
+    }
+  },
+  "html": { "formatter": { "indentScriptAndStyle": false, "selfCloseVoidElements": "always" } }
+}

@@ -6,9 +6,9 @@
  * are organized in separate files per domain (e.g., user.prisma, product.prisma).
  */
 
-import type { DMMF } from '@prisma/generator-helper';
-import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type { DMMF } from '@prisma/generator-helper';
 
 /**
  * Information about a detected domain

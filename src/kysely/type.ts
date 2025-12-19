@@ -1,7 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { hasDefaultValue, isIdField, getFieldDbName, isUuidField } from '../prisma/type.js';
 import type { JoinTableInfo } from '../prisma/relation.js';
-import { toPascalCase, toEnumSchemaName } from '../utils/naming.js';
+import { getFieldDbName, hasDefaultValue, isIdField, isUuidField } from '../prisma/type.js';
+import { toEnumSchemaName, toPascalCase } from '../utils/naming.js';
 
 /**
  * Determine if field needs Kysely columnType wrapper
@@ -180,7 +180,7 @@ export function generateDBInterface(
 
   const joinTableEntries =
     joinTables.length > 0
-      ? '\n' + joinTables.map(generateJoinTableDBInterfaceEntry).join('\n')
+      ? `\n${joinTables.map(generateJoinTableDBInterfaceEntry).join('\n')}`
       : '';
 
   return `// Kysely Database Interface

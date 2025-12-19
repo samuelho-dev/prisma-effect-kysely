@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { isUuidField, isListField, isRequiredField, hasDefaultValue } from '../prisma/type.js';
+import { hasDefaultValue, isListField, isRequiredField, isUuidField } from '../prisma/type.js';
 import { extractEffectTypeOverride } from '../utils/annotations.js';
 import { toPascalCase } from '../utils/naming.js';
 
@@ -72,7 +72,7 @@ export function buildFieldType(field: DMMF.Field, dmmf: DMMF.Document) {
   }
 
   // Handle optional fields (only if NOT already has @default)
-  if (!isRequiredField(field) && !hasDefaultValue(field)) {
+  if (!(isRequiredField(field) || hasDefaultValue(field))) {
     baseType = `Schema.UndefinedOr(${baseType})`;
   }
 

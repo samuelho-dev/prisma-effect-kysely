@@ -1,12 +1,10 @@
-import type { DMMF } from "@prisma/generator-helper";
+import type { DMMF } from '@prisma/generator-helper';
 
 /**
  * Extract enum definitions from Prisma DMMF
  * Handles @map directive for database-level enum values
  */
-export function extractEnums(
-  dmmf: DMMF.Document,
-): readonly DMMF.DatamodelEnum[] {
+export function extractEnums(dmmf: DMMF.Document): readonly DMMF.DatamodelEnum[] {
   return dmmf.datamodel.enums;
 }
 

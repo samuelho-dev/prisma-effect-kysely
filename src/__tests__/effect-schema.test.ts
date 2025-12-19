@@ -1,10 +1,11 @@
 import { Schema } from 'effect';
+import { describe, expect, it } from 'vitest';
 import {
   columnType,
   generated,
   getSchemas,
-  selectable,
   insertable,
+  selectable,
   updateable,
 } from '../kysely/helpers.js';
 
@@ -706,9 +707,6 @@ describe('Effect Schema - Runtime Behavior', () => {
       const schemas = getSchemas(baseSchema);
 
       // Type-level validation - these will fail at compile-time if broken
-      type SelectType = Schema.Schema.Type<typeof schemas.Selectable>;
-      type InsertType = Schema.Schema.Type<typeof schemas.Insertable>;
-      type UpdateType = Schema.Schema.Type<typeof schemas.Updateable>;
 
       // Runtime validation - verify all schemas are valid Schema instances
       expect(Schema.isSchema(schemas.Selectable)).toBe(true);

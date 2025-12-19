@@ -1,10 +1,10 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { generateEnumsFile } from './enum.js';
-import { buildFieldType } from './type.js';
-import { toPascalCase } from '../utils/naming.js';
-import { generateFileHeader } from '../utils/codegen.js';
-import { generateJoinTableSchema, generateJoinTableKyselyInterface } from './join-table.js';
 import type { JoinTableInfo } from '../prisma/relation.js';
+import { generateFileHeader } from '../utils/codegen.js';
+import { toPascalCase } from '../utils/naming.js';
+import { generateEnumsFile } from './enum.js';
+import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
+import { buildFieldType } from './type.js';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -66,7 +66,7 @@ export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
 export type ${name}InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
 export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
 
-    return applicationTypes + '\n' + encodedTypes;
+    return `${applicationTypes}\n${encodedTypes}`;
   }
 
   /**

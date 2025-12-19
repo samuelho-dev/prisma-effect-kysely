@@ -1,8 +1,9 @@
+import type { DMMF } from '@prisma/generator-helper';
 import { Schema } from 'effect';
+import { describe, expect, it } from 'vitest';
 import { generateEnumSchema, generateEnumsFile } from '../effect/enum.js';
 import { buildFieldType } from '../effect/type.js';
 import { createMockDMMF, createMockEnum, createMockField } from './helpers/dmmf-mocks.js';
-import type { DMMF } from '@prisma/generator-helper';
 
 /**
  * Enum Generation - Functional Behavior Tests

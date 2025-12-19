@@ -1,4 +1,4 @@
-import type { DMMF } from "@prisma/generator-helper";
+import type { DMMF } from '@prisma/generator-helper';
 
 /**
  * Check if a field is a UUID using native DMMF type information
@@ -6,17 +6,17 @@ import type { DMMF } from "@prisma/generator-helper";
  */
 export function isUuidField(field: DMMF.Field) {
   // 1. Check native type (most reliable)
-  if (field.nativeType?.[0] === "Uuid") {
+  if (field.nativeType?.[0] === 'Uuid') {
     return true;
   }
 
   // 2. Check documentation for @db.Uuid
-  if (field.documentation?.includes("@db.Uuid")) {
+  if (field.documentation?.includes('@db.Uuid')) {
     return true;
   }
 
   // 3. Fallback: Field name patterns (only for String type)
-  if (field.type !== "String") {
+  if (field.type !== 'String') {
     return false;
   }
 
@@ -68,21 +68,15 @@ export function isListField(field: DMMF.Field) {
 /**
  * Filter models to exclude internal models (starting with _)
  */
-export function filterInternalModels(
-  models: readonly DMMF.Model[],
-): readonly DMMF.Model[] {
-  return models.filter((model) => !model.name.startsWith("_"));
+export function filterInternalModels(models: readonly DMMF.Model[]): readonly DMMF.Model[] {
+  return models.filter((model) => !model.name.startsWith('_'));
 }
 
 /**
  * Filter fields to only include scalar and enum fields (exclude relations)
  */
-export function filterSchemaFields(
-  fields: readonly DMMF.Field[],
-): readonly DMMF.Field[] {
-  return fields.filter(
-    (field) => field.kind === "scalar" || field.kind === "enum",
-  );
+export function filterSchemaFields(fields: readonly DMMF.Field[]): readonly DMMF.Field[] {
+  return fields.filter((field) => field.kind === 'scalar' || field.kind === 'enum');
 }
 
 /**
@@ -95,17 +89,13 @@ export function getModelDbName(model: DMMF.Model) {
 /**
  * Sort models alphabetically for deterministic output
  */
-export function sortModels(
-  models: readonly DMMF.Model[],
-): readonly DMMF.Model[] {
+export function sortModels(models: readonly DMMF.Model[]): readonly DMMF.Model[] {
   return models.slice().sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
  * Sort fields alphabetically for deterministic output
  */
-export function sortFields(
-  fields: readonly DMMF.Field[],
-): readonly DMMF.Field[] {
+export function sortFields(fields: readonly DMMF.Field[]): readonly DMMF.Field[] {
   return fields.slice().sort((a, b) => a.name.localeCompare(b.name));
 }

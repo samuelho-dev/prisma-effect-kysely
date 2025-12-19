@@ -6,8 +6,8 @@
  * Uses Effect Schema for strict validation.
  */
 
-import { Schema } from 'effect';
 import type { GeneratorOptions } from '@prisma/generator-helper';
+import { Schema } from 'effect';
 
 /**
  * Boolean string schema - strictly validates 'true' or 'false'

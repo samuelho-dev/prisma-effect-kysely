@@ -1,11 +1,10 @@
-import { jest } from '@jest/globals';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
-import type { GeneratorOptions } from '@prisma/generator-helper';
-import prismaInternals from '@prisma/internals';
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Kysely } from 'kysely';
+import type { GeneratorOptions } from '@prisma/generator-helper';
+import prismaInternals from '@prisma/internals';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
 
 const { getDMMF } = prismaInternals;
 
@@ -22,9 +21,9 @@ const { getDMMF } = prismaInternals;
  * NO type coercions (as any, as unknown).
  */
 
-// Mock prettier to avoid dynamic import issues in Jest
-jest.mock('../utils/templates', () => ({
-  formatCode: jest.fn((code: string) => Promise.resolve(code)),
+// Mock prettier to avoid dynamic import issues
+vi.mock('../utils/templates', () => ({
+  formatCode: vi.fn((code: string) => Promise.resolve(code)),
 }));
 
 describe('Kysely Integration - Functional Tests', () => {
@@ -159,7 +158,7 @@ describe('Kysely Integration - Functional Tests', () => {
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
-      const dbContent = dbMatch![1];
+      const dbContent = dbMatch?.[1];
 
       // Should have entries for each model using Kysely Table types
       expect(dbContent).toMatch(/:\s*\w+Table;/);
@@ -193,7 +192,7 @@ describe('Kysely Integration - Functional Tests', () => {
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
-      const dbContent = dbMatch![1];
+      const dbContent = dbMatch?.[1];
 
       // Should use Kysely Table types
       expect(dbContent).toMatch(/:\s*\w+Table;/);
@@ -211,7 +210,7 @@ describe('Kysely Integration - Functional Tests', () => {
 
   describe('Generated Code Validity', () => {
     let typesContent: string;
-    let enumsContent: string;
+    let _enumsContent: string;
     let indexContent: string;
 
     beforeEach(async () => {
@@ -224,13 +223,13 @@ describe('Kysely Integration - Functional Tests', () => {
       await orchestrator.generate(options);
 
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      enumsContent = readFileSync(join(testOutputPath, 'enums.ts'), 'utf-8');
+      _enumsContent = readFileSync(join(testOutputPath, 'enums.ts'), 'utf-8');
       indexContent = readFileSync(join(testOutputPath, 'index.ts'), 'utf-8');
     });
 
     it('should generate valid TypeScript that would compile', () => {
       // Basic syntax checks
-      expect(typesContent).toContain("import { Schema } from 'effect'");
+      expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
       expect(typesContent).toContain('export interface DB');
 
       // Should not have obvious syntax errors
@@ -240,13 +239,13 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should import required dependencies', () => {
       // types.ts should import from effect and runtime
-      expect(typesContent).toContain("import { Schema } from 'effect'");
+      expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely/);
     });
 
     it('should re-export all types from index', () => {
-      expect(indexContent).toContain("export * from './types.js'");
-      expect(indexContent).toContain("export * from './enums.js'");
+      expect(indexContent).toMatch(/export \* from ["']\.\/types\.js["']/);
+      expect(indexContent).toMatch(/export \* from ["']\.\/enums\.js["']/);
     });
 
     it('should generate consistent naming conventions', () => {
@@ -286,7 +285,7 @@ describe('Kysely Integration - Functional Tests', () => {
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
-      const dbContent = dbMatch![1];
+      const dbContent = dbMatch?.[1];
 
       // Should have table entries with Kysely table interfaces
       expect(dbContent).toMatch(/\w+:\s*\w+Table;/);

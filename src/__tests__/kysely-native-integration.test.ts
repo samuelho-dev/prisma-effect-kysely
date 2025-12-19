@@ -1,15 +1,15 @@
-import { jest } from '@jest/globals';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
-import type { GeneratorOptions } from '@prisma/generator-helper';
-import prismaInternals from '@prisma/internals';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import type { GeneratorOptions } from '@prisma/generator-helper';
+import prismaInternals from '@prisma/internals';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { GeneratorOrchestrator } from '../generator/orchestrator.js';
 
 const { getDMMF } = prismaInternals;
 
-// Mock prettier to avoid dynamic import issues in Jest
-jest.mock('../utils/templates', () => ({
-  formatCode: jest.fn((code: string) => Promise.resolve(code)),
+// Mock prettier to avoid dynamic import issues
+vi.mock('../utils/templates', () => ({
+  formatCode: vi.fn((code: string) => Promise.resolve(code)),
 }));
 
 describe('Kysely Native Integration', () => {
@@ -63,7 +63,7 @@ describe('Kysely Native Integration', () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
       // Should import ColumnType from kysely
-      expect(typesContent).toContain("import type { ColumnType } from 'kysely'");
+      expect(typesContent).toMatch(/import type \{ ColumnType \} from ["']kysely["']/);
 
       // Should generate UserTable interface
       expect(typesContent).toMatch(/export interface UserTable \{/);

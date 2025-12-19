@@ -73,67 +73,79 @@ export function detectImplicitManyToMany(models: readonly DMMF.Model[]): JoinTab
   const joinTables = new Map<string, JoinTableInfo>();
 
   for (const model of models) {
-    for (const field of model.fields) {
-      if (!isImplicitManyToManyField(field)) {
-        continue;
-      }
+    const validFields = model.fields.filter((field) => shouldProcessField(field, model, models));
 
-      // Get the related model
+    for (const field of validFields) {
       const relatedModel = models.find((m) => m.name === field.type);
-      if (!relatedModel) {
+      if (!(relatedModel && isValidImplicitRelation(field, relatedModel))) {
         continue;
       }
 
-      // Check if the relation is reciprocal (both sides are lists)
-      const relatedField = relatedModel.fields.find(
-        (f) => f.relationName === field.relationName && f.isList === true
-      );
-
-      if (!relatedField || !isImplicitManyToManyField(relatedField)) {
-        // Not a true implicit m-n relation
+      if (!field.relationName || joinTables.has(field.relationName)) {
         continue;
       }
 
-      // Skip self-relations (both sides point to same model)
-      if (model.name === relatedModel.name) {
-        continue;
+      const joinTableInfo = createJoinTableInfo(field, model, relatedModel, models);
+      if (joinTableInfo) {
+        joinTables.set(field.relationName, joinTableInfo);
       }
-
-      // Use Prisma's relation name for table naming
-      // For custom @relation("name"), Prisma creates _name
-      // For default relations, Prisma creates _ModelAToModelB
-      // Note: relationName should always be defined for implicit m-n relations
-      if (!field.relationName) {
-        continue;
-      }
-
-      const tableName = `_${field.relationName}`;
-      const relationName = field.relationName;
-
-      // Skip if we've already processed this relation
-      if (joinTables.has(relationName)) {
-        continue;
-      }
-
-      // Keep alphabetical ordering for A/B column assignment
-      const modelNames = [model.name, relatedModel.name].sort();
-
-      // Extract ID field types
-      const modelAIdField = getModelIdField(models.find((m) => m.name === modelNames[0])!);
-      const modelBIdField = getModelIdField(models.find((m) => m.name === modelNames[1])!);
-
-      joinTables.set(relationName, {
-        tableName,
-        relationName,
-        modelA: modelNames[0],
-        modelB: modelNames[1],
-        columnAType: modelAIdField.type,
-        columnBType: modelBIdField.type,
-        columnAIsUuid: isUuidField(modelAIdField),
-        columnBIsUuid: isUuidField(modelBIdField),
-      });
     }
   }
 
   return Array.from(joinTables.values());
+}
+
+function shouldProcessField(
+  field: DMMF.Field,
+  model: DMMF.Model,
+  models: readonly DMMF.Model[]
+): boolean {
+  if (!isImplicitManyToManyField(field)) {
+    return false;
+  }
+
+  const relatedModel = models.find((m) => m.name === field.type);
+  return !!(relatedModel && model.name !== relatedModel.name);
+}
+
+function createJoinTableInfo(
+  field: DMMF.Field,
+  model: DMMF.Model,
+  relatedModel: DMMF.Model,
+  models: readonly DMMF.Model[]
+): JoinTableInfo | null {
+  const modelNames = [model.name, relatedModel.name].sort();
+  const modelA = models.find((m) => m.name === modelNames[0]);
+  const modelB = models.find((m) => m.name === modelNames[1]);
+
+  if (!(modelA && modelB)) {
+    return null;
+  }
+
+  const modelAIdField = getModelIdField(modelA);
+  const modelBIdField = getModelIdField(modelB);
+  const relationName = field.relationName;
+
+  if (!relationName) {
+    return null;
+  }
+
+  return {
+    tableName: `_${relationName}`,
+    relationName,
+    modelA: modelNames[0],
+    modelB: modelNames[1],
+    columnAType: modelAIdField.type,
+    columnBType: modelBIdField.type,
+    columnAIsUuid: isUuidField(modelAIdField),
+    columnBIsUuid: isUuidField(modelBIdField),
+  };
+}
+
+function isValidImplicitRelation(field: DMMF.Field, relatedModel: DMMF.Model): boolean {
+  const relatedField = relatedModel.fields.find(
+    (f) => f.relationName === field.relationName && f.isList === true
+  );
+
+  return !!(relatedField && isImplicitManyToManyField(relatedField));
 }

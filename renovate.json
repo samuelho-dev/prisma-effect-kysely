@@ -1,43 +1,28 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-  "schedule": [
-    "before 3am on Monday"
-  ],
+  "extends": ["config:recommended"],
+  "schedule": ["before 3am on Monday"],
   "timezone": "UTC",
-  "labels": [
-    "dependencies"
-  ],
-  "assignees": [
-    "samuelho-dev"
-  ],
+  "labels": ["dependencies"],
+  "assignees": ["samuelho-dev"],
   "rangeStrategy": "bump",
   "semanticCommits": "enabled",
   "commitMessagePrefix": "chore(deps):",
   "packageRules": [
     {
       "description": "Group all patch and minor updates together",
-      "matchUpdateTypes": [
-        "patch",
-        "minor"
-      ],
+      "matchUpdateTypes": ["patch", "minor"],
       "groupName": "all non-major dependencies",
       "groupSlug": "all-minor-patch"
     },
     {
       "description": "Separate major updates",
-      "matchUpdateTypes": [
-        "major"
-      ],
+      "matchUpdateTypes": ["major"],
       "groupName": null
     },
     {
       "description": "Auto-merge patch updates after CI passes",
-      "matchUpdateTypes": [
-        "patch"
-      ],
+      "matchUpdateTypes": ["patch"],
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash"
@@ -54,37 +39,24 @@
     },
     {
       "description": "Group Prisma packages together",
-      "matchPackagePatterns": [
-        "^@prisma/",
-        "^prisma$"
-      ],
+      "matchPackagePatterns": ["^@prisma/", "^prisma$"],
       "groupName": "Prisma"
     },
     {
       "description": "Group testing packages together",
-      "matchPackagePatterns": [
-        "^jest",
-        "^@types/jest",
-        "^ts-jest"
-      ],
+      "matchPackagePatterns": ["^jest", "^@types/jest", "^ts-jest"],
       "groupName": "Testing"
     },
     {
       "description": "Pin Effect to avoid breaking changes",
-      "matchPackageNames": [
-        "effect"
-      ],
+      "matchPackageNames": ["effect"],
       "rangeStrategy": "pin"
     }
   ],
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": [
-      "security"
-    ],
-    "assignees": [
-      "samuelho-dev"
-    ]
+    "labels": ["security"],
+    "assignees": ["samuelho-dev"]
   },
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2

@@ -1,4 +1,4 @@
-import { writeFile, mkdir } from 'fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { formatCode } from './templates.js';
 

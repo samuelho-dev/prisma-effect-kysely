@@ -1,16 +1,16 @@
 import type { GeneratorOptions } from '@prisma/generator-helper';
-import { FileManager } from '../utils/file-manager.js';
-import { PrismaGenerator } from '../prisma/generator.js';
 import { EffectGenerator } from '../effect/generator.js';
 import { KyselyGenerator } from '../kysely/generator.js';
+import { PrismaGenerator } from '../prisma/generator.js';
+import { FileManager } from '../utils/file-manager.js';
 import {
-  parseGeneratorConfig,
+  type GeneratorConfig,
   isMultiDomainEnabled,
   isScaffoldingEnabled,
-  type GeneratorConfig,
+  parseGeneratorConfig,
 } from './config.js';
-import { detectDomains, type DomainInfo } from './domain-detector.js';
-import { scaffoldContractLibraries, logScaffoldResults } from './contract-scaffolder.js';
+import { logScaffoldResults, scaffoldContractLibraries } from './contract-scaffolder.js';
+import { type DomainInfo, detectDomains } from './domain-detector.js';
 
 /**
  * Orchestrates the generation of Effect Schema types from Prisma schema
@@ -79,11 +79,6 @@ export class GeneratorOrchestrator {
     const schemaPath = options.schemaPath;
     const domains = detectDomains(options.dmmf, schemaPath);
 
-    console.log(
-      `[Multi-Domain] Detected ${domains.length} domains:`,
-      domains.map((d) => d.name).join(', ')
-    );
-
     // 2. Scaffold contract libraries if enabled
     if (isScaffoldingEnabled(this.config)) {
       const scaffoldResults = await scaffoldContractLibraries(domains, this.config);
@@ -104,8 +99,6 @@ export class GeneratorOrchestrator {
     const domainFileManager = new FileManager(domainOutputPath);
 
     await domainFileManager.ensureDirectory();
-
-    console.log(`[Multi-Domain] Generating ${domain.name}...`);
 
     // Generate enums (shared across all domains for now)
     const enums = this.prismaGen.getEnums();
@@ -178,8 +171,6 @@ ${kyselyFields}
     // Generate index file
     const indexContent = this.kyselyGen.generateIndexFile();
     await domainFileManager.writeFile('index.ts', indexContent);
-
-    console.log(`[Multi-Domain] ✓ Generated ${domain.name} (${domain.models.length} models)`);
   }
 
   /**
@@ -262,16 +253,12 @@ ${kyselyFields}
    * Log generation start with stats
    */
   private logStart(options: GeneratorOptions) {
-    const modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith('_')).length;
-    const enumCount = options.dmmf.datamodel.enums.length;
-
-    console.log('[Prisma Effect Kysely Generator] Starting generation...');
-    console.log(`[Effect Generator] Processing ${modelCount} models, ${enumCount} enums`);
+    const _modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith('_')).length;
+    const _enumCount = options.dmmf.datamodel.enums.length;
 
     if (isMultiDomainEnabled(this.config)) {
-      console.log('[Effect Generator] Multi-domain mode: ENABLED');
       if (isScaffoldingEnabled(this.config)) {
-        console.log('[Effect Generator] Library scaffolding: ENABLED');
+        // Scaffolding logic would go here if needed
       }
     }
   }
@@ -280,14 +267,12 @@ ${kyselyFields}
    * Log generation completion
    */
   private logComplete() {
-    const outputPath = this.fileManager.getOutputPath();
+    const _outputPath = this.fileManager.getOutputPath();
 
     if (isMultiDomainEnabled(this.config)) {
-      console.log(`[Effect Generator] ✓ Multi-domain generation complete`);
-      console.log(`[Effect Generator] Base output: ${this.config.output}`);
+      // Multi-domain logic would go here if needed
     } else {
-      console.log(`[Effect Generator] ✓ Generated to ${outputPath}`);
-      console.log(`[Effect Generator] Files: enums.ts, types.ts, index.ts`);
+      // Single-domain logic would go here if needed
     }
   }
 }
