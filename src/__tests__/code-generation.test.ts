@@ -329,7 +329,7 @@ describe('Code Generation - E2E and Validation', () => {
       const options = {
         generator: { output: { value: testOutputPath } },
         dmmf: minimalDMMF,
-      } as GeneratorOptions;
+      };
 
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
