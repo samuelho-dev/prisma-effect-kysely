@@ -47,7 +47,8 @@ jobs:
 
       - name: Verify package
         run: |
-          npx --yes @arethetypeswrong/cli --pack .
+          # ESM-only package: don't require CJS support, and ignore node10.
+          npx --yes @arethetypeswrong/cli --pack . --profile node16 --ignore-rules cjs-resolves-to-esm
           npx --yes publint
 
   coverage:
@@ -75,7 +76,7 @@ jobs:
         run: pnpm run test:coverage
 
       - name: Upload coverage to Codecov (optional)
-        if: false  # Enable by setting to true and adding CODECOV_TOKEN secret
+        if: false # Enable by setting to true and adding CODECOV_TOKEN secret
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info

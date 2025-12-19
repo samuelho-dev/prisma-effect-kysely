@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 import { generatorHandler } from '@prisma/generator-helper';
+import { createRequire } from 'node:module';
+
 import { GeneratorOrchestrator } from './orchestrator.js';
-import packageJson from '../../package.json' with { type: 'json' };
+
+const require = createRequire(import.meta.url);
+const packageJson = require('../../package.json') as { version: string };
 
 // Re-export kysely helpers for generated code
 export * from '../kysely/helpers.js';
