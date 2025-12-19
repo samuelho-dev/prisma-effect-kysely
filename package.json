@@ -1,6 +1,6 @@
 {
   "name": "prisma-effect-kysely",
-  "version": "1.13.1",
+  "version": "1.14.0",
   "description": "Prisma generator that creates Effect Schema types from Prisma schema compatible with Kysely",
   "license": "MIT",
   "author": "Samuel Ho",
@@ -66,7 +66,10 @@
     "prepublishOnly": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "lint-staged": {
-    "*.ts": ["eslint --fix", "prettier --write"]
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@prisma/generator-helper": "^7.2.0",

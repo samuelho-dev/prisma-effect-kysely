@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.14.0
+
+### Minor Changes
+
+- 48451f3: Migrate to Pure ESM standards.
+  - Change package type to module and update exports.
+  - Switch to ESNext module and Bundler resolution in tsconfig.
+  - Update test suite for ESM compatibility using @jest/globals and import.meta.dirname.
+  - Standardize imports with node: prefix and explicit re-exports.
+  - Ensure generated code and build output follow ESM standards.
+
+### Patch Changes
+
+- 2c75314: Fix critical Effect Schema type errors and migrate to Biome linting
+  - Fix Schema.make context preservation in kysely helpers
+  - Replace Jest with Vitest for ESM compatibility
+  - Migrate from ESLint to Biome for modern linting
+  - Update all test files to use Vitest APIs
+  - Fix enum generation redeclaration conflicts
+  - Refactor complex functions to reduce cognitive complexity
+  - Remove all non-null assertions with proper null checks
+  - Update Node.js minimum version to 20.0.0
+
 ## 1.13.1
 
 ### Patch Changes
