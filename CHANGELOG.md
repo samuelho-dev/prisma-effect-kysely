@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.1
+
+### Patch Changes
+
+- [`77a8de3`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/77a8de3b790369455eed093d9d59baa4810e36d2) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Test Changesets CI/CD integration workflow
+
 ## 1.14.0
 
 ### Minor Changes
