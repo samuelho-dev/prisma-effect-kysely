@@ -50,7 +50,7 @@ jobs:
           mkdir -p .cursor
           # region agent log - Hypothesis A, B, D, E
           echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"A,B,D,E","location":"release.yml:pre-publish","message":"npm config before publish","data":{"npmVersion":"'"$(npm --version)"'","nodeVersion":"'"$(node --version)"'","npmConfigUserconfig":"'"${NPM_CONFIG_USERCONFIG:-not-set}"'","nodeAuthToken":"'"${NODE_AUTH_TOKEN:+SET}"'","npmConfigRegistry":"'"$(npm config get registry)"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
-          
+
           # Log .npmrc files
           if [ -f "$HOME/.npmrc" ]; then
             NPMRC_HOME=$(cat "$HOME/.npmrc" | base64 -w 0 2>/dev/null || cat "$HOME/.npmrc" | base64)
@@ -58,18 +58,18 @@ jobs:
           else
             echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"B","location":"release.yml:npmrc-home","message":"HOME .npmrc does not exist","data":{},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
           fi
-          
+
           if [ -f ".npmrc" ]; then
             NPMRC_LOCAL=$(cat ".npmrc" | base64 -w 0 2>/dev/null || cat ".npmrc" | base64)
             echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"B","location":"release.yml:npmrc-local","message":"Local .npmrc exists","data":{"content":"'"$NPMRC_LOCAL"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
           else
             echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"B","location":"release.yml:npmrc-local","message":"Local .npmrc does not exist","data":{},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
           fi
-          
+
           # Log npm config list
           NPM_CONFIG=$(npm config list --json | base64 -w 0 2>/dev/null || npm config list --json | base64)
           echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"A,C","location":"release.yml:npm-config","message":"npm config list","data":{"config":"'"$NPM_CONFIG"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
-          
+
           # Log environment variables related to npm
           echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"D,E","location":"release.yml:env-vars","message":"npm-related environment variables","data":{"NPM_CONFIG_USERCONFIG":"'"${NPM_CONFIG_USERCONFIG:-not-set}"'","NODE_AUTH_TOKEN":"'"${NODE_AUTH_TOKEN:+SET}"'","ACTIONS_ID_TOKEN_REQUEST_URL":"'"${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"'","ACTIONS_ID_TOKEN_REQUEST_TOKEN":"'"${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
           # endregion
@@ -80,11 +80,11 @@ jobs:
           # Check if package needs publishing
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           PUBLISHED_VERSION=$(npm view prisma-effect-kysely version 2>/dev/null || echo "")
-          
+
           # region agent log - Hypothesis A
           echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"A","location":"release.yml:publish-check","message":"Package version check","data":{"packageVersion":"'"$PACKAGE_VERSION"'","publishedVersion":"'"$PUBLISHED_VERSION"'","needsPublish":"'"$([ "$PUBLISHED_VERSION" != "$PACKAGE_VERSION" ] && echo "true" || echo "false")"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
           # endregion
-          
+
           if [ "$PUBLISHED_VERSION" != "$PACKAGE_VERSION" ]; then
             echo "Publishing prisma-effect-kysely@${PACKAGE_VERSION}"
             
@@ -97,6 +97,11 @@ jobs:
             # region agent log - Hypothesis A, E
             echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"A,E","location":"release.yml:pre-npm-publish","message":"Before npm publish","data":{"command":"npm publish --provenance --access public"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
             # endregion
+            
+            # Unset NPM_CONFIG_USERCONFIG to use setup-node's OIDC configuration
+            # instead of changesets/action's token-based .npmrc
+            unset NPM_CONFIG_USERCONFIG
+            unset NODE_AUTH_TOKEN
             
             npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish-output.log
             NPM_EXIT_CODE="${PIPESTATUS[0]}"
