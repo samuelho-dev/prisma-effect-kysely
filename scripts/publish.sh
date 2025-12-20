@@ -5,18 +5,23 @@ PACKAGE_NAME=$(node -p "require('./package.json').name")
 PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
 # Check if already published (idempotent)
-# Handle case where package doesn't exist yet (first publish)
 PUBLISHED_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "")
 if [ "$PUBLISHED_VERSION" = "$PACKAGE_VERSION" ]; then
   echo "Package $PACKAGE_NAME@$PACKAGE_VERSION already published, skipping."
   exit 0
 fi
 
+# Verify npm authentication
+echo "Verifying npm authentication..."
+npm whoami || {
+  echo "Error: npm authentication failed. Please check NODE_AUTH_TOKEN secret."
+  exit 1
+}
+
 # Run prepublish checks
 pnpm run prepublishOnly
 
 # Publish to npm with provenance
-# If package doesn't exist, npm publish will create it (no special handling needed)
 npm publish --provenance --access public
 
 # Create git tag
