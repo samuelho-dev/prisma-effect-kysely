@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.14.2
+
+### Patch Changes
+
+- [`b012d87`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/b012d87262b8558dd5a7adc0af1ec59fa3e62a5f) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Test workflow with PR creation permissions enabled
+
 ## 1.14.1
 
 ### Patch Changes
