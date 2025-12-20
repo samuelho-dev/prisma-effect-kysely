@@ -1,17 +1,5 @@
 # Changelog
 
-## 1.14.2
-
-### Patch Changes
-
-- [`b012d87`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/b012d87262b8558dd5a7adc0af1ec59fa3e62a5f) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Test workflow with PR creation permissions enabled
-
-## 1.14.1
-
-### Patch Changes
-
-- [`77a8de3`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/77a8de3b790369455eed093d9d59baa4810e36d2) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Test Changesets CI/CD integration workflow
-
 ## 1.14.0
 
 ### Minor Changes
