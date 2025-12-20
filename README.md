@@ -66,6 +66,7 @@ export type User = Schema.Schema.Type<typeof User>;
 ```
 
 **Naming Convention**: All exported schemas and types use PascalCase, regardless of the Prisma model naming convention:
+
 - Model `User` → `User`, `UserSelect`, `UserInsert`
 - Model `session_preference` → `SessionPreference`, `SessionPreferenceSelect`, `SessionPreferenceInsert`
 
@@ -195,12 +196,14 @@ model User {
 **Supported for**: All Prisma scalar types (String, Int, Float, Boolean, DateTime, BigInt, Decimal, Json, Bytes)
 
 **Use cases**:
+
 - Email/URL validation
 - Number constraints (positive, range, etc.)
 - Custom branded types
 - Refined string patterns
 
 **Examples**:
+
 ```typescript
 // Generated from Prisma schema with @customType annotations
 export const _User = Schema.Struct({
