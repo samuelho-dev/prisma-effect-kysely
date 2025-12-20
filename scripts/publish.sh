@@ -15,15 +15,25 @@ fi
 echo "Verifying npm authentication..."
 # Ensure npmrc is configured - setup-node creates it, but we need to ensure it's used
 if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
-  # Create/update .npmrc with the token
-  echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
-  echo "Configured .npmrc at ${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+  # Use the npmrc location that setup-node uses, or create our own
+  NPMRC_FILE="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+  echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > "$NPMRC_FILE"
+  echo "Configured .npmrc at $NPMRC_FILE"
+  # Also set the environment variable for npm
+  export NPM_CONFIG_USERCONFIG="$NPMRC_FILE"
+else
+  echo "Warning: NODE_AUTH_TOKEN not set, checking for existing .npmrc..."
 fi
 
-npm whoami || {
+# Verify authentication
+echo "Testing npm authentication..."
+npm whoami --registry=https://registry.npmjs.org || {
   echo "Error: npm authentication failed. Please check NODE_AUTH_TOKEN secret."
+  echo "NPMRC file location: ${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+  echo "Token present: $([ -n "${NODE_AUTH_TOKEN:-}" ] && echo "yes" || echo "no")"
   exit 1
 }
+echo "npm authentication successful"
 
 # Run prepublish checks
 pnpm run prepublishOnly
