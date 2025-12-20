@@ -44,6 +44,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Upgrade npm for OIDC support
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          npm install -g npm@latest
+          echo "Upgraded npm to $(npm --version)"
+
       - name: Debug npm configuration
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
