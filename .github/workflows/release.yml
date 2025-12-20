@@ -31,8 +31,8 @@ jobs:
         with:
           node-version: 22.x
           cache: pnpm
-          # Note: Do NOT set registry-url when using npm trusted publishing
-          # Setting registry-url creates an .npmrc that interferes with OIDC auth
+          registry-url: "https://registry.npmjs.org"
+          always-auth: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
