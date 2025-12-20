@@ -13,6 +13,13 @@ fi
 
 # Verify npm authentication
 echo "Verifying npm authentication..."
+# Ensure npmrc is configured - setup-node creates it, but we need to ensure it's used
+if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+  # Create/update .npmrc with the token
+  echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+  echo "Configured .npmrc at ${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+fi
+
 npm whoami || {
   echo "Error: npm authentication failed. Please check NODE_AUTH_TOKEN secret."
   exit 1
