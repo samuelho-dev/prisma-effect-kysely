@@ -98,10 +98,25 @@ jobs:
             echo '{"sessionId":"debug-session","runId":"initial","hypothesisId":"A,E","location":"release.yml:pre-npm-publish","message":"Before npm publish","data":{"command":"npm publish --provenance --access public"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
             # endregion
             
+            # region agent log - Hypothesis F, G, H
+            # Check for .npmrc files created by setup-node
+            SETUP_NODE_NPMRC=""
+            if [ -f "/home/runner/work/_temp/.npmrc" ]; then
+              SETUP_NODE_NPMRC=$(cat "/home/runner/work/_temp/.npmrc" | base64 -w 0 2>/dev/null || cat "/home/runner/work/_temp/.npmrc" | base64)
+            fi
+            echo '{"sessionId":"debug-session","runId":"post-fix","hypothesisId":"F,G","location":"release.yml:check-setup-node-npmrc","message":"Check setup-node npmrc before unset","data":{"tempNpmrc":"'"$SETUP_NODE_NPMRC"'","npmConfigUserconfig":"'"${NPM_CONFIG_USERCONFIG:-not-set}"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
+            # endregion
+            
             # Unset NPM_CONFIG_USERCONFIG to use setup-node's OIDC configuration
             # instead of changesets/action's token-based .npmrc
             unset NPM_CONFIG_USERCONFIG
             unset NODE_AUTH_TOKEN
+            
+            # region agent log - Hypothesis G, H
+            # Log npm config after unsetting
+            NPM_CONFIG_AFTER=$(npm config list --json | base64 -w 0 2>/dev/null || npm config list --json | base64)
+            echo '{"sessionId":"debug-session","runId":"post-fix","hypothesisId":"G,H","location":"release.yml:after-unset","message":"npm config after unset","data":{"config":"'"$NPM_CONFIG_AFTER"'","actionsIdTokenUrl":"'"${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"'","actionsIdTokenToken":"'"${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
+            # endregion
             
             npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish-output.log
             NPM_EXIT_CODE="${PIPESTATUS[0]}"
