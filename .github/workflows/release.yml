@@ -107,15 +107,19 @@ jobs:
             echo '{"sessionId":"debug-session","runId":"post-fix","hypothesisId":"F,G","location":"release.yml:check-setup-node-npmrc","message":"Check setup-node npmrc before unset","data":{"tempNpmrc":"'"$SETUP_NODE_NPMRC"'","npmConfigUserconfig":"'"${NPM_CONFIG_USERCONFIG:-not-set}"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
             # endregion
             
-            # Unset NPM_CONFIG_USERCONFIG to use setup-node's OIDC configuration
-            # instead of changesets/action's token-based .npmrc
-            unset NPM_CONFIG_USERCONFIG
+            # Create a clean .npmrc for OIDC publishing (no auth token)
+            # npm will use OIDC automatically when --provenance is used
+            echo "registry=https://registry.npmjs.org/" > .npmrc
+            
+            # Point npm to our clean .npmrc and unset the GitHub token
+            export NPM_CONFIG_USERCONFIG="$(pwd)/.npmrc"
             unset NODE_AUTH_TOKEN
             
             # region agent log - Hypothesis G, H
-            # Log npm config after unsetting
+            # Log npm config after creating clean npmrc
             NPM_CONFIG_AFTER=$(npm config list --json | base64 -w 0 2>/dev/null || npm config list --json | base64)
-            echo '{"sessionId":"debug-session","runId":"post-fix","hypothesisId":"G,H","location":"release.yml:after-unset","message":"npm config after unset","data":{"config":"'"$NPM_CONFIG_AFTER"'","actionsIdTokenUrl":"'"${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"'","actionsIdTokenToken":"'"${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
+            CLEAN_NPMRC=$(cat .npmrc | base64 -w 0 2>/dev/null || cat .npmrc | base64)
+            echo '{"sessionId":"debug-session","runId":"post-fix","hypothesisId":"G,H","location":"release.yml:after-clean-npmrc","message":"npm config after clean npmrc","data":{"config":"'"$NPM_CONFIG_AFTER"'","cleanNpmrc":"'"$CLEAN_NPMRC"'","actionsIdTokenUrl":"'"${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"'","actionsIdTokenToken":"'"${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"'"},"timestamp":'"$(date +%s)000"'}' >> .cursor/debug.log
             # endregion
             
             npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish-output.log
