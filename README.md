@@ -130,6 +130,33 @@ npm run typecheck
 npm run build
 ```
 
+## Releasing (CI/CD)
+
+This repo uses **Changesets** to automate versioning, changelog updates, npm publishing, git tags, and GitHub Releases.
+
+### For PR authors
+
+Add a changeset for any user-facing change:
+
+```bash
+pnpm changeset
+```
+
+Commit the generated file in `.changeset/`.
+
+### What happens on `main`
+
+- When changesets land on `main`, CI opens/updates a **Version Packages** PR.
+- When the **Version Packages** PR is merged, CI:
+  - updates `package.json` + `CHANGELOG.md`
+  - publishes to npm (with provenance)
+  - creates/pushes `vX.Y.Z` tag
+  - creates a GitHub Release
+
+### Required GitHub repo secrets
+
+- `NPM_TOKEN`: npm access token with permission to publish `prisma-effect-kysely`
+
 ## Architecture
 
 ### Type Safety
