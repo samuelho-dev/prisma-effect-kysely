@@ -49,14 +49,11 @@ jobs:
       - name: Create Git Tags and GitHub Releases
         if: steps.changesets.outputs.published == 'true'
         run: |
-          # Get published packages info
-          echo "Published packages: ${{ steps.changesets.outputs.publishedPackages }}"
-          
           # Extract version from package.json
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG="v$PACKAGE_VERSION"
-          
-          # Check if tag already exists
+
+          # Create git tag if it doesn't exist
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping."
           else
@@ -66,8 +63,8 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
-          
-          # Create GitHub Release (idempotent)
+
+          # Create GitHub Release if it doesn't exist
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "GitHub Release $TAG already exists, skipping."
           else
