@@ -138,12 +138,15 @@ This project uses [Changesets](https://github.com/changesets/changesets) for aut
 ### Creating a Release
 
 1. **Add a changeset** for your changes:
+
    ```bash
    pnpm changeset
    ```
+
    Follow the prompts to describe your changes (patch/minor/major).
 
 2. **Commit the changeset**:
+
    ```bash
    git add .changeset/
    git commit -m "docs: add changeset for [feature/fix]"
