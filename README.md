@@ -113,22 +113,61 @@ model User {
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run tests
-npm test
+pnpm test
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Run tests with coverage
-npm run test:coverage
+pnpm run test:coverage
 
 # Type check
-npm run typecheck
+pnpm run typecheck
 
 # Build
-npm run build
+pnpm run build
+```
+
+## Release Process
+
+This project uses [Changesets](https://github.com/changesets/changesets) for automated versioning and publishing:
+
+### Creating a Release
+
+1. **Add a changeset** for your changes:
+   ```bash
+   pnpm changeset
+   ```
+   Follow the prompts to describe your changes (patch/minor/major).
+
+2. **Commit the changeset**:
+   ```bash
+   git add .changeset/
+   git commit -m "docs: add changeset for [feature/fix]"
+   git push
+   ```
+
+3. **Automated Release PR**: The CI will automatically:
+   - Create or update a "Version Packages" PR
+   - Update `package.json` version
+   - Update `CHANGELOG.md`
+
+4. **Publish**: When you merge the "Version Packages" PR:
+   - CI automatically publishes to npm using Bun
+   - Creates a git tag (e.g., `v1.15.0`)
+   - Creates a GitHub release with auto-generated notes
+
+### Manual Publishing (if needed)
+
+```bash
+# Build and run all checks
+pnpm run prepublishOnly
+
+# Publish with Bun (recommended)
+bun publish --access public
 ```
 
 ## Releasing (CI/CD)
