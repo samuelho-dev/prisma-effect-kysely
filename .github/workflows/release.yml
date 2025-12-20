@@ -32,30 +32,21 @@ jobs:
           node-version: 22.x
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
-          always-auth: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Create Release PR
+      - name: Create Release PR or Publish
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm run changeset:version
+          publish: pnpm run prepublishOnly && npm publish --provenance --access public
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to npm with trusted publishing
-        if: steps.changesets.outputs.hasChangesets == 'false'
-        run: |
-          # Run prepublish checks and build
-          pnpm run prepublishOnly
-
-          # Publish with provenance using trusted publishing (OIDC)
-          npm publish --provenance --access public
-
       - name: Create Git Tags and GitHub Releases
-        if: steps.changesets.outputs.hasChangesets == 'false'
+        if: steps.changesets.outputs.published == 'true'
         run: |
           # Extract version from package.json
           PACKAGE_VERSION=$(node -p "require('./package.json').version")

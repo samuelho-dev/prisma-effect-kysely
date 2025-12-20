@@ -1,10 +1,10 @@
 {
-  "$schema": "https://unpkg.com/@changesets/config@3.2.0/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "samuelho-dev/prisma-effect-kysely" }],
+  "$schema": "https://unpkg.com/@changesets/config@3.1.2/schema.json",
+  "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
   "linked": [],
-  "access": "public",
+  "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": []
