@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { generatorHandler } from '@prisma/generator-helper';
+import pkg from '@prisma/generator-helper';
 
 import { GeneratorOrchestrator } from './orchestrator.js';
+
+const { generatorHandler } = pkg;
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json') as { version: string };
