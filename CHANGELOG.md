@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.14.1
+
+### Patch Changes
+
+- [`11d09a7`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/11d09a71ed233549a3bd591793b3f423cad71950) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Fix ESM/CJS interop for Prisma 7.x compatibility
+
+  Node.js ESM cannot use named imports from CJS modules. Changed `@prisma/generator-helper` import to use default import pattern:
+
+  ```typescript
+  // Before (broken in ESM)
+  import { generatorHandler } from '@prisma/generator-helper';
+
+  // After (works)
+  import pkg from '@prisma/generator-helper';
+  const { generatorHandler } = pkg;
+  ```
+
+  Added ESM compatibility tests to prevent future regressions.
+
 ## 1.14.0
 
 ### Minor Changes
