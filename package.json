@@ -54,7 +54,7 @@
   "packageManager": "pnpm@10.0.0",
   "scripts": {
     "build": "tsc -p tsconfig.lib.json",
-    "prepare": "husky",
+    "prepare": "node -e \"if(process.env.CI !== 'true') require('husky')()\" || true",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
