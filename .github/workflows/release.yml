@@ -58,13 +58,16 @@ jobs:
           if [ "$PUBLISHED_VERSION" != "$PACKAGE_VERSION" ]; then
             echo "Publishing prisma-effect-kysely@${PACKAGE_VERSION}"
             pnpm run prepublishOnly
-            bun publish --access public
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+            npm publish --access public --provenance
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
             echo "Version ${PACKAGE_VERSION} already published, skipping"
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
         id: publish
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create Git Tags and GitHub Releases
         if: steps.publish.outputs.published == 'true'
