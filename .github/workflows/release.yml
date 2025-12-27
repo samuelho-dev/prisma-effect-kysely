@@ -31,6 +31,7 @@ jobs:
         with:
           node-version: 22.x
           cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -58,7 +59,6 @@ jobs:
           if [ "$PUBLISHED_VERSION" != "$PACKAGE_VERSION" ]; then
             echo "Publishing prisma-effect-kysely@${PACKAGE_VERSION}"
             pnpm run prepublishOnly
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
             npm publish --access public --provenance
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
@@ -67,7 +67,7 @@ jobs:
           fi
         id: publish
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create Git Tags and GitHub Releases
         if: steps.publish.outputs.published == 'true'
