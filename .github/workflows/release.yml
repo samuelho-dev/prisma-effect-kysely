@@ -66,8 +66,6 @@ jobs:
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
         id: publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create Git Tags and GitHub Releases
         if: steps.publish.outputs.published == 'true'
