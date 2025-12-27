@@ -31,6 +31,7 @@ jobs:
         with:
           node-version: 24.x
           cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
