@@ -5,10 +5,6 @@ datasource db {
   provider = "postgresql"
 }
 
-generator test_client {
-  provider = "prisma-client-js"
-}
-
 generator effect_kysely {
   provider = "prisma-effect-kysely"
   output   = "../generated"

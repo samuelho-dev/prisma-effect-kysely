@@ -256,32 +256,35 @@ describe('Effect Schema - Runtime Behavior', () => {
       expect(result).not.toHaveProperty('createdAt');
     });
 
-    it('should make optional fields optional for insert', () => {
+    it('should require nullable fields to be present (with null or value)', () => {
       const _Product = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
-        description: Schema.UndefinedOr(Schema.String),
-        price: Schema.UndefinedOr(Schema.Number),
+        description: Schema.NullOr(Schema.String),
+        price: Schema.NullOr(Schema.Number),
       });
 
       const Product = getSchemas(_Product);
 
-      // Without optional fields
-      const minimalInsert = {
+      // With null values (SQL semantics - null must be explicit)
+      const insertWithNulls = {
         name: 'Widget',
+        description: null,
+        price: null,
       };
 
-      expect(() => Schema.decodeUnknownSync(Product.Insertable)(minimalInsert)).not.toThrow();
+      const result1 = Schema.decodeUnknownSync(Product.Insertable)(insertWithNulls);
+      expect(result1).toEqual(insertWithNulls);
 
-      // With optional fields
+      // With actual values
       const fullInsert = {
         name: 'Widget',
         description: 'A useful widget',
         price: 19.99,
       };
 
-      const result = Schema.decodeUnknownSync(Product.Insertable)(fullInsert);
-      expect(result).toEqual(fullInsert);
+      const result2 = Schema.decodeUnknownSync(Product.Insertable)(fullInsert);
+      expect(result2).toEqual(fullInsert);
     });
 
     it('should handle models with only generated fields', () => {
@@ -322,9 +325,9 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should allow updating multiple fields', () => {
       const _Profile = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-        bio: Schema.UndefinedOr(Schema.String),
-        avatar: Schema.UndefinedOr(Schema.String),
-        website: Schema.UndefinedOr(Schema.String),
+        bio: Schema.NullOr(Schema.String),
+        avatar: Schema.NullOr(Schema.String),
+        website: Schema.NullOr(Schema.String),
       });
 
       const Profile = getSchemas(_Profile);
@@ -338,20 +341,20 @@ describe('Effect Schema - Runtime Behavior', () => {
       expect(result).toEqual(update);
     });
 
-    it('should allow setting fields to undefined', () => {
+    it('should allow setting fields to null', () => {
       const _Model = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-        optionalField: Schema.UndefinedOr(Schema.String),
+        optionalField: Schema.NullOr(Schema.String),
       });
 
       const Model = getSchemas(_Model);
 
       const clearUpdate = {
-        optionalField: undefined,
+        optionalField: null,
       };
 
       const result = Schema.decodeUnknownSync(Model.Updateable)(clearUpdate);
-      expect(result).toEqual({ optionalField: undefined });
+      expect(result).toEqual({ optionalField: null });
     });
   });
 
@@ -408,19 +411,19 @@ describe('Effect Schema - Runtime Behavior', () => {
     it('should handle optional fields in select', () => {
       const _Profile = Schema.Struct({
         id: Schema.UUID,
-        bio: Schema.UndefinedOr(Schema.String),
+        bio: Schema.NullOr(Schema.String),
       });
 
       const Profile = getSchemas(_Profile);
 
-      // With undefined
-      const withUndefined = {
+      // With null
+      const withNull = {
         id: '123e4567-e89b-12d3-a456-426614174000',
-        bio: undefined,
+        bio: null,
       };
 
-      const result1 = Schema.decodeUnknownSync(Profile.Selectable)(withUndefined);
-      expect(result1).toEqual(withUndefined);
+      const result1 = Schema.decodeUnknownSync(Profile.Selectable)(withNull);
+      expect(result1).toEqual(withNull);
 
       // With value
       const withValue = {
@@ -567,19 +570,21 @@ describe('Effect Schema - Runtime Behavior', () => {
         email: Schema.String,
         username: Schema.String,
         // Optional fields
-        bio: Schema.UndefinedOr(Schema.String),
+        bio: Schema.NullOr(Schema.String),
       });
 
       const schemas = getSchemas(baseSchema);
 
-      // Insertable: no id, no created_at
+      // Insertable: no id, no created_at, but bio must be present (null or value)
       const insertResult = Schema.decodeUnknownSync(schemas.Insertable)({
         email: 'test@example.com',
         username: 'testuser',
+        bio: null,
       });
       expect(insertResult).toEqual({
         email: 'test@example.com',
         username: 'testuser',
+        bio: null,
       });
 
       // Updateable: partial update
@@ -610,8 +615,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         email: Schema.String,
         username: Schema.String,
         // Optional fields
-        bio: Schema.UndefinedOr(Schema.String),
-        avatar: Schema.UndefinedOr(Schema.String),
+        bio: Schema.NullOr(Schema.String),
+        avatar: Schema.NullOr(Schema.String),
         // Generated timestamps
         createdAt: generated(Schema.DateFromSelf),
         updatedAt: generated(Schema.DateFromSelf),
@@ -621,10 +626,12 @@ describe('Effect Schema - Runtime Behavior', () => {
 
       const User = getSchemas(_User);
 
-      // Insert: Only required fields and arrays
+      // Insert: Required fields, arrays, and nullable fields (must be explicit)
       const insertData = {
         email: 'test@example.com',
         username: 'testuser',
+        bio: null,
+        avatar: null,
         roles: ['USER'],
       };
 

@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.0.0
+
+### Major Changes
+
+- BREAKING: Switch from Schema.UndefinedOr to Schema.NullOr for nullable fields
+
+  This change aligns the generated schemas with SQL semantics where `null` represents missing values.
+
+  **Before:**
+
+  ```typescript
+  optionalField: Schema.UndefinedOr(Schema.String); // string | undefined
+  ```
+
+  **After:**
+
+  ```typescript
+  optionalField: Schema.NullOr(Schema.String); // string | null
+  ```
+
+  **Migration:**
+  1. Regenerate schemas with `prisma generate`
+  2. Update code that uses `undefined` for optional fields to use `null` instead
+  3. Nullable fields must now be explicitly passed (with `null` or a value)
+
+  **Rationale:**
+  - SQL databases use `null` for missing values, not `undefined`
+  - Aligns with Prisma Client which uses `T | null`
+  - `null` is preserved in JSON serialization (unlike `undefined`)
+  - Provides semantic clarity: `null` = "explicitly no value"
+
 ## 1.14.1
 
 ### Patch Changes

@@ -73,7 +73,7 @@ export function buildFieldType(field: DMMF.Field, dmmf: DMMF.Document) {
 
   // Handle optional fields (only if NOT already has @default)
   if (!(isRequiredField(field) || hasDefaultValue(field))) {
-    baseType = `Schema.UndefinedOr(${baseType})`;
+    baseType = `Schema.NullOr(${baseType})`;
   }
 
   return baseType;

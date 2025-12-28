@@ -136,7 +136,7 @@ describe('Enum Generation - Functional Tests', () => {
 
       const TaskSchema = Schema.Struct({
         name: Schema.String,
-        priority: Schema.UndefinedOr(PrioritySchema),
+        priority: Schema.NullOr(PrioritySchema),
       });
 
       // With priority
@@ -148,13 +148,14 @@ describe('Enum Generation - Functional Tests', () => {
       const result1 = Schema.decodeUnknownSync(TaskSchema)(withPriority);
       expect(result1.priority).toBe('HIGH');
 
-      // Without priority
-      const withoutPriority = {
+      // With null priority
+      const withNullPriority = {
         name: 'Task 2',
+        priority: null,
       };
 
-      const result2 = Schema.decodeUnknownSync(TaskSchema)(withoutPriority);
-      expect(result2.priority).toBeUndefined();
+      const result2 = Schema.decodeUnknownSync(TaskSchema)(withNullPriority);
+      expect(result2.priority).toBeNull();
     });
 
     it('should work with array of enum values', () => {
@@ -234,7 +235,7 @@ describe('Enum Generation - Functional Tests', () => {
       expect(result).toBe('Schema.Array(ProductStatusSchema)');
     });
 
-    it('should map optional enum field to UndefinedOr wrapper', () => {
+    it('should map optional enum field to NullOr wrapper', () => {
       const mockOptionalEnumField = createMockField({
         name: 'status',
         kind: 'enum',
@@ -251,8 +252,8 @@ describe('Enum Generation - Functional Tests', () => {
 
       const result = buildFieldType(mockOptionalEnumField, mockDMMF);
 
-      // Should wrap in UndefinedOr
-      expect(result).toBe('Schema.UndefinedOr(ProductStatusSchema)');
+      // Should wrap in NullOr
+      expect(result).toBe('Schema.NullOr(ProductStatusSchema)');
     });
   });
 
