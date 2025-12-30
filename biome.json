@@ -1,7 +1,6 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.10/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.0.6/schema.json",
   "extends": ["/Users/samuelho/.config/biome/biome.json"],
-  "files": {},
   "formatter": {
     "enabled": true,
     "formatWithErrors": false,

@@ -720,5 +720,187 @@ describe('Effect Schema - Runtime Behavior', () => {
       expect(Schema.isSchema(schemas.Insertable)).toBe(true);
       expect(Schema.isSchema(schemas.Updateable)).toBe(true);
     });
+
+    it('should make arrays mutable in Insertable schema for Kysely compatibility', () => {
+      // This test ensures that Schema.Array(...) which produces readonly T[]
+      // is transformed to mutable T[] for Insertable operations
+      // Kysely expects mutable string[] for INSERT operations, not readonly string[]
+      const baseSchema = Schema.Struct({
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+        names: Schema.Array(Schema.String),
+        tags: Schema.Array(Schema.String),
+      });
+
+      const { Insertable } = getSchemas(baseSchema);
+
+      // Runtime validation - arrays should be mutable
+      const insertData = {
+        names: ['typescript', 'effect'],
+        tags: ['kysely', 'prisma'],
+      };
+
+      const result = Schema.decodeUnknownSync(Insertable)(insertData);
+      expect(result).toEqual(insertData);
+
+      // Verify the decoded arrays are mutable (have push method)
+      // Using (result.names as any) to bypass readonly type check for runtime verification
+      expect(Array.isArray(result.names)).toBe(true);
+      (result.names as any).push('new-item');
+      expect(result.names).toContain('new-item');
+    });
+
+    it('should make arrays mutable in Updateable schema for Kysely compatibility', () => {
+      // This test ensures that array types are mutable in Updateable schema
+      // Kysely expects mutable string[] for UPDATE operations
+      const baseSchema = Schema.Struct({
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+        roles: Schema.Array(Schema.String),
+      });
+
+      const { Updateable } = getSchemas(baseSchema);
+
+      // Runtime validation - arrays should be mutable
+      const updateData = {
+        roles: ['admin', 'user'],
+      };
+
+      const result = Schema.decodeUnknownSync(Updateable)(updateData);
+      expect(result).toEqual(updateData);
+
+      // Verify the decoded arrays are mutable
+      expect(Array.isArray(result.roles)).toBe(true);
+      (result.roles as any).push('moderator');
+      expect(result.roles).toContain('moderator');
+    });
+
+    it('should preserve readonly arrays in Selectable schema', () => {
+      // This test ensures that arrays remain readonly in Selectable schema
+      // Select operations should return readonly arrays (immutable)
+      const baseSchema = Schema.Struct({
+        id: Schema.UUID,
+        items: Schema.Array(Schema.String),
+      });
+
+      const { Selectable } = getSchemas(baseSchema);
+
+      // Runtime validation - decode should work
+      const selectData = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        items: ['a', 'b', 'c'],
+      };
+
+      const result = Schema.decodeUnknownSync(Selectable)(selectData);
+      expect(result).toEqual(selectData);
+      expect(result.items).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should handle nested array types correctly', () => {
+      // Test nested arrays (e.g., coordinates: number[][])
+      const baseSchema = Schema.Struct({
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never), // Read-only ID
+        coordinates: Schema.Array(Schema.Array(Schema.Number)),
+      });
+
+      const { Insertable, Selectable } = getSchemas(baseSchema);
+
+      // Insertable: nested arrays should be mutable (no id field in insert)
+      const insertData = {
+        coordinates: [
+          [1, 2],
+          [3, 4],
+          [5, 6],
+        ],
+      };
+
+      const insertResult = Schema.decodeUnknownSync(Insertable)(insertData);
+      expect(insertResult).toEqual(insertData);
+
+      // Verify nested arrays are mutable
+      (insertResult.coordinates as any)[0].push(3);
+      expect(insertResult.coordinates[0]).toEqual([1, 2, 3]);
+
+      // Selectable: nested arrays should be readonly (id field required)
+      const selectData = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        coordinates: [
+          [1, 2],
+          [3, 4],
+        ],
+      };
+
+      const selectResult = Schema.decodeUnknownSync(Selectable)(selectData);
+      expect(selectResult).toEqual(selectData);
+    });
+
+    it('should handle array types with columnType() wrapper correctly', () => {
+      // Test that columnType with array types works correctly
+      // The insert/update schemas should still be mutable
+      const baseSchema = Schema.Struct({
+        // Read-only ID with columnType
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+        // Regular string array
+        names: Schema.Array(Schema.String),
+      });
+
+      const { Insertable, Updateable } = getSchemas(baseSchema);
+
+      // Insertable should accept mutable arrays
+      const insertData = {
+        names: ['test1', 'test2'],
+      };
+
+      const insertResult = Schema.decodeUnknownSync(Insertable)(insertData);
+      expect(insertResult).toEqual(insertData);
+
+      // Updateable should accept mutable arrays
+      const updateData = {
+        names: ['updated1', 'updated2'],
+      };
+
+      const updateResult = Schema.decodeUnknownSync(Updateable)(updateData);
+      expect(updateResult).toEqual(updateData);
+    });
+
+    it('should handle generated array fields (user use case: verification_fields_needed)', () => {
+      // This is the specific use case from the user:
+      // verification_fields_needed: generated(Schema.Array(Schema.String))
+      // The generated array should be omitted from Insertable but present in Selectable
+      const baseSchema = Schema.Struct({
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+        // This is the user's use case - generated array field
+        verification_fields_needed: generated(Schema.Array(Schema.String)),
+        name: Schema.String,
+      });
+
+      const { Selectable, Insertable, Updateable } = getSchemas(baseSchema);
+
+      // Selectable should include the generated array field
+      const selectData = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        verification_fields_needed: ['email', 'phone'],
+        name: 'Test',
+      };
+      const selectResult = Schema.decodeUnknownSync(Selectable)(selectData);
+      expect(selectResult.verification_fields_needed).toEqual(['email', 'phone']);
+
+      // Insertable should NOT include the generated field (omitted entirely)
+      const insertData = {
+        name: 'Test',
+      };
+      const insertResult = Schema.decodeUnknownSync(Insertable)(insertData);
+      expect(insertResult).toEqual(insertData);
+      expect(insertResult).not.toHaveProperty('verification_fields_needed');
+
+      // Updateable should allow updating the generated field
+      const updateData = {
+        verification_fields_needed: ['email', 'phone', 'address'],
+      };
+      const updateResult = Schema.decodeUnknownSync(Updateable)(updateData);
+      expect(updateResult.verification_fields_needed).toEqual(['email', 'phone', 'address']);
+
+      // Verify the array is mutable for update operations
+      (updateResult.verification_fields_needed as any).push('ssn');
+      expect(updateResult.verification_fields_needed).toContain('ssn');
+    });
   });
 });

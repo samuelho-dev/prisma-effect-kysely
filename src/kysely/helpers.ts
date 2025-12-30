@@ -120,9 +120,25 @@ const extractParametersFromTypeLiteral = (
     .map((prop: AST.PropertySignature) => {
       const columnSchemas = getColumnTypeSchemas(prop.type);
       if (columnSchemas !== null) {
+        // Use Schema.mutable() for insert/update schema to make arrays mutable
+        // Kysely expects mutable T[] for insert/update operations
+        const shouldBeMutable = schemaType === 'updateSchema' || schemaType === 'insertSchema';
         return new AST.PropertySignature(
           prop.name,
-          columnSchemas[schemaType].ast,
+          shouldBeMutable
+            ? Schema.mutable(columnSchemas[schemaType]).ast
+            : columnSchemas[schemaType].ast,
+          prop.isOptional,
+          prop.isReadonly,
+          prop.annotations
+        );
+      }
+      // Apply Schema.mutable() to regular fields for insert/updateSchema to make arrays mutable
+      // Safe for all types - no-op for non-arrays
+      if (schemaType === 'updateSchema' || schemaType === 'insertSchema') {
+        return new AST.PropertySignature(
+          prop.name,
+          Schema.mutable(Schema.make(prop.type)).ast,
           prop.isOptional,
           prop.isReadonly,
           prop.annotations
@@ -170,43 +186,28 @@ export const insertable = <Type, Encoded>(
   }
 
   // Extract and filter out generated fields entirely
-  const extracted = ast.propertySignatures
-    .map((prop: AST.PropertySignature): AST.PropertySignature | null => {
-      const columnSchemas = getColumnTypeSchemas(prop.type);
-      if (columnSchemas !== null) {
-        return new AST.PropertySignature(
-          prop.name,
-          columnSchemas.insertSchema.ast,
-          prop.isOptional,
-          prop.isReadonly,
-          prop.annotations
-        );
-      }
-      // For generated fields, mark them for filtering
-      if (isGeneratedType(prop.type)) {
-        return null; // Will be filtered out
-      }
-      return prop;
-    })
-    .filter((prop): prop is AST.PropertySignature => {
-      // Filter out generated fields (null) and Never types
-      return prop !== null && prop.type._tag !== 'NeverKeyword';
-    })
-    .map((prop): AST.PropertySignature => {
-      // Make Union(T, Undefined) fields optional
-      const isOptional = isOptionalType(prop.type);
+  const nonGeneratedProps = ast.propertySignatures.filter((prop) => !isGeneratedType(prop.type));
 
-      return new AST.PropertySignature(
-        prop.name,
-        prop.type,
-        isOptional,
-        prop.isReadonly,
-        prop.annotations
-      );
-    });
+  const filteredAst = new AST.TypeLiteral(nonGeneratedProps, ast.indexSignatures, ast.annotations);
 
-  const res = new AST.TypeLiteral(extracted, ast.indexSignatures, ast.annotations);
-  return Schema.make<Insertable<Type>, Insertable<Encoded>, never>(res);
+  const extracted = extractParametersFromTypeLiteral(filteredAst, 'insertSchema');
+
+  const fields = extracted.map((prop) => {
+    // Make Union(T, Undefined) fields optional
+    const isOptional = isOptionalType(prop.type);
+
+    return new AST.PropertySignature(
+      prop.name,
+      prop.type,
+      isOptional,
+      prop.isReadonly,
+      prop.annotations
+    );
+  });
+
+  return Schema.make<Insertable<Type>, Insertable<Encoded>, never>(
+    new AST.TypeLiteral(fields, ast.indexSignatures, ast.annotations)
+  );
 };
 
 /**
