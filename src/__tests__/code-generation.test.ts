@@ -448,4 +448,42 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).not.toMatch(/status:\s*STATUS/);
     });
   });
+
+  describe('Insert Type Field Omission', () => {
+    let typesContent: string;
+
+    beforeEach(async () => {
+      const options: GeneratorOptions = {
+        generator: { output: { value: testOutputPath } },
+        dmmf,
+      } as GeneratorOptions;
+
+      const orchestrator = new GeneratorOrchestrator(options);
+      await orchestrator.generate(options);
+
+      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
+    });
+
+    it('should omit ID fields with @default from Insert type', () => {
+      // User model has: id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+      // The generated UserInsert type should NOT include 'id' since it's database-generated
+      expect(typesContent).toMatch(
+        /export type UserInsert = Omit<Schema\.Schema\.Type<typeof User\.Insertable>,[^>]+"id"/
+      );
+      expect(typesContent).toMatch(
+        /export type UserInsertEncoded = Omit<Schema\.Schema\.Encoded<typeof User\.Insertable>,[^>]+"id"/
+      );
+    });
+
+    it('should omit multiple fields with @default from Insert type', () => {
+      // AllTypes model has multiple fields with @default:
+      // - id: @id @default(dbgenerated(...))
+      // - createdAt: @default(now())
+      // - updatedAt: @updatedAt
+      // All should be omitted from AllTypesInsert
+      expect(typesContent).toMatch(
+        /export type AllTypesInsert = Omit<Schema\.Schema\.Type<typeof AllTypes\.Insertable>,[^>]+"id"/
+      );
+    });
+  });
 });

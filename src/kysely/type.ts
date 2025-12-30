@@ -20,6 +20,21 @@ export function needsGenerated(field: DMMF.Field) {
 }
 
 /**
+ * Determine if field should be omitted from Insert type
+ * ID fields with @default are read-only (database generates them)
+ * Also includes non-ID fields with @default that use columnType with Schema.Never for insert
+ */
+export function needsOmitFromInsert(field: DMMF.Field) {
+  // ID fields with any @default (uuid, dbgenerated, autoincrement, etc.)
+  // These use columnType(..., Schema.Never, Schema.Never) and must be omitted
+  if (isIdField(field) && hasDefaultValue(field)) {
+    return true;
+  }
+  // Non-ID fields with @default that need to be omitted from insert
+  return needsGenerated(field);
+}
+
+/**
  * Apply Kysely helper wrappers to a field type
  */
 export function applyKyselyHelpers(fieldType: string, field: DMMF.Field) {

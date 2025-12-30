@@ -5,7 +5,7 @@ import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
-import { needsGenerated } from '../kysely/type.js';
+import { needsOmitFromInsert } from '../kysely/type.js';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -56,16 +56,16 @@ ${fieldDefinitions}
    */
   generateTypeExports(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const name = toPascalCase(model.name);
-    const generatedFieldNames = fields.filter(needsGenerated).map((field) => `"${field.name}"`);
-    const generatedFieldsUnion = generatedFieldNames.join(' | ');
+    const omittedFieldNames = fields.filter(needsOmitFromInsert).map((field) => `"${field.name}"`);
+    const omittedFieldsUnion = omittedFieldNames.join(' | ');
 
     const insertType =
-      generatedFieldNames.length > 0
-        ? `Omit<Schema.Schema.Type<typeof ${name}.Insertable>, ${generatedFieldsUnion}>`
+      omittedFieldNames.length > 0
+        ? `Omit<Schema.Schema.Type<typeof ${name}.Insertable>, ${omittedFieldsUnion}>`
         : `Schema.Schema.Type<typeof ${name}.Insertable>`;
     const insertEncodedType =
-      generatedFieldNames.length > 0
-        ? `Omit<Schema.Schema.Encoded<typeof ${name}.Insertable>, ${generatedFieldsUnion}>`
+      omittedFieldNames.length > 0
+        ? `Omit<Schema.Schema.Encoded<typeof ${name}.Insertable>, ${omittedFieldsUnion}>`
         : `Schema.Schema.Encoded<typeof ${name}.Insertable>`;
 
     // Application-side types (decoded - for repository layer)
