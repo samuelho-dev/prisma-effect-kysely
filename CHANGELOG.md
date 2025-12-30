@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+### Patch Changes
+
+- [`a54e7ff`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/a54e7ff6b701f37be911e4f798c1aabb76d3a2fb) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Fix mutable array types for Kysely insert/update operations. Schema.Array(...) now produces mutable T[] instead of readonly T[] for Insertable and Updateable schemas.
+
 ## 2.0.0
 
 ### Major Changes

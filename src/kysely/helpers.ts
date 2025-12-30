@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import * as AST from 'effect/SchemaAST';
 import type { Insertable, Selectable, Updateable } from 'kysely';
+import type { DeepMutable } from 'effect/Types';
 
 /**
  * Runtime helpers for Kysely schema integration
@@ -157,6 +158,9 @@ const extractParametersFromTypeLiteral = (
 /**
  * Create selectable schema from base schema
  */
+type MutableInsert<Type> = DeepMutable<Insertable<Type>>;
+type MutableUpdate<Type> = DeepMutable<Updateable<Type>>;
+
 export const selectable = <Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
 ): Schema.Schema<Selectable<Type>, Selectable<Encoded>, never> => {
@@ -179,10 +183,15 @@ export const selectable = <Type, Encoded>(
  */
 export const insertable = <Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<Insertable<Type>, Insertable<Encoded>, never> => {
+): Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.make<Insertable<Type>, Insertable<Encoded>, never>(ast);
+    const baseSchema = Schema.make<Insertable<Type>, Insertable<Encoded>, never>(ast);
+    return baseSchema as unknown as Schema.Schema<
+      MutableInsert<Type>,
+      MutableInsert<Encoded>,
+      never
+    >;
   }
 
   // Extract and filter out generated fields entirely
@@ -205,9 +214,14 @@ export const insertable = <Type, Encoded>(
     );
   });
 
-  return Schema.make<Insertable<Type>, Insertable<Encoded>, never>(
+  const insertSchema = Schema.make<Insertable<Type>, Insertable<Encoded>, never>(
     new AST.TypeLiteral(fields, ast.indexSignatures, ast.annotations)
   );
+  return insertSchema as unknown as Schema.Schema<
+    MutableInsert<Type>,
+    MutableInsert<Encoded>,
+    never
+  >;
 };
 
 /**
@@ -215,10 +229,15 @@ export const insertable = <Type, Encoded>(
  */
 export const updateable = <Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<Updateable<Type>, Updateable<Encoded>, never> => {
+): Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.make<Updateable<Type>, Updateable<Encoded>, never>(ast);
+    const baseSchema = Schema.make<Updateable<Type>, Updateable<Encoded>, never>(ast);
+    return baseSchema as unknown as Schema.Schema<
+      MutableUpdate<Type>,
+      MutableUpdate<Encoded>,
+      never
+    >;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
@@ -238,13 +257,18 @@ export const updateable = <Type, Encoded>(
     ast.annotations
   );
 
-  return Schema.make<Updateable<Type>, Updateable<Encoded>, never>(res);
+  const updateSchema = Schema.make<Updateable<Type>, Updateable<Encoded>, never>(res);
+  return updateSchema as unknown as Schema.Schema<
+    MutableUpdate<Type>,
+    MutableUpdate<Encoded>,
+    never
+  >;
 };
 
 export interface Schemas<Type, Encoded> {
   Selectable: Schema.Schema<Selectable<Type>, Selectable<Encoded>, never>;
-  Insertable: Schema.Schema<Insertable<Type>, Insertable<Encoded>, never>;
-  Updateable: Schema.Schema<Updateable<Type>, Updateable<Encoded>, never>;
+  Insertable: Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
+  Updateable: Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never>;
 }
 
 /**

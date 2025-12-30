@@ -185,12 +185,12 @@ const testSelect: UserSelect = {
 
       // Should still generate type exports
       expect(typesContent).toMatch(/export type UserSelect = Schema\.Schema\.Type/);
-      expect(typesContent).toMatch(/export type UserInsert = Schema\.Schema\.Type/);
+      expect(typesContent).toMatch(/export type UserInsert = Omit<Schema\.Schema\.Type/);
       expect(typesContent).toMatch(/export type UserUpdate = Schema\.Schema\.Type/);
 
       // Should still generate encoded exports
       expect(typesContent).toMatch(/export type UserSelectEncoded = Schema\.Schema\.Encoded/);
-      expect(typesContent).toMatch(/export type UserInsertEncoded = Schema\.Schema\.Encoded/);
+      expect(typesContent).toMatch(/export type UserInsertEncoded = Omit<Schema\.Schema\.Encoded/);
       expect(typesContent).toMatch(/export type UserUpdateEncoded = Schema\.Schema\.Encoded/);
     });
   });

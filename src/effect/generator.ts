@@ -5,6 +5,7 @@ import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
+import { needsGenerated } from '../kysely/type.js';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -51,19 +52,30 @@ ${fieldDefinitions}
   /**
    * Generate TypeScript type exports
    *
-   * Trusts runtime schema transformation - insertable() helper filters generated fields
+   * Insert types omit generated fields so TS matches runtime schema filtering
    */
-  generateTypeExports(model: DMMF.Model, _fields: readonly DMMF.Field[]) {
+  generateTypeExports(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const name = toPascalCase(model.name);
+    const generatedFieldNames = fields.filter(needsGenerated).map((field) => `"${field.name}"`);
+    const generatedFieldsUnion = generatedFieldNames.join(' | ');
+
+    const insertType =
+      generatedFieldNames.length > 0
+        ? `Omit<Schema.Schema.Type<typeof ${name}.Insertable>, ${generatedFieldsUnion}>`
+        : `Schema.Schema.Type<typeof ${name}.Insertable>`;
+    const insertEncodedType =
+      generatedFieldNames.length > 0
+        ? `Omit<Schema.Schema.Encoded<typeof ${name}.Insertable>, ${generatedFieldsUnion}>`
+        : `Schema.Schema.Encoded<typeof ${name}.Insertable>`;
 
     // Application-side types (decoded - for repository layer)
     const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
-export type ${name}Insert = Schema.Schema.Type<typeof ${name}.Insertable>;
+export type ${name}Insert = ${insertType};
 export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
 
     // Database-side encoded types (for queries layer)
     const encodedTypes = `export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
-export type ${name}InsertEncoded = Schema.Schema.Encoded<typeof ${name}.Insertable>;
+export type ${name}InsertEncoded = ${insertEncodedType};
 export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
 
     return `${applicationTypes}\n${encodedTypes}`;
