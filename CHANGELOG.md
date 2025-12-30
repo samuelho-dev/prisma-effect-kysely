@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.2
+
+### Patch Changes
+
+- Fix the 2.0.1 release so TypeScript sees mutable arrays on insert/update schemas and userland insert types omit generated fields.
+
 ## 2.0.1
 
 ### Patch Changes
