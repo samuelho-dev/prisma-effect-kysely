@@ -32,7 +32,7 @@ export class GeneratorOrchestrator {
 
     this.fileManager = new FileManager(this.config.output);
     this.prismaGen = new PrismaGenerator(options.dmmf);
-    this.effectGen = new EffectGenerator(options.dmmf);
+    this.effectGen = new EffectGenerator(options.dmmf, this.config);
     this.kyselyGen = new KyselyGenerator(options.dmmf);
   }
 

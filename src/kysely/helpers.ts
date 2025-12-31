@@ -288,3 +288,29 @@ export interface GetTypes<T extends Schemas<unknown, unknown>> {
   Insertable: Schema.Schema.Type<T['Insertable']>;
   Updateable: Schema.Schema.Type<T['Updateable']>;
 }
+
+type RemoveIndexSignature<T> = {
+  [K in keyof T as K extends string
+    ? string extends K
+      ? never
+      : K
+    : K extends number
+      ? number extends K
+        ? never
+        : K
+      : K extends symbol
+        ? symbol extends K
+          ? never
+          : K
+        : K]: T[K];
+};
+
+export type StrictSelectable<T extends Schemas<unknown, unknown>> = RemoveIndexSignature<
+  Schema.Schema.Type<T['Selectable']>
+>;
+export type StrictInsertable<T extends Schemas<unknown, unknown>> = RemoveIndexSignature<
+  Schema.Schema.Type<T['Insertable']>
+>;
+export type StrictUpdateable<T extends Schemas<unknown, unknown>> = RemoveIndexSignature<
+  Schema.Schema.Type<T['Updateable']>
+>;

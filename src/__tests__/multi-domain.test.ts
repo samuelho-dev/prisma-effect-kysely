@@ -12,9 +12,11 @@ import * as path from 'node:path';
 import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  getStrictTypeSuffix,
   isMultiDomainEnabled,
   isScaffoldingEnabled,
   parseGeneratorConfig,
+  shouldGenerateStrictTypes,
 } from '../generator/config.js';
 import { detectDomains } from '../generator/domain-detector.js';
 import { GeneratorOrchestrator } from '../generator/orchestrator.js';
@@ -139,6 +141,37 @@ describe('Multi-Domain Generation', () => {
       expect(config.multiFileDomains).toBe('false');
       expect(config.scaffoldLibraries).toBe('false');
       expect(isMultiDomainEnabled(config)).toBe(false);
+    });
+
+    it('should default to emitting strict types with the "Strict" suffix', () => {
+      const mockOptions = {
+        generator: {
+          output: { value: testOutputDir },
+          config: {},
+        },
+      } as unknown as GeneratorOptions;
+
+      const config = parseGeneratorConfig(mockOptions);
+
+      expect(shouldGenerateStrictTypes(config)).toBe(true);
+      expect(getStrictTypeSuffix(config)).toBe('Strict');
+    });
+
+    it('should respect strict type configuration overrides', () => {
+      const mockOptions = {
+        generator: {
+          output: { value: testOutputDir },
+          config: {
+            generateStrictTypes: 'false',
+            strictTypeSuffix: 'Precise',
+          },
+        },
+      } as unknown as GeneratorOptions;
+
+      const config = parseGeneratorConfig(mockOptions);
+
+      expect(shouldGenerateStrictTypes(config)).toBe(false);
+      expect(getStrictTypeSuffix(config)).toBe('Precise');
     });
   });
 

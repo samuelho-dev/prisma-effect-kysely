@@ -42,6 +42,16 @@ const GeneratorConfigSchema = Schema.Struct({
    * Preview features to enable
    */
   previewFeatures: Schema.Array(Schema.String),
+
+  /**
+   * Emit stricter Select/Insert/Update aliases without index signatures
+   */
+  generateStrictTypes: BooleanString,
+
+  /**
+   * Custom suffix used for strict aliases (e.g., SelectStrict)
+   */
+  strictTypeSuffix: Schema.String,
 });
 
 /**
@@ -72,6 +82,8 @@ export function parseGeneratorConfig(options: GeneratorOptions) {
     scaffoldLibraries: getStringValue(config, 'scaffoldLibraries') ?? 'false',
     libraryGenerator: getStringValue(config, 'libraryGenerator'),
     previewFeatures: getArrayValue(config, 'previewFeatures'),
+    generateStrictTypes: getStringValue(config, 'generateStrictTypes') ?? 'true',
+    strictTypeSuffix: getStringValue(config, 'strictTypeSuffix') ?? 'Strict',
   };
 
   // Validate with Effect Schema - throws on invalid input
@@ -124,4 +136,18 @@ export function isMultiDomainEnabled(config: GeneratorConfig) {
  */
 export function isScaffoldingEnabled(config: GeneratorConfig) {
   return config.scaffoldLibraries === 'true' && isMultiDomainEnabled(config);
+}
+
+/**
+ * Check if strict Select/Insert/Update aliases should be emitted
+ */
+export function shouldGenerateStrictTypes(config: GeneratorConfig) {
+  return config.generateStrictTypes === 'true';
+}
+
+/**
+ * Suffix to append to strict alias names
+ */
+export function getStrictTypeSuffix(config: GeneratorConfig) {
+  return config.strictTypeSuffix;
 }

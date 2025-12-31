@@ -10,7 +10,13 @@ const { generatorHandler } = pkg;
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json') as { version: string };
 
-export type { GetTypes, Schemas } from '../kysely/helpers.js';
+export type {
+  GetTypes,
+  Schemas,
+  StrictInsertable,
+  StrictSelectable,
+  StrictUpdateable,
+} from '../kysely/helpers.js';
 // Re-export kysely helpers for generated code
 export {
   columnType,

@@ -37,6 +37,30 @@ generator effect_schemas {
 npx prisma generate
 ```
 
+### Generator Options
+
+Alongside `output`, the generator accepts the following options inside the Prisma `generator` block:
+
+| Option               | Type    | Default  | Description                                                                 |
+| -------------------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `multiFileDomains`   | string  | `"false"`| Enable multi-domain detection and generation                                |
+| `scaffoldLibraries`  | string  | `"false"`| Scaffold contract libraries per detected domain                             |
+| `libraryGenerator`   | string? | `null`   | Path to the monorepo library scaffolder                                     |
+| `previewFeatures`    | string[]| `[]`     | Forwarded preview features                                                  |
+| `generateStrictTypes`| string  | `"true"` | Emit strict Select/Insert/Update aliases without index signatures           |
+| `strictTypeSuffix`   | string  | `"Strict"`| Suffix appended to strict aliases (e.g., `UserSelectStrict`)                |
+
+Example disabling strict aliases and using a custom suffix:
+
+```prisma
+generator effect_schemas {
+  provider            = "prisma-effect-kysely"
+  output              = "./generated/effect"
+  generateStrictTypes = "false"
+  strictTypeSuffix    = "Types"
+}
+```
+
 ## Output
 
 Generates three files in the configured output directory:
@@ -75,6 +99,24 @@ This ensures consistent TypeScript identifier naming while preserving the origin
 ### index.ts
 
 Re-exports all generated types for easy importing
+
+## Strict Type Aliases
+
+By default the generator emits strict Select/Insert/Update aliases that remove index signatures introduced by TypeScript’s structural typing rules. They are derived from the runtime schemas via helper types exported from `prisma-effect-kysely`:
+
+```typescript
+import type {
+  StrictSelectable,
+  StrictInsertable,
+  StrictUpdateable,
+} from 'prisma-effect-kysely';
+
+export type UserSelectStrict = StrictSelectable<typeof User>;
+export type UserInsertStrict = StrictInsertable<typeof User>;
+export type UserUpdateStrict = StrictUpdateable<typeof User>;
+```
+
+Use these when you want repository code like `updateValues.name` to benefit from dot-intellisense without relaxing the runtime schema guarantees. Set `generateStrictTypes = "false"` if you prefer to opt out, or change `strictTypeSuffix` to match your project’s naming conventions.
 
 ## Type Mappings
 

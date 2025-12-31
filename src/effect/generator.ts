@@ -6,12 +6,20 @@ import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
 import { needsOmitFromInsert } from '../kysely/type.js';
+import {
+  type GeneratorConfig,
+  getStrictTypeSuffix,
+  shouldGenerateStrictTypes,
+} from '../generator/config.js';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
  */
 export class EffectGenerator {
-  constructor(private readonly dmmf: DMMF.Document) {}
+  constructor(
+    private readonly dmmf: DMMF.Document,
+    private readonly config: GeneratorConfig
+  ) {}
 
   /**
    * Generate enums.ts file content
@@ -78,7 +86,16 @@ export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
 export type ${name}InsertEncoded = ${insertEncodedType};
 export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
 
-    return `${applicationTypes}\n${encodedTypes}`;
+    let strictTypes = '';
+    if (this.shouldEmitStrictTypes()) {
+      const strictSuffix = getStrictTypeSuffix(this.config);
+      strictTypes = `
+export type ${name}Select${strictSuffix} = StrictSelectable<typeof ${name}>;
+export type ${name}Insert${strictSuffix} = StrictInsertable<typeof ${name}>;
+export type ${name}Update${strictSuffix} = StrictUpdateable<typeof ${name}>;`;
+    }
+
+    return `${applicationTypes}\n${encodedTypes}${strictTypes}`;
   }
 
   /**
@@ -105,6 +122,12 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
       `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
     ];
+
+    if (this.shouldEmitStrictTypes()) {
+      imports.push(
+        `import type { StrictInsertable, StrictSelectable, StrictUpdateable } from "prisma-effect-kysely";`
+      );
+    }
 
     if (hasEnums) {
       // Only import Schema wrappers (not plain enum types)
@@ -135,5 +158,9 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
    */
   generateJoinTableKyselyInterfaces(joinTables: JoinTableInfo[]) {
     return joinTables.map(generateJoinTableKyselyInterface).join('\n\n');
+  }
+
+  private shouldEmitStrictTypes() {
+    return shouldGenerateStrictTypes(this.config);
   }
 }
