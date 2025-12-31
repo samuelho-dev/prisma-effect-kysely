@@ -151,7 +151,7 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
       expect(typesContent).toMatch(
-        /import type \{ StrictInsertable, StrictSelectable, StrictUpdateable \} from ["']prisma-effect-kysely["']/
+        /import type \{ StrictType \} from ["']prisma-effect-kysely["']/
       );
 
       // enums.ts imports
@@ -168,22 +168,14 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/export const Post = getSchemas\(_Post\)/);
     });
 
-    it('should export TypeScript types for Select/Insert/Update', () => {
+    it('should export strict Select/Insert/Update types without index signatures', () => {
       expect(typesContent).toMatch(
-        /export type \w+Select = Schema\.Schema\.Type<typeof \w+\.Selectable>/
+        /export type \w+Select = StrictType<Schema\.Schema\.Type<typeof \w+\.Selectable>>/
       );
+      expect(typesContent).toMatch(/export type \w+Insert = StrictType</);
       expect(typesContent).toMatch(
-        /export type \w+Insert = Schema\.Schema\.Type<typeof \w+\.Insertable>/
+        /export type \w+Update = StrictType<Schema\.Schema\.Type<typeof \w+\.Updateable>>/
       );
-      expect(typesContent).toMatch(
-        /export type \w+Update = Schema\.Schema\.Type<typeof \w+\.Updateable>/
-      );
-    });
-
-    it('should export strict Select/Insert/Update aliases by default', () => {
-      expect(typesContent).toMatch(/export type \w+SelectStrict = StrictSelectable<typeof \w+>/);
-      expect(typesContent).toMatch(/export type \w+InsertStrict = StrictInsertable<typeof \w+>/);
-      expect(typesContent).toMatch(/export type \w+UpdateStrict = StrictUpdateable<typeof \w+>/);
     });
 
     it('should export Encoded types for Kysely compatibility', () => {
@@ -214,10 +206,10 @@ describe('Code Generation - E2E and Validation', () => {
       expect(indexContent).toMatch(/export \* from ["']\.\/enums\.js["']/);
     });
 
-    it('should always emit strict type aliases with the default suffix', () => {
-      expect(typesContent).toMatch(/export type \w+SelectStrict = StrictSelectable/);
-      expect(typesContent).toMatch(/export type \w+InsertStrict = StrictInsertable/);
-      expect(typesContent).toMatch(/export type \w+UpdateStrict = StrictUpdateable/);
+    it('should not export duplicate strict alias names', () => {
+      expect(typesContent).not.toMatch(/SelectStrict/);
+      expect(typesContent).not.toMatch(/InsertStrict/);
+      expect(typesContent).not.toMatch(/UpdateStrict/);
     });
   });
 
@@ -483,7 +475,7 @@ describe('Code Generation - E2E and Validation', () => {
       // User model has: id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
       // The generated UserInsert type should NOT include 'id' since it's database-generated
       expect(typesContent).toMatch(
-        /export type UserInsert = Omit<Schema\.Schema\.Type<typeof User\.Insertable>,[^>]+"id"/
+        /export type UserInsert = StrictType<Omit<Schema\.Schema\.Type<typeof User\.Insertable>,[^>]+"id"/
       );
       expect(typesContent).toMatch(
         /export type UserInsertEncoded = Omit<Schema\.Schema\.Encoded<typeof User\.Insertable>,[^>]+"id"/
@@ -497,7 +489,7 @@ describe('Code Generation - E2E and Validation', () => {
       // - updatedAt: @updatedAt
       // All should be omitted from AllTypesInsert
       expect(typesContent).toMatch(
-        /export type AllTypesInsert = Omit<Schema\.Schema\.Type<typeof AllTypes\.Insertable>,[^>]+"id"/
+        /export type AllTypesInsert = StrictType<Omit<Schema\.Schema\.Type<typeof AllTypes\.Insertable>,[^>]+"id"/
       );
     });
   });

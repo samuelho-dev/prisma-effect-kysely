@@ -6,7 +6,6 @@ import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
 import { needsOmitFromInsert } from '../kysely/type.js';
-const STRICT_SUFFIX = 'Strict';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -70,21 +69,16 @@ ${fieldDefinitions}
         : `Schema.Schema.Encoded<typeof ${name}.Insertable>`;
 
     // Application-side types (decoded - for repository layer)
-    const applicationTypes = `export type ${name}Select = Schema.Schema.Type<typeof ${name}.Selectable>;
-export type ${name}Insert = ${insertType};
-export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
+    const applicationTypes = `export type ${name}Select = StrictType<Schema.Schema.Type<typeof ${name}.Selectable>>;
+export type ${name}Insert = StrictType<${insertType}>;
+export type ${name}Update = StrictType<Schema.Schema.Type<typeof ${name}.Updateable>>;`;
 
     // Database-side encoded types (for queries layer)
     const encodedTypes = `export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
 export type ${name}InsertEncoded = ${insertEncodedType};
 export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
 
-    const strictTypes = `
-export type ${name}Select${STRICT_SUFFIX} = StrictSelectable<typeof ${name}>;
-export type ${name}Insert${STRICT_SUFFIX} = StrictInsertable<typeof ${name}>;
-export type ${name}Update${STRICT_SUFFIX} = StrictUpdateable<typeof ${name}>;`;
-
-    return `${applicationTypes}\n${encodedTypes}${strictTypes}`;
+    return `${applicationTypes}\n${encodedTypes}`;
   }
 
   /**
@@ -110,7 +104,7 @@ export type ${name}Update${STRICT_SUFFIX} = StrictUpdateable<typeof ${name}>;`;
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
-      `import type { StrictInsertable, StrictSelectable, StrictUpdateable } from "prisma-effect-kysely";`,
+      `import type { StrictType } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {

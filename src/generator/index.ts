@@ -15,6 +15,7 @@ export type {
   Schemas,
   StrictInsertable,
   StrictSelectable,
+  StrictType,
   StrictUpdateable,
 } from '../kysely/helpers.js';
 // Re-export kysely helpers for generated code

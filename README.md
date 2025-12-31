@@ -78,21 +78,23 @@ Re-exports all generated types for easy importing
 
 ## Strict Type Aliases
 
-The generator always emits strict Select/Insert/Update aliases (with the `Strict` suffix) that remove index signatures introduced by TypeScript’s structural typing rules. They are derived from the runtime schemas via helper types exported from `prisma-effect-kysely`:
+The generator always emits strict `Select` / `Insert` / `Update` aliases (no extra suffix) that remove index signatures introduced by TypeScript’s structural typing rules. Under the hood we wrap the Effect schema output with the `StrictType<T>` helper:
 
 ```typescript
-import type {
-  StrictSelectable,
-  StrictInsertable,
-  StrictUpdateable,
-} from 'prisma-effect-kysely';
+import type { StrictType } from 'prisma-effect-kysely';
 
-export type UserSelectStrict = StrictSelectable<typeof User>;
-export type UserInsertStrict = StrictInsertable<typeof User>;
-export type UserUpdateStrict = StrictUpdateable<typeof User>;
+export type UserSelect = StrictType<Schema.Schema.Type<typeof User.Selectable>>;
+export type UserInsert = StrictType<Omit<Schema.Schema.Type<typeof User.Insertable>, 'id'>>;
+export type UserUpdate = StrictType<Schema.Schema.Type<typeof User.Updateable>>;
 ```
 
-Use these when you want repository code like `updateValues.name` to benefit from dot-intellisense without relaxing the runtime schema guarantees.
+If you need the original Effect schema type (with the index signature), read it directly from the schema:
+
+```ts
+type RawUserSelect = Schema.Schema.Type<typeof User.Selectable>;
+```
+
+The `StrictSelectable`, `StrictInsertable`, and `StrictUpdateable` helpers remain exported for advanced scenarios, but the generated aliases already apply the strict typing by default.
 
 ## Type Mappings
 

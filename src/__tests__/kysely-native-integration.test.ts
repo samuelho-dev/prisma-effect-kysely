@@ -183,10 +183,10 @@ const testSelect: UserSelect = {
       // Should still generate operational schemas
       expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
 
-      // Should still generate type exports
-      expect(typesContent).toMatch(/export type UserSelect = Schema\.Schema\.Type/);
-      expect(typesContent).toMatch(/export type UserInsert = Omit<Schema\.Schema\.Type/);
-      expect(typesContent).toMatch(/export type UserUpdate = Schema\.Schema\.Type/);
+      // Should still generate type exports (now strict)
+      expect(typesContent).toMatch(/export type UserSelect = StrictType<Schema\.Schema\.Type/);
+      expect(typesContent).toMatch(/export type UserInsert = StrictType<Omit<Schema\.Schema\.Type/);
+      expect(typesContent).toMatch(/export type UserUpdate = StrictType<Schema\.Schema\.Type/);
 
       // Should still generate encoded exports
       expect(typesContent).toMatch(/export type UserSelectEncoded = Schema\.Schema\.Encoded/);

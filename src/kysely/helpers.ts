@@ -305,12 +305,14 @@ type RemoveIndexSignature<T> = {
         : K]: T[K];
 };
 
-export type StrictSelectable<T extends Schemas<unknown, unknown>> = RemoveIndexSignature<
+export type StrictType<T> = RemoveIndexSignature<T>;
+
+export type StrictSelectable<T extends Schemas<unknown, unknown>> = StrictType<
   Schema.Schema.Type<T['Selectable']>
 >;
-export type StrictInsertable<T extends Schemas<unknown, unknown>> = RemoveIndexSignature<
+export type StrictInsertable<T extends Schemas<unknown, unknown>> = StrictType<
   Schema.Schema.Type<T['Insertable']>
 >;
-export type StrictUpdateable<T extends Schemas<unknown, unknown>> = RemoveIndexSignature<
+export type StrictUpdateable<T extends Schemas<unknown, unknown>> = StrictType<
   Schema.Schema.Type<T['Updateable']>
 >;

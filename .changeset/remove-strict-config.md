@@ -1,5 +1,5 @@
 ---
-'prisma-effect-kysely': patch
+'prisma-effect-kysely': minor
 ---
 
-Always emit strict Select/Insert/Update aliases (using the `Strict` suffix) and remove the temporary generator flags so there is a single, consistent schema typing workflow.
+Default `Select` / `Insert` / `Update` aliases now use strict typing (no `[key: string]: unknown`), so there is a single canonical type per schema and the extra `*Strict` exports/config switches have been removed.
