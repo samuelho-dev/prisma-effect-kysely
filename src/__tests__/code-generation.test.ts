@@ -6,20 +6,9 @@ import prismaInternals from '@prisma/internals';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EffectGenerator } from '../effect/generator.js';
 import { GeneratorOrchestrator } from '../generator/orchestrator.js';
-import type { GeneratorConfig } from '../generator/config.js';
 import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks.js';
 
 const { getDMMF } = prismaInternals;
-
-const baseGeneratorConfig: GeneratorConfig = {
-  output: './.test-output',
-  multiFileDomains: 'false',
-  scaffoldLibraries: 'false',
-  libraryGenerator: undefined,
-  previewFeatures: [],
-  generateStrictTypes: 'true',
-  strictTypeSuffix: 'Strict',
-};
 
 /**
  * Code Generation - E2E and Validation Tests
@@ -225,47 +214,10 @@ describe('Code Generation - E2E and Validation', () => {
       expect(indexContent).toMatch(/export \* from ["']\.\/enums\.js["']/);
     });
 
-    it('should allow disabling strict type aliases via config', async () => {
-      await rm(testOutputPath, { recursive: true, force: true });
-
-      const options: GeneratorOptions = {
-        generator: {
-          output: { value: testOutputPath },
-          config: {
-            generateStrictTypes: 'false',
-          },
-        },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      const customTypes = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      expect(customTypes).not.toMatch(/SelectStrict/);
-      expect(customTypes).not.toMatch(/StrictSelectable/);
-      expect(customTypes).not.toMatch(/import type \{ StrictInsertable/);
-    });
-
-    it('should support custom strict type suffix', async () => {
-      await rm(testOutputPath, { recursive: true, force: true });
-
-      const options: GeneratorOptions = {
-        generator: {
-          output: { value: testOutputPath },
-          config: {
-            strictTypeSuffix: 'Types',
-          },
-        },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      const customTypes = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      expect(customTypes).toMatch(/export type \w+SelectTypes = StrictSelectable/);
-      expect(customTypes).not.toMatch(/SelectStrict/);
+    it('should always emit strict type aliases with the default suffix', () => {
+      expect(typesContent).toMatch(/export type \w+SelectStrict = StrictSelectable/);
+      expect(typesContent).toMatch(/export type \w+InsertStrict = StrictInsertable/);
+      expect(typesContent).toMatch(/export type \w+UpdateStrict = StrictUpdateable/);
     });
   });
 
@@ -351,7 +303,7 @@ describe('Code Generation - E2E and Validation', () => {
         models: [],
       });
 
-      const generator = new EffectGenerator(mockDMMF, baseGeneratorConfig);
+      const generator = new EffectGenerator(mockDMMF);
       const header = generator.generateTypesHeader(true);
 
       // Should import Schema wrappers

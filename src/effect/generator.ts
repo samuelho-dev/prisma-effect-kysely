@@ -6,20 +6,13 @@ import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
 import { needsOmitFromInsert } from '../kysely/type.js';
-import {
-  type GeneratorConfig,
-  getStrictTypeSuffix,
-  shouldGenerateStrictTypes,
-} from '../generator/config.js';
+const STRICT_SUFFIX = 'Strict';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
  */
 export class EffectGenerator {
-  constructor(
-    private readonly dmmf: DMMF.Document,
-    private readonly config: GeneratorConfig
-  ) {}
+  constructor(private readonly dmmf: DMMF.Document) {}
 
   /**
    * Generate enums.ts file content
@@ -86,14 +79,10 @@ export type ${name}Update = Schema.Schema.Type<typeof ${name}.Updateable>;`;
 export type ${name}InsertEncoded = ${insertEncodedType};
 export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
 
-    let strictTypes = '';
-    if (this.shouldEmitStrictTypes()) {
-      const strictSuffix = getStrictTypeSuffix(this.config);
-      strictTypes = `
-export type ${name}Select${strictSuffix} = StrictSelectable<typeof ${name}>;
-export type ${name}Insert${strictSuffix} = StrictInsertable<typeof ${name}>;
-export type ${name}Update${strictSuffix} = StrictUpdateable<typeof ${name}>;`;
-    }
+    const strictTypes = `
+export type ${name}Select${STRICT_SUFFIX} = StrictSelectable<typeof ${name}>;
+export type ${name}Insert${STRICT_SUFFIX} = StrictInsertable<typeof ${name}>;
+export type ${name}Update${STRICT_SUFFIX} = StrictUpdateable<typeof ${name}>;`;
 
     return `${applicationTypes}\n${encodedTypes}${strictTypes}`;
   }
@@ -121,13 +110,8 @@ export type ${name}Update${strictSuffix} = StrictUpdateable<typeof ${name}>;`;
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
+      `import type { StrictInsertable, StrictSelectable, StrictUpdateable } from "prisma-effect-kysely";`,
     ];
-
-    if (this.shouldEmitStrictTypes()) {
-      imports.push(
-        `import type { StrictInsertable, StrictSelectable, StrictUpdateable } from "prisma-effect-kysely";`
-      );
-    }
 
     if (hasEnums) {
       // Only import Schema wrappers (not plain enum types)
@@ -158,9 +142,5 @@ export type ${name}Update${strictSuffix} = StrictUpdateable<typeof ${name}>;`;
    */
   generateJoinTableKyselyInterfaces(joinTables: JoinTableInfo[]) {
     return joinTables.map(generateJoinTableKyselyInterface).join('\n\n');
-  }
-
-  private shouldEmitStrictTypes() {
-    return shouldGenerateStrictTypes(this.config);
   }
 }
