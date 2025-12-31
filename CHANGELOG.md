@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.3
+
+### Patch Changes
+
+- [`6200700`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/6200700b769a1e677e71a8145b552ea8846a450f) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Fix ID fields with @default not being omitted from Insert types
+
 ## 2.0.2
 
 ### Patch Changes
