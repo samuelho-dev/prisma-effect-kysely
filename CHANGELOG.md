@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+
+### Minor Changes
+
+- [`6104932`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/6104932286e35b94a264ffedc0eadf3fa2e72124) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Add strict Select/Insert/Update aliases plus generator options and helper exports so consumers can opt into index-signature-free Effect schemas.
+
 ## 2.0.3
 
 ### Patch Changes
