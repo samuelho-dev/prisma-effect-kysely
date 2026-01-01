@@ -4,9 +4,9 @@ import {
   columnType,
   generated,
   getSchemas,
-  insertable,
-  selectable,
-  updateable,
+  Insertable,
+  Selectable,
+  Updateable,
 } from '../kysely/helpers.js';
 
 /**
@@ -185,8 +185,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         createdAt: Schema.DateFromSelf,
       });
 
-      it('selectable() should return valid schema', () => {
-        const result = selectable(TestSchema);
+      it('Selectable() should return valid schema', () => {
+        const result = Selectable(TestSchema);
 
         expect(Schema.isSchema(result)).toBe(true);
 
@@ -203,8 +203,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         expect(decoded).toHaveProperty('email');
       });
 
-      it('insertable() should return valid schema', () => {
-        const result = insertable(TestSchema);
+      it('Insertable() should return valid schema', () => {
+        const result = Insertable(TestSchema);
 
         expect(Schema.isSchema(result)).toBe(true);
 
@@ -219,8 +219,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         expect(decoded).toHaveProperty('name');
       });
 
-      it('updateable() should return valid schema for partial updates', () => {
-        const result = updateable(TestSchema);
+      it('Updateable() should return valid schema for partial updates', () => {
+        const result = Updateable(TestSchema);
 
         expect(Schema.isSchema(result)).toBe(true);
 

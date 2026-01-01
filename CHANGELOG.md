@@ -346,7 +346,7 @@ None - This is a non-breaking enhancement. The change is purely additive at the 
   - **Solution**: OMIT generated fields entirely from Insertable schema (not make them optional) following @effect/sql's `Model.Generated` pattern
   - **Implementation**:
     - Simplified `generated()` to be just a marker annotation (no schema transformation)
-    - Updated `insertable()` to filter out fields with `GeneratedId` annotation during AST reconstruction
+    - Updated `Insertable()` to filter out fields with `GeneratedId` annotation during AST reconstruction
     - Removed unnecessary `GeneratedSchemas` interface
     - Simplified `extractParametersFromTypeLiteral` (generated fields are now just markers)
     - Removed `OptionalType` detection from `isOptionalType()` (only checks for `Union(T, Undefined)` pattern)
@@ -791,7 +791,7 @@ const status = ProductStatus.ACTIVE; // "ACTIVE"
 ### Fixed
 
 - **Declaration File Type Preservation** - Fixed type inference when using compiled `.d.ts` files
-  - Added explicit return type annotations to `selectable()`, `insertable()`, and `updateable()` helper functions
+  - Added explicit return type annotations to `Selectable()`, `Insertable()`, and `Updateable()` helper functions
   - Added explicit return type annotation to `getSchemas()` function
   - Ensures TypeScript preserves `Selectable<Type>`, `Insertable<Type>`, and `Updateable<Type>` mapped types in declaration files
   - Resolves type inference failures when consuming libraries use dist/ paths instead of source paths
@@ -799,13 +799,13 @@ const status = ProductStatus.ACTIVE; // "ACTIVE"
 
 ### Technical Details
 
-**Problem**: When TypeScript compiled helper functions to `.d.ts` files, the return types of AST transformation functions (`selectable()`, `insertable()`, `updateable()`) were inferred as `S.Schema<unknown, unknown, never>` instead of preserving the Kysely mapped types. This caused downstream type resolution to fail when consumers used compiled declaration files (dist/ paths) instead of source files.
+**Problem**: When TypeScript compiled helper functions to `.d.ts` files, the return types of AST transformation functions (`Selectable()`, `Insertable()`, `Updateable()`) were inferred as `S.Schema<unknown, unknown, never>` instead of preserving the Kysely mapped types. This caused downstream type resolution to fail when consumers used compiled declaration files (dist/ paths) instead of source files.
 
 **Solution**: Added explicit return type annotations with type assertions to all helper functions:
 
-- `selectable()` → `: S.Schema<Selectable<Type>, Selectable<Encoded>, never>`
-- `insertable()` → `: S.Schema<Insertable<Type>, Insertable<Encoded>, never>`
-- `updateable()` → `: S.Schema<Updateable<Type>, Updateable<Encoded>, never>`
+- `Selectable()` → `: S.Schema<Selectable<Type>, Selectable<Encoded>, never>`
+- `Insertable()` → `: S.Schema<Insertable<Type>, Insertable<Encoded>, never>`
+- `Updateable()` → `: S.Schema<Updateable<Type>, Updateable<Encoded>, never>`
 - `getSchemas()` → `: Schemas<Type, Encoded>`
 
 **Impact**: Projects using prisma-effect-kysely with TypeScript path aliases pointing to `dist/` directories (compiled output) will now have proper type inference. Generated types like `EmbeddingOperationSelect` will resolve to proper object types instead of `unknown`.
@@ -824,7 +824,7 @@ const status = ProductStatus.ACTIVE; // "ACTIVE"
 ### Fixed
 
 - **TypeScript Type Compatibility** - Fixed `SchemaClass` to `Schema` conversion issues
-  - Added `S.asSchema()` wrapper to `selectable()`, `insertable()`, and `updateable()` helper functions
+  - Added `S.asSchema()` wrapper to `Selectable()`, `Insertable()`, and `Updateable()` helper functions
   - Ensures generated schemas return `S.Schema<A, I, R>` interface instead of `S.SchemaClass<A, I, R>`
   - Resolves TypeScript compilation errors when passing schemas to Effect's decode functions
   - Uses Effect's official identity function for zero-runtime overhead type conversion

@@ -23,9 +23,9 @@ export {
   columnType,
   generated,
   getSchemas,
-  insertable,
-  selectable,
-  updateable,
+  Insertable,
+  Selectable,
+  Updateable,
 } from '../kysely/helpers.js';
 
 export const generator = generatorHandler({

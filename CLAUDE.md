@@ -134,7 +134,7 @@ export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
 
 ### Type Generation for Generated Fields (v1.9.0)
 
-**Challenge**: TypeScript's `Schema.Schema.Type` inference works on static schema structure and cannot see runtime AST field filtering performed by v1.8.4's `insertable()` helper.
+**Challenge**: TypeScript's `Schema.Schema.Type` inference works on static schema structure and cannot see runtime AST field filtering performed by v1.8.4's `Insertable()` helper.
 
 **Solution**: Generate explicit Insert types using TypeScript's `Omit` utility:
 ```typescript
@@ -190,7 +190,7 @@ The package provides multiple entry points via package.json exports:
 
 2. **Kysely Helpers** (`prisma-effect-kysely/kysely`):
    - Runtime helpers for Kysely integration
-   - Exports: `getSchemas`, `columnType`, `generated`, `selectable`, `insertable`, `updateable`
+   - Exports: `getSchemas`, `columnType`, `generated`, `Selectable`, `Insertable`, `Updateable`
    - Query wrappers: `withEncoder`, `withDecoder`, `withCodec`
 
 3. **Error Types** (`prisma-effect-kysely/error`):
