@@ -169,7 +169,7 @@ const testSelect: UserSelect = {
     });
   });
 
-  describe('Effect Schema Integration (Unchanged)', () => {
+  describe('Effect Schema Integration', () => {
     it('should still generate Effect schemas with runtime helpers', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
@@ -180,18 +180,19 @@ const testSelect: UserSelect = {
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
 
-      // Should still generate operational schemas
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
+      // Should generate branded ID schemas
+      expect(typesContent).toMatch(
+        /const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
+      );
 
-      // Should still generate type exports (now strict)
-      expect(typesContent).toMatch(/export type UserSelect = StrictType<Schema\.Schema\.Type/);
-      expect(typesContent).toMatch(/export type UserInsert = StrictType<Omit<Schema\.Schema\.Type/);
-      expect(typesContent).toMatch(/export type UserUpdate = StrictType<Schema\.Schema\.Type/);
+      // Should generate operational schemas with branded Id
+      expect(typesContent).toMatch(/export const User = \{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
+      expect(typesContent).toMatch(/Id: UserIdSchema/);
 
-      // Should still generate encoded exports
-      expect(typesContent).toMatch(/export type UserSelectEncoded = Schema\.Schema\.Encoded/);
-      expect(typesContent).toMatch(/export type UserInsertEncoded = Omit<Schema\.Schema\.Encoded/);
-      expect(typesContent).toMatch(/export type UserUpdateEncoded = Schema\.Schema\.Encoded/);
+      // No type aliases - consumers use type utilities: Selectable<typeof User>
+      expect(typesContent).not.toMatch(/export type UserSelect\s*=/);
+      expect(typesContent).not.toMatch(/export type UserSelectEncoded\s*=/);
     });
   });
 

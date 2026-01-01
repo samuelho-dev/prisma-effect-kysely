@@ -273,11 +273,10 @@ export const getSchemas = <Type, Encoded>(
   Updateable: Updateable(baseSchema),
 });
 
-export interface GetTypes<T extends Schemas<unknown, unknown>> {
-  Selectable: Schema.Schema.Type<T['Selectable']>;
-  Insertable: Schema.Schema.Type<T['Insertable']>;
-  Updateable: Schema.Schema.Type<T['Updateable']>;
-}
+// ============================================================================
+// Type Utilities (Kysely-compatible pattern)
+// Usage: Selectable<typeof User>, Insertable<typeof User>
+// ============================================================================
 
 type RemoveIndexSignature<T> = {
   [K in keyof T as K extends string
@@ -295,14 +294,36 @@ type RemoveIndexSignature<T> = {
         : K]: T[K];
 };
 
-export type StrictType<T> = RemoveIndexSignature<T>;
+type StrictType<T> = RemoveIndexSignature<T>;
 
-export type StrictSelectable<T extends Schemas<unknown, unknown>> = StrictType<
+/**
+ * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
+ * @example type UserSelect = Selectable<typeof User>
+ */
+export type Selectable<T extends Schemas<unknown, unknown>> = StrictType<
   Schema.Schema.Type<T['Selectable']>
 >;
-export type StrictInsertable<T extends Schemas<unknown, unknown>> = StrictType<
+
+/**
+ * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
+ * @example type UserInsert = Insertable<typeof User>
+ */
+export type Insertable<T extends Schemas<unknown, unknown>> = StrictType<
   Schema.Schema.Type<T['Insertable']>
 >;
-export type StrictUpdateable<T extends Schemas<unknown, unknown>> = StrictType<
+
+/**
+ * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
+ * @example type UserUpdate = Updateable<typeof User>
+ */
+export type Updateable<T extends Schemas<unknown, unknown>> = StrictType<
   Schema.Schema.Type<T['Updateable']>
+>;
+
+/**
+ * Extract branded ID type from schema
+ * @example type UserId = Id<typeof User>
+ */
+export type Id<T extends { Id: Schema.Schema<unknown, unknown, unknown> }> = Schema.Schema.Type<
+  T['Id']
 >;

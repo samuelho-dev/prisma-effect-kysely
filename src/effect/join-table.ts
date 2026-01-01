@@ -45,8 +45,7 @@ function mapColumnType(columnType: string, isUuid: boolean) {
  * Structure:
  * - Base schema with semantic snake_case field names mapped to A/B via fromKey
  * - Operational schemas via getSchemas()
- * - Type exports (Select, Insert, Update)
- * - Encoded type exports
+ * - No type exports - consumers use type utilities: Selectable<typeof JoinTable>
  *
  * Example:
  * - Database columns: A, B (Prisma requirement)
@@ -87,18 +86,9 @@ ${columnAField},
 ${columnBField},
 });`;
 
-  // Generate operational schemas
+  // Generate operational schemas (no Id for join tables - they use composite keys)
   const operationalSchema = `export const ${relationName} = getSchemas(_${relationName});`;
 
-  // Generate Type exports
-  const typeExports = `export type ${relationName}Select = Schema.Schema.Type<typeof ${relationName}.Selectable>;
-export type ${relationName}Insert = Schema.Schema.Type<typeof ${relationName}.Insertable>;
-export type ${relationName}Update = Schema.Schema.Type<typeof ${relationName}.Updateable>;`;
-
-  // Generate Encoded type exports
-  const encodedExports = `export type ${relationName}SelectEncoded = Schema.Schema.Encoded<typeof ${relationName}.Selectable>;
-export type ${relationName}InsertEncoded = Schema.Schema.Encoded<typeof ${relationName}.Insertable>;
-export type ${relationName}UpdateEncoded = Schema.Schema.Encoded<typeof ${relationName}.Updateable>;`;
-
-  return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}\n${encodedExports}`;
+  // No type exports - consumers use: Selectable<typeof JoinTable>
+  return `${baseSchema}\n\n${operationalSchema}`;
 }

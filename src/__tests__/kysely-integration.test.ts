@@ -72,9 +72,11 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/generated\(/);
     });
 
-    it('should export getSchemas for operational schemas', () => {
-      // Should export operational schemas (Selectable, Insertable, Updateable)
-      expect(typesContent).toMatch(/export const User = getSchemas/);
+    it('should export operational schemas with branded Id', () => {
+      // Should export operational schemas with spread pattern for branded Id
+      expect(typesContent).toMatch(/export const User = \{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
+      expect(typesContent).toMatch(/Id: UserIdSchema/);
     });
 
     it('should generate DB interface with Kysely Table types', () => {
@@ -121,7 +123,7 @@ describe('Kysely Integration - Functional Tests', () => {
     });
   });
 
-  describe('Type Exports', () => {
+  describe('Schema Exports', () => {
     let typesContent: string;
 
     beforeEach(async () => {
@@ -135,23 +137,18 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should export operational schema objects', () => {
-      // Should export: export const User = getSchemas(_User);
-      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+\)/);
+    it('should export operational schema objects with branded Id', () => {
+      // Should export: export const User = { ...getSchemas(_User), Id: UserIdSchema } as const;
+      expect(typesContent).toMatch(/export const \w+ = \{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+\)/);
+      expect(typesContent).toMatch(/Id: \w+IdSchema/);
     });
 
-    it('should export TypeScript types for Select/Insert/Update', () => {
-      // Should export types like:
-      // export type UserSelect = Schema.Schema.Type<typeof User.Selectable>;
-      expect(typesContent).toMatch(
-        /export type \w+Select = Schema\.Schema\.Type<typeof \w+\.Selectable>/
-      );
-      expect(typesContent).toMatch(
-        /export type \w+Insert = Schema\.Schema\.Type<typeof \w+\.Insertable>/
-      );
-      expect(typesContent).toMatch(
-        /export type \w+Update = Schema\.Schema\.Type<typeof \w+\.Updateable>/
-      );
+    it('should not export individual type aliases', () => {
+      // No longer generate UserSelect, UserInsert, etc. - consumers use type utilities
+      expect(typesContent).not.toMatch(/export type \w+Select\s*=/);
+      expect(typesContent).not.toMatch(/export type \w+Insert\s*=/);
+      expect(typesContent).not.toMatch(/export type \w+SelectEncoded\s*=/);
     });
 
     it('should include all models in DB interface', () => {
@@ -179,12 +176,10 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should use SelectEncoded types to avoid deep type instantiation', () => {
-      // Kysely's innerJoin has deep type inference that can break with complex types
-      // Using pre-resolved SelectEncoded types prevents "Type instantiation is excessively deep" errors
-      expect(typesContent).toMatch(
-        /export type \w+SelectEncoded = Schema\.Schema\.Encoded<typeof \w+\.Selectable>/
-      );
+    it('should use Kysely Table interfaces for type safety', () => {
+      // Kysely table interfaces provide native type safety
+      // Consumers use type utilities: Selectable<typeof User>
+      expect(typesContent).toMatch(/export interface \w+Table \{/);
     });
 
     it('should generate DB interface with resolved types', () => {
@@ -252,13 +247,12 @@ describe('Kysely Integration - Functional Tests', () => {
       // Base schemas: _ModelName
       expect(typesContent).toMatch(/export const _\w+\s*=/);
 
-      // Operational schemas: ModelName = getSchemas(_ModelName)
-      expect(typesContent).toMatch(/export const \w+\s*=\s*getSchemas\(_\w+\)/);
+      // Branded ID schemas: ModelNameIdSchema
+      expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Types: ModelNameSelect, ModelNameInsert, ModelNameUpdate
-      expect(typesContent).toMatch(/export type \w+Select\s*=/);
-      expect(typesContent).toMatch(/export type \w+Insert\s*=/);
-      expect(typesContent).toMatch(/export type \w+Update\s*=/);
+      // Operational schemas: ModelName = { ...getSchemas(_ModelName), Id: ModelNameIdSchema } as const;
+      expect(typesContent).toMatch(/export const \w+\s*=\s*\{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+\)/);
     });
   });
 

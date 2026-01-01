@@ -163,8 +163,8 @@ describe('Join Table Generation - Functional Tests', () => {
     });
   });
 
-  describe('Type Exports', () => {
-    it('should export Select/Insert/Update types', async () => {
+  describe('Schema Exports', () => {
+    it('should export getSchemas for operational access', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -185,12 +185,11 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('export type CategoryToPostSelect');
-      expect(generated).toContain('export type CategoryToPostInsert');
-      expect(generated).toContain('export type CategoryToPostUpdate');
+      // Should export operational schemas via getSchemas
+      expect(generated).toContain('export const CategoryToPost = getSchemas(_CategoryToPost)');
     });
 
-    it('should export Encoded types for Kysely compatibility', async () => {
+    it('should not export individual type aliases', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -211,9 +210,9 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('export type CategoryToPostSelectEncoded');
-      expect(generated).toContain('export type CategoryToPostInsertEncoded');
-      expect(generated).toContain('export type CategoryToPostUpdateEncoded');
+      // No type aliases - consumers use type utilities: Selectable<typeof CategoryToPost>
+      expect(generated).not.toContain('export type CategoryToPostSelect');
+      expect(generated).not.toContain('export type CategoryToPostSelectEncoded');
     });
   });
 

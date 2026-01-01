@@ -60,7 +60,7 @@ export const User = Schema.Struct({
   email: Schema.String,
   name: Schema.optional(Schema.String),
   role: UserRole,
-  createdAt: Schema.Date,
+  createdAt: Schema.DateFromSelf,
 });
 export type User = Schema.Schema.Type<typeof User>;
 ```
@@ -105,7 +105,7 @@ The `StrictSelectable`, `StrictInsertable`, and `StrictUpdateable` helpers remai
 | BigInt      | `Schema.BigInt`     | Exact bigint type                |
 | Decimal     | `Schema.String`     | String for precision             |
 | Boolean     | `Schema.Boolean`    | -                                |
-| DateTime    | `Schema.Date`       | -                                |
+| DateTime    | `Schema.DateFromSelf` | Native Date for Kysely           |
 | Json        | `Schema.Unknown`    | Safe unknown type                |
 | Bytes       | `Schema.Uint8Array` | -                                |
 | Enum        | Enum Schema         | With `Schema.Literal` values     |

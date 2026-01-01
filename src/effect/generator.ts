@@ -1,11 +1,11 @@
 import type { DMMF } from '@prisma/generator-helper';
 import type { JoinTableInfo } from '../prisma/relation.js';
+import { isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
-import { needsOmitFromInsert } from '../kysely/type.js';
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -40,56 +40,61 @@ ${fieldDefinitions}
   }
 
   /**
-   * Generate operational schemas (ModelName.Selectable, etc.)
+   * Generate branded ID schema for a model
+   * @returns The branded ID schema declaration, or null if no ID field
    */
-  generateOperationalSchemas(model: DMMF.Model) {
-    const baseSchemaName = `_${model.name}`;
-    const operationalSchemaName = toPascalCase(model.name);
+  generateBrandedIdSchema(model: DMMF.Model, fields: readonly DMMF.Field[]): string | null {
+    const idField = fields.find((f) => f.isId);
+    if (!idField) {
+      return null;
+    }
 
-    return `export const ${operationalSchemaName} = getSchemas(${baseSchemaName});`;
-  }
-
-  /**
-   * Generate TypeScript type exports
-   *
-   * Insert types omit generated fields so TS matches runtime schema filtering
-   */
-  generateTypeExports(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const name = toPascalCase(model.name);
-    const omittedFieldNames = fields.filter(needsOmitFromInsert).map((field) => `"${field.name}"`);
-    const omittedFieldsUnion = omittedFieldNames.join(' | ');
+    const isUuid = isUuidField(idField);
+    const baseType = isUuid ? 'Schema.UUID' : 'Schema.String';
 
-    const insertType =
-      omittedFieldNames.length > 0
-        ? `Omit<Schema.Schema.Type<typeof ${name}.Insertable>, ${omittedFieldsUnion}>`
-        : `Schema.Schema.Type<typeof ${name}.Insertable>`;
-    const insertEncodedType =
-      omittedFieldNames.length > 0
-        ? `Omit<Schema.Schema.Encoded<typeof ${name}.Insertable>, ${omittedFieldsUnion}>`
-        : `Schema.Schema.Encoded<typeof ${name}.Insertable>`;
-
-    // Application-side types (decoded - for repository layer)
-    const applicationTypes = `export type ${name}Select = StrictType<Schema.Schema.Type<typeof ${name}.Selectable>>;
-export type ${name}Insert = StrictType<${insertType}>;
-export type ${name}Update = StrictType<Schema.Schema.Type<typeof ${name}.Updateable>>;`;
-
-    // Database-side encoded types (for queries layer)
-    const encodedTypes = `export type ${name}SelectEncoded = Schema.Schema.Encoded<typeof ${name}.Selectable>;
-export type ${name}InsertEncoded = ${insertEncodedType};
-export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateable>;`;
-
-    return `${applicationTypes}\n${encodedTypes}`;
+    return `const ${name}IdSchema = ${baseType}.pipe(Schema.brand("${name}Id"));`;
   }
 
   /**
-   * Generate complete model schema (base + operational + types)
+   * Generate operational schemas with branded Id
+   * Exports: { Selectable, Insertable, Updateable, Id }
+   */
+  generateOperationalSchemas(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    const baseSchemaName = `_${model.name}`;
+    const name = toPascalCase(model.name);
+    const idField = fields.find((f) => f.isId);
+
+    if (idField) {
+      return `export const ${name} = {
+  ...getSchemas(${baseSchemaName}),
+  Id: ${name}IdSchema,
+} as const;`;
+    }
+
+    return `export const ${name} = getSchemas(${baseSchemaName});`;
+  }
+
+  /**
+   * Generate complete model schema (base + branded ID + operational)
+   * No type exports - consumers use type utilities: Selectable<typeof User>
    */
   generateModelSchema(model: DMMF.Model, fields: DMMF.Field[]) {
-    const baseSchema = this.generateBaseSchema(model, fields);
-    const operationalSchema = this.generateOperationalSchemas(model);
-    const typeExports = this.generateTypeExports(model, fields);
+    const parts: string[] = [];
 
-    return `${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
+    // Branded ID schema (if model has ID field)
+    const brandedIdSchema = this.generateBrandedIdSchema(model, fields);
+    if (brandedIdSchema) {
+      parts.push(brandedIdSchema);
+    }
+
+    // Base schema
+    parts.push(this.generateBaseSchema(model, fields));
+
+    // Operational schemas with Id
+    parts.push(this.generateOperationalSchemas(model, fields));
+
+    return parts.join('\n\n');
   }
 
   /**
@@ -100,11 +105,11 @@ export type ${name}UpdateEncoded = Schema.Schema.Encoded<typeof ${name}.Updateab
   generateTypesHeader(hasEnums: boolean) {
     const header = generateFileHeader();
 
+    // No StrictType import - consumers use type utilities: Selectable<typeof User>
     const imports = [
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
-      `import type { StrictType } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {

@@ -150,9 +150,7 @@ describe('Code Generation - E2E and Validation', () => {
       // types.ts imports
       expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
-      expect(typesContent).toMatch(
-        /import type \{ StrictType \} from ["']prisma-effect-kysely["']/
-      );
+      // No StrictType import - consumers use type utilities from prisma-effect-kysely
 
       // enums.ts imports
       expect(enumsContent).toMatch(/import \{ Schema \} from ["']effect["']/);
@@ -163,31 +161,28 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
     });
 
-    it('should export operational schemas via getSchemas', () => {
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/export const Post = getSchemas\(_Post\)/);
+    it('should export operational schemas via getSchemas with branded Id', () => {
+      // Models with ID fields get branded Id schema
+      expect(typesContent).toMatch(/export const User = \{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
+      expect(typesContent).toMatch(/Id: UserIdSchema/);
+
+      // Check pattern: export const Model = { ...getSchemas(_Model), Id: ModelIdSchema } as const;
+      expect(typesContent).toMatch(/\} as const;/);
     });
 
-    it('should export strict Select/Insert/Update types without index signatures', () => {
+    it('should generate branded ID schemas for models with @id field', () => {
+      // Branded ID schemas should be generated for each model with an ID field
       expect(typesContent).toMatch(
-        /export type \w+Select = StrictType<Schema\.Schema\.Type<typeof \w+\.Selectable>>/
-      );
-      expect(typesContent).toMatch(/export type \w+Insert = StrictType</);
-      expect(typesContent).toMatch(
-        /export type \w+Update = StrictType<Schema\.Schema\.Type<typeof \w+\.Updateable>>/
+        /const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
       );
     });
 
-    it('should export Encoded types for Kysely compatibility', () => {
-      expect(typesContent).toMatch(
-        /export type \w+SelectEncoded = Schema\.Schema\.Encoded<typeof \w+\.Selectable>/
-      );
-      expect(typesContent).toMatch(
-        /export type \w+InsertEncoded = Schema\.Schema\.Encoded<typeof \w+\.Insertable>/
-      );
-      expect(typesContent).toMatch(
-        /export type \w+UpdateEncoded = Schema\.Schema\.Encoded<typeof \w+\.Updateable>/
-      );
+    it('should not export individual type aliases', () => {
+      // No longer generate UserSelect, UserInsert, etc. - consumers use type utilities
+      expect(typesContent).not.toMatch(/export type UserSelect\s*=/);
+      expect(typesContent).not.toMatch(/export type UserInsert\s*=/);
+      expect(typesContent).not.toMatch(/export type UserSelectEncoded\s*=/);
     });
 
     it('should generate DB interface with Kysely Table types', () => {
@@ -249,13 +244,12 @@ describe('Code Generation - E2E and Validation', () => {
       // Base schemas: _ModelName
       expect(typesContent).toMatch(/export const _\w+\s*=/);
 
-      // Operational schemas: ModelName = getSchemas(_ModelName)
-      expect(typesContent).toMatch(/export const \w+\s*=\s*getSchemas\(_\w+\)/);
+      // Branded ID schemas: ModelNameIdSchema
+      expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Types: ModelNameSelect, ModelNameInsert, ModelNameUpdate
-      expect(typesContent).toMatch(/export type \w+Select\s*=/);
-      expect(typesContent).toMatch(/export type \w+Insert\s*=/);
-      expect(typesContent).toMatch(/export type \w+Update\s*=/);
+      // Operational schemas: ModelName = { ...getSchemas(_ModelName), Id: ModelNameIdSchema } as const;
+      expect(typesContent).toMatch(/export const \w+\s*=\s*\{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+\)/);
     });
   });
 
@@ -364,16 +358,14 @@ describe('Code Generation - E2E and Validation', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should export all necessary types for each model', () => {
+    it('should export all necessary schemas for each model', () => {
       // For User model
       expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/export type UserSelect/);
-      expect(typesContent).toMatch(/export type UserInsert/);
-      expect(typesContent).toMatch(/export type UserUpdate/);
-      expect(typesContent).toMatch(/export type UserSelectEncoded/);
-      expect(typesContent).toMatch(/export type UserInsertEncoded/);
-      expect(typesContent).toMatch(/export type UserUpdateEncoded/);
+      expect(typesContent).toMatch(/const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
+      expect(typesContent).toMatch(/export const User = \{/);
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
+      expect(typesContent).toMatch(/Id: UserIdSchema/);
+      // No type aliases - consumers use type utilities: Selectable<typeof User>
     });
 
     it('should include all models in DB interface', () => {
@@ -456,7 +448,7 @@ describe('Code Generation - E2E and Validation', () => {
     });
   });
 
-  describe('Insert Type Field Omission', () => {
+  describe('Generated Field Handling', () => {
     let typesContent: string;
 
     beforeEach(async () => {
@@ -471,26 +463,15 @@ describe('Code Generation - E2E and Validation', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should omit ID fields with @default from Insert type', () => {
+    it('should use columnType for ID fields with @default', () => {
       // User model has: id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-      // The generated UserInsert type should NOT include 'id' since it's database-generated
-      expect(typesContent).toMatch(
-        /export type UserInsert = StrictType<Omit<Schema\.Schema\.Type<typeof User\.Insertable>,[^>]+"id"/
-      );
-      expect(typesContent).toMatch(
-        /export type UserInsertEncoded = Omit<Schema\.Schema\.Encoded<typeof User\.Insertable>,[^>]+"id"/
-      );
+      // ID fields with @default are read-only (can't insert/update)
+      expect(typesContent).toMatch(/columnType\(.*Schema\.Never, Schema\.Never\)/);
     });
 
-    it('should omit multiple fields with @default from Insert type', () => {
-      // AllTypes model has multiple fields with @default:
-      // - id: @id @default(dbgenerated(...))
-      // - createdAt: @default(now())
-      // - updatedAt: @updatedAt
-      // All should be omitted from AllTypesInsert
-      expect(typesContent).toMatch(
-        /export type AllTypesInsert = StrictType<Omit<Schema\.Schema\.Type<typeof AllTypes\.Insertable>,[^>]+"id"/
-      );
+    it('should use generated() for non-ID fields with @default', () => {
+      // Fields with @default (not ID) use generated() wrapper
+      expect(typesContent).toContain('generated(Schema.DateFromSelf)');
     });
   });
 });

@@ -135,11 +135,20 @@ export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
-        // Generate operational schemas and type exports
-        const operationalSchema = this.effectGen.generateOperationalSchemas(model);
-        const typeExports = this.effectGen.generateTypeExports(model, fields);
+        // Generate branded ID schema (if model has ID field)
+        const brandedIdSchema = this.effectGen.generateBrandedIdSchema(model, fields);
 
-        return `${kyselyTable}\n\n${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
+        // Generate operational schemas (no type exports - consumers use type utilities)
+        const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
+
+        // Assemble model output
+        const parts = [kyselyTable, baseSchema];
+        if (brandedIdSchema) {
+          parts.push(brandedIdSchema);
+        }
+        parts.push(operationalSchema);
+
+        return parts.join('\n\n');
       })
       .join('\n\n');
 
@@ -209,11 +218,20 @@ export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
-        // Generate operational schemas and type exports
-        const operationalSchema = this.effectGen.generateOperationalSchemas(model);
-        const typeExports = this.effectGen.generateTypeExports(model, fields);
+        // Generate branded ID schema (if model has ID field)
+        const brandedIdSchema = this.effectGen.generateBrandedIdSchema(model, fields);
 
-        return `${kyselyTable}\n\n${baseSchema}\n\n${operationalSchema}\n\n${typeExports}`;
+        // Generate operational schemas (no type exports - consumers use type utilities)
+        const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
+
+        // Assemble model output
+        const parts = [kyselyTable, baseSchema];
+        if (brandedIdSchema) {
+          parts.push(brandedIdSchema);
+        }
+        parts.push(operationalSchema);
+
+        return parts.join('\n\n');
       })
       .join('\n\n');
 

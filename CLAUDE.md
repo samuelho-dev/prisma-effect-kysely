@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Prisma generator that creates Effect Schema types from Prisma schema definitions with exact type safety and intelligent UUID detection.
+This is a Prisma generator that creates Effect Schema types from Prisma schema definitions with exact type safety, intelligent UUID detection, and branded ID types.
 
 ## Commands
 
@@ -51,42 +51,83 @@ Runs typecheck, tests, and build in sequence (runs automatically before publishi
    - Manages file generation in parallel for performance
    - Logs generation progress and statistics
 
-3. **Generator Classes** (src/generator/generators/):
-   - `EnumGenerator`: Creates enums.ts with Effect Literal schemas
-   - `TypeGenerator`: Creates types.ts with Effect Struct schemas and DB interface
-   - `IndexGenerator`: Creates index.ts re-export file
+3. **Generator Classes** (src/effect/):
+   - `EffectGenerator`: Creates Effect Schema types with branded IDs
+   - `generateEnumsFile`: Creates enums.ts with Effect Literal schemas
+   - `generateJoinTableSchema`: Creates schemas for M2M join tables
 
-4. **Mapper Classes** (src/generator/mappers/):
-   - `TypeMapper`: Maps Prisma types to Effect Schema types
-   - `uuid-detector.ts`: Multi-strategy UUID field detection
+4. **Kysely Integration** (src/kysely/):
+   - `KyselyGenerator`: Creates Kysely table interfaces and DB interface
+   - `helpers.ts`: Runtime helpers and type utilities
 
 5. **Utility Classes**:
-   - `FileManager` (src/generator/utils/file-manager.ts): Handles file system operations
-   - `templates.ts` (src/generator/utils/templates.ts): Uses Prettier to format generated code
+   - `FileManager` (src/utils/file-manager.ts): Handles file system operations
+   - `templates.ts` (src/utils/templates.ts): Uses Prettier to format generated code
 
 ### Output Structure
 The generator creates three files in the configured output directory:
 
 - **enums.ts**: Effect Schema Literal types for Prisma enums (supports @map)
 - **types.ts**: Effect Schema Struct types for Prisma models with:
+  - Kysely table interfaces (e.g., `UserTable`)
   - Base schemas prefixed with `_` (e.g., `_User`)
-  - Operational schemas using `getSchemas()` (e.g., `User.Selectable`, `User.Insertable`, `User.Updateable`)
-  - TypeScript type exports (e.g., `UserSelect`, `UserInsert`, `UserUpdate`)
-  - Kysely `DB` interface with table mappings (supports `@@map` directive)
+  - Branded ID schemas (e.g., `UserIdSchema`)
+  - Unified operational schemas (e.g., `User = { ...getSchemas(_User), Id: UserIdSchema }`)
+  - Kysely `DB` interface with table mappings
 - **index.ts**: Re-exports all generated types
+
+### Consumer Type Pattern (v2.1+)
+
+**No type exports in generated code**. Consumers use type utilities from `prisma-effect-kysely`:
+
+```typescript
+import { Selectable, Insertable, Updateable, Id } from "prisma-effect-kysely";
+import { User, DB } from "./generated";
+
+// Types via utilities (matches Kysely's native pattern)
+type UserSelect = Selectable<typeof User>;
+type UserInsert = Insertable<typeof User>;
+type UserUpdate = Updateable<typeof User>;
+type UserId = Id<typeof User>;
+```
+
+### Generated Schema Structure
+
+Each model generates:
+
+```typescript
+// Branded ID schema (for models with @id field)
+const UserIdSchema = Schema.UUID.pipe(Schema.brand("UserId"));
+
+// Base schema with field definitions
+export const _User = Schema.Struct({
+  id: columnType(UserIdSchema, Schema.Never, Schema.Never),
+  email: Schema.String,
+  createdAt: generated(Schema.DateFromSelf),
+});
+
+// Unified export with operational schemas + branded Id
+export const User = {
+  ...getSchemas(_User),
+  Id: UserIdSchema,
+} as const;
+```
 
 ### Kysely Integration
 The generator includes deep Kysely integration for type-safe database operations:
 
 **Generated Schemas**: Each model generates:
+- Kysely table interface `ModelTable` with ColumnType wrappers
 - Base schema `_ModelName` with raw field definitions
+- Branded ID schema `ModelNameIdSchema` (if model has @id)
 - Operational schemas via `getSchemas(_ModelName)`:
   - `ModelName.Selectable`: Schema for SELECT queries
-  - `ModelName.Insertable`: Schema for INSERT queries (fields with `@default` become optional)
+  - `ModelName.Insertable`: Schema for INSERT queries (fields with `@default` omitted)
   - `ModelName.Updateable`: Schema for UPDATE queries (all fields optional)
+- Branded ID: `ModelName.Id`
 
 **Field Behavior**:
-- Fields with `@default`: Wrapped in `generated()` - optional for insert, excluded from update
+- Fields with `@default`: Wrapped in `generated()` - omitted from insert schema
 - ID fields with `@default`: Wrapped in `columnType(type, Schema.Never, Schema.Never)` - read-only
 - Optional fields: Wrapped in `Schema.Union(type, Schema.Undefined)`
 
@@ -94,7 +135,12 @@ The generator includes deep Kysely integration for type-safe database operations
 - `getSchemas(baseSchema)`: Creates Selectable/Insertable/Updateable schemas
 - `columnType(select, insert, update)`: Custom column type definitions
 - `generated(schema)`: Marks fields as database-generated
-- `withEncoder`, `withDecoder`, `withCodec`: Effect-based query wrappers
+
+**Type Utilities** (imported from `prisma-effect-kysely`):
+- `Selectable<T>`: Extract SELECT type from schema
+- `Insertable<T>`: Extract INSERT type from schema
+- `Updateable<T>`: Extract UPDATE type from schema
+- `Id<T>`: Extract branded ID type from schema
 
 **Database Errors** (from `prisma-effect-kysely/error`):
 - `NotFoundError`: Query returned no results
@@ -105,12 +151,10 @@ The generator includes deep Kysely integration for type-safe database operations
 **DB Interface**: Generated Kysely database interface with table mappings:
 ```typescript
 export interface DB {
-  User: UserSelectEncoded;
+  User: UserTable;
+  Post: PostTable;
   // Uses @@map directive if present, otherwise model name
 }
-
-// Where UserSelectEncoded is pre-resolved to avoid deep type instantiation:
-export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
 ```
 
 **Implicit Many-to-Many Join Tables**: The generator automatically detects and generates schemas for Prisma's implicit M2M relations:
@@ -125,6 +169,8 @@ export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
     product_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
     product_tag_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
   });
+
+  export const ProductToProductTag = getSchemas(_ProductToProductTag);
   ```
 - **Benefits**:
   - Developer-friendly semantic names in TypeScript
@@ -132,33 +178,21 @@ export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
   - Type-safe bidirectional transformation
   - Follows snake_case convention for database identifiers
 
-### Type Generation for Generated Fields (v1.9.0)
+### Branded ID Types
 
-**Challenge**: TypeScript's `Schema.Schema.Type` inference works on static schema structure and cannot see runtime AST field filtering performed by v1.8.4's `Insertable()` helper.
+Each model with an `@id` field gets a branded ID schema for nominal type safety:
 
-**Solution**: Generate explicit Insert types using TypeScript's `Omit` utility:
 ```typescript
-// Generated code:
-export type UserInsert = Omit<Schema.Schema.Type<typeof User.Insertable>, 'id' | 'createdAt' | 'updatedAt'>;
+// Generated
+const UserIdSchema = Schema.UUID.pipe(Schema.brand("UserId"));
+const PostIdSchema = Schema.UUID.pipe(Schema.brand("PostId"));
+
+// Consumer usage - branded IDs prevent mixing
+type UserId = Id<typeof User>;  // Brand prevents assignment to PostId
+type PostId = Id<typeof Post>;
+
+getUser(postId);  // COMPILE ERROR - branded types prevent mixing
 ```
-
-**Fields Automatically Omitted**:
-- Fields with `@default` (both ID and non-ID): `@id @default(uuid())`, `@default(now())`
-- Fields with `@updatedAt` directive
-
-**Rationale**:
-- TypeScript's type inference can't capture runtime AST transformations
-- Explicit type generation is industry standard (Prisma Client, Drizzle ORM, tRPC all use this approach)
-- Provides compile-time safety that runtime-only validation cannot
-- Zero performance overhead (types erased at compile time)
-
-**Pattern**: Standard code generation practice when runtime behavior differs from schema structure.
-
-**Implementation**:
-- `getOmittedInsertFields()` in `src/effect/generator.ts` identifies fields during code generation
-- Uses DMMF properties: `field.hasDefaultValue` and `field.isUpdatedAt`
-- Fields are alphabetically sorted in Omit union for deterministic output
-- Models without generated fields use plain `Schema.Schema.Type` (no unnecessary Omit)
 
 ### UUID Detection Strategy
 The generator uses a 3-tier detection strategy (in priority order):
@@ -167,7 +201,7 @@ The generator uses a 3-tier detection strategy (in priority order):
 2. **Documentation** (`field.documentation?.includes('@db.Uuid')`): From field comments
 3. **Field Name Patterns** (fallback): Regex patterns for `id`, `*_id`, `*_uuid`, `uuid`
 
-Implemented in `isUuidField()` (src/generator/mappers/uuid-detector.ts:10)
+Implemented in `isUuidField()` (src/prisma/type.ts)
 
 ### Type Safety Principles
 
@@ -187,11 +221,13 @@ The package provides multiple entry points via package.json exports:
    - Entry: `dist/generator/index.js`
    - Used in Prisma schema `provider` field
    - Generates Effect Schema types from Prisma models
+   - Re-exports type utilities: `Selectable`, `Insertable`, `Updateable`, `Id`
+   - Re-exports runtime helpers: `columnType`, `generated`, `getSchemas`
 
 2. **Kysely Helpers** (`prisma-effect-kysely/kysely`):
    - Runtime helpers for Kysely integration
-   - Exports: `getSchemas`, `columnType`, `generated`, `Selectable`, `Insertable`, `Updateable`
-   - Query wrappers: `withEncoder`, `withDecoder`, `withCodec`
+   - Exports: `getSchemas`, `columnType`, `generated`
+   - Type utilities: `Selectable`, `Insertable`, `Updateable`, `Id`
 
 3. **Error Types** (`prisma-effect-kysely/error`):
    - Database error types for Effect error handling
@@ -210,7 +246,7 @@ The package provides multiple entry points via package.json exports:
 | BigInt | `Schema.BigInt` | - |
 | Decimal | `Schema.String` | For precision |
 | Boolean | `Schema.Boolean` | - |
-| DateTime | `Schema.Date` | - |
+| DateTime | `Schema.DateFromSelf` | - |
 | Json | `Schema.Unknown` | Safe unknown type |
 | Bytes | `Schema.Uint8Array` | - |
 | Enum | Enum Schema | Uses imported enum |
@@ -220,7 +256,39 @@ Optional: `Schema.optional(baseType)`
 
 ### Deterministic Output
 
-All models and fields are alphabetically sorted (src/generator/generators/type-generator.ts:64, 102) to ensure consistent generation across runs.
+All models and fields are alphabetically sorted to ensure consistent generation across runs.
+
+## File Structure
+
+```
+prisma-effect-kysely/
++-- src/
+|   +-- effect/
+|   |   +-- generator.ts      # Effect schema generation with branded IDs
+|   |   +-- enum.ts           # Enum schema generation
+|   |   +-- join-table.ts     # M2M join table schemas
+|   |   +-- type.ts           # Field type mapping
+|   +-- generator/
+|   |   +-- index.ts          # Prisma generator entry point
+|   |   +-- orchestrator.ts   # Generation orchestration
+|   |   +-- config.ts         # Generator configuration
+|   +-- kysely/
+|   |   +-- generator.ts      # Kysely table interface generation
+|   |   +-- helpers.ts        # Runtime helpers + type utilities
+|   |   +-- type.ts           # Kysely type mapping
+|   +-- prisma/
+|   |   +-- generator.ts      # DMMF parsing
+|   |   +-- relation.ts       # Relation detection
+|   |   +-- type.ts           # Prisma type utilities
+|   +-- utils/
+|   |   +-- codegen.ts        # Code generation utilities
+|   |   +-- file-manager.ts   # File system operations
+|   |   +-- naming.ts         # Naming conventions
+|   +-- __tests__/            # Test suites
++-- dist/                     # Compiled output
++-- CLAUDE.md                 # This file
++-- README.md                 # User documentation
+```
 
 ## Development Notes
 
@@ -230,3 +298,13 @@ All models and fields are alphabetically sorted (src/generator/generators/type-g
 - Field defaults are validated using exact DMMF type structure, not string parsing
 - Relation fields are excluded from generated schemas - only scalar and enum fields are included
 - Test fixtures are located in `src/__tests__/fixtures/test.prisma`
+
+## For Future Claude Code Instances
+
+- [ ] Run `npm test` before making changes to verify baseline
+- [ ] Consumers use type utilities: `Selectable<typeof User>`, NOT `UserSelect`
+- [ ] Each model with `@id` gets a branded ID schema: `const UserIdSchema = ...`
+- [ ] Generated output uses spread pattern: `{ ...getSchemas(_Model), Id: ModelIdSchema }`
+- [ ] NO type exports in generated code - only schemas
+- [ ] Join tables do NOT get branded IDs (they use composite keys)
+- [ ] DB interface uses Kysely table interfaces: `User: UserTable`
