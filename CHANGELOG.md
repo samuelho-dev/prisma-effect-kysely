@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0
+
+### Minor Changes
+
+- [`5b1bbea`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/5b1bbea2f160d84049877b655f874974c47fe4b5) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Select/Insert/Update aliases now use `StrictType` directly, so they match Effect schemas without index signatures and the old `*Strict` exports are gone.
+
+- [`1590bc9`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/1590bc9e7d02ad6e1ae4df0b465fa84de2eafcd1) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Default `Select` / `Insert` / `Update` aliases now use strict typing (no `[key: string]: unknown`), so there is a single canonical type per schema and the extra `*Strict` exports/config switches have been removed.
+
+### Patch Changes
+
+- [`33fdc8e`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/33fdc8e40e4658ceadef5ec64d78a0aeded4d96e) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Ensure every generated Kysely schema returns the `Schema` interface by wrapping `Schema.make(...)` results with `Schema.asSchema()` and updating the mutable insert/update helpers to keep their runtime types aligned.
+
 ## 2.1.0
 
 ### Minor Changes
