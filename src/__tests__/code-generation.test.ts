@@ -163,12 +163,8 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should export operational schemas via getSchemas with branded Id', () => {
       // Models with ID fields get branded Id schema
-      expect(typesContent).toMatch(/export const User = \{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/Id: UserIdSchema/);
-
-      // Check pattern: export const Model = { ...getSchemas(_Model), Id: ModelIdSchema } as const;
-      expect(typesContent).toMatch(/\} as const;/);
+      // Pattern: export const Model = getSchemas(_Model, ModelIdSchema);
+      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
     });
 
     it('should generate branded ID schemas for models with @id field', () => {
@@ -247,9 +243,8 @@ describe('Code Generation - E2E and Validation', () => {
       // Branded ID schemas: ModelNameIdSchema
       expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = { ...getSchemas(_ModelName), Id: ModelNameIdSchema } as const;
-      expect(typesContent).toMatch(/export const \w+\s*=\s*\{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+\)/);
+      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema);
+      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
     });
   });
 
@@ -362,9 +357,8 @@ describe('Code Generation - E2E and Validation', () => {
       // For User model
       expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
       expect(typesContent).toMatch(/const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
-      expect(typesContent).toMatch(/export const User = \{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/Id: UserIdSchema/);
+      // Pattern: export const User = getSchemas(_User, UserIdSchema);
+      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
       // No type aliases - consumers use type utilities: Selectable<typeof User>
     });
 

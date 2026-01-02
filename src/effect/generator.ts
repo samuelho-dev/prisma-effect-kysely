@@ -66,10 +66,8 @@ ${fieldDefinitions}
     const idField = fields.find((f) => f.isId);
 
     if (idField) {
-      return `export const ${name} = {
-  ...getSchemas(${baseSchemaName}),
-  Id: ${name}IdSchema,
-} as const;`;
+      // Use getSchemas(base, id) to preserve _base for type utilities
+      return `export const ${name} = getSchemas(${baseSchemaName}, ${name}IdSchema);`;
     }
 
     return `export const ${name} = getSchemas(${baseSchemaName});`;

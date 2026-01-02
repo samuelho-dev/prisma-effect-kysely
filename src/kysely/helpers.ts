@@ -320,17 +320,58 @@ export interface Schemas<
 }
 
 /**
+ * Extended Schemas interface with branded Id type.
+ * Returned when getSchemas() is called with an idSchema parameter.
+ */
+export interface SchemasWithId<
+  Type,
+  Encoded,
+  BaseSchema extends Schema.Schema<Type, Encoded>,
+  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+> extends Schemas<Type, Encoded, BaseSchema> {
+  readonly Id: IdSchema;
+}
+
+/**
  * Generate all operational schemas (Selectable/Insertable/Updateable) from base schema
  * Used in generated code
+ *
+ * @param baseSchema - The base Effect Schema struct
+ * @param idSchema - Optional branded ID schema for models with @id fields
  */
-export const getSchemas = <Type, Encoded, BaseSchema extends Schema.Schema<Type, Encoded>>(
+export function getSchemas<
+  Type,
+  Encoded,
+  BaseSchema extends Schema.Schema<Type, Encoded>,
+  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+>(baseSchema: BaseSchema, idSchema: IdSchema): SchemasWithId<Type, Encoded, BaseSchema, IdSchema>;
+
+export function getSchemas<Type, Encoded, BaseSchema extends Schema.Schema<Type, Encoded>>(
   baseSchema: BaseSchema
-): Schemas<Type, Encoded, BaseSchema> => ({
-  _base: baseSchema,
-  Selectable: Selectable(baseSchema),
-  Insertable: Insertable(baseSchema),
-  Updateable: Updateable(baseSchema),
-});
+): Schemas<Type, Encoded, BaseSchema>;
+
+export function getSchemas<
+  Type,
+  Encoded,
+  BaseSchema extends Schema.Schema<Type, Encoded>,
+  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+>(
+  baseSchema: BaseSchema,
+  idSchema?: IdSchema
+): Schemas<Type, Encoded, BaseSchema> | SchemasWithId<Type, Encoded, BaseSchema, IdSchema> {
+  const base: Schemas<Type, Encoded, BaseSchema> = {
+    _base: baseSchema,
+    Selectable: Selectable(baseSchema),
+    Insertable: Insertable(baseSchema),
+    Updateable: Updateable(baseSchema),
+  };
+
+  if (idSchema) {
+    return { ...base, Id: idSchema } as SchemasWithId<Type, Encoded, BaseSchema, IdSchema>;
+  }
+
+  return base;
+}
 
 // ============================================================================
 // Type Utilities (Kysely-compatible pattern)

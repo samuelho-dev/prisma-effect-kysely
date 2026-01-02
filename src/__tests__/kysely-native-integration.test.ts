@@ -186,9 +186,8 @@ const testSelect: UserSelect = {
       );
 
       // Should generate operational schemas with branded Id
-      expect(typesContent).toMatch(/export const User = \{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/Id: UserIdSchema/);
+      // Pattern: export const User = getSchemas(_User, UserIdSchema);
+      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
 
       // No type aliases - consumers use type utilities: Selectable<typeof User>
       expect(typesContent).not.toMatch(/export type UserSelect\s*=/);

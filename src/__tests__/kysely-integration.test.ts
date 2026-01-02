@@ -73,10 +73,8 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should export operational schemas with branded Id', () => {
-      // Should export operational schemas with spread pattern for branded Id
-      expect(typesContent).toMatch(/export const User = \{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_User\)/);
-      expect(typesContent).toMatch(/Id: UserIdSchema/);
+      // Pattern: export const User = getSchemas(_User, UserIdSchema);
+      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
     });
 
     it('should generate DB interface with Kysely Table types', () => {
@@ -138,10 +136,8 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should export operational schema objects with branded Id', () => {
-      // Should export: export const User = { ...getSchemas(_User), Id: UserIdSchema } as const;
-      expect(typesContent).toMatch(/export const \w+ = \{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+\)/);
-      expect(typesContent).toMatch(/Id: \w+IdSchema/);
+      // Should export: export const User = getSchemas(_User, UserIdSchema);
+      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
     });
 
     it('should not export individual type aliases', () => {
@@ -250,9 +246,8 @@ describe('Kysely Integration - Functional Tests', () => {
       // Branded ID schemas: ModelNameIdSchema
       expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = { ...getSchemas(_ModelName), Id: ModelNameIdSchema } as const;
-      expect(typesContent).toMatch(/export const \w+\s*=\s*\{/);
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+\)/);
+      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema);
+      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
     });
   });
 
