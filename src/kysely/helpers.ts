@@ -15,6 +15,37 @@ import type { DeepMutable } from 'effect/Types';
 export const ColumnTypeId = Symbol.for('/ColumnTypeId');
 export const GeneratedId = Symbol.for('/GeneratedId');
 
+// Phantom type symbols for compile-time type propagation
+declare const ColumnTypeInsertPhantom: unique symbol;
+declare const ColumnTypeUpdatePhantom: unique symbol;
+
+/**
+ * A schema with phantom types encoding insert/update type constraints.
+ * This allows TypeScript to know at compile time which fields have
+ * `never` insert/update types and should be excluded.
+ */
+export type ColumnTypeSchema<SType, SEncoded, SR, IType, UType> = Schema.Schema<
+  SType,
+  SEncoded,
+  SR
+> & {
+  readonly [ColumnTypeInsertPhantom]: IType;
+  readonly [ColumnTypeUpdatePhantom]: UType;
+};
+
+// Type guards for extracting phantom types
+type ExtractInsertPhantom<T> = T extends { readonly [ColumnTypeInsertPhantom]: infer I }
+  ? I
+  : T extends Schema.Schema<infer S, unknown, unknown>
+    ? S
+    : never;
+
+type ExtractUpdatePhantom<T> = T extends { readonly [ColumnTypeUpdatePhantom]: infer U }
+  ? U
+  : T extends Schema.Schema<infer S, unknown, unknown>
+    ? S
+    : never;
+
 interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> {
   selectSchema: Schema.Schema<SType, SEncoded, SR>;
   insertSchema: Schema.Schema<IType, IEncoded, IR>;
@@ -24,19 +55,28 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
 /**
  * Mark a field as having different types for select/insert/update
  * Used for ID fields with @default (read-only)
+ *
+ * Returns a schema with phantom types so TypeScript knows at compile time
+ * which fields should be excluded from insert/update operations.
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
   selectSchema: Schema.Schema<SType, SEncoded, SR>,
   insertSchema: Schema.Schema<IType, IEncoded, IR>,
   updateSchema: Schema.Schema<UType, UEncoded, UR>
-): Schema.Schema<SType, SEncoded, SR> => {
+): ColumnTypeSchema<SType, SEncoded, SR, IType, UType> => {
   const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
     {
       selectSchema,
       insertSchema,
       updateSchema,
     };
-  return Schema.asSchema(selectSchema.annotations({ [ColumnTypeId]: schemas }));
+  return Schema.asSchema(selectSchema.annotations({ [ColumnTypeId]: schemas })) as ColumnTypeSchema<
+    SType,
+    SEncoded,
+    SR,
+    IType,
+    UType
+  >;
 };
 
 /**
@@ -264,19 +304,29 @@ export const Updateable = <Type, Encoded>(
   return Schema.asSchema(Schema.make<MutableUpdate<Type>, MutableUpdate<Encoded>, never>(res));
 };
 
-export interface Schemas<Type, Encoded> {
-  Selectable: Schema.Schema<KyselySelectable<Type>, KyselySelectable<Encoded>, never>;
-  Insertable: Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
-  Updateable: Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never>;
+/**
+ * Schemas interface returned by getSchemas().
+ * Includes a _base property to preserve the original schema for type-level computations.
+ */
+export interface Schemas<
+  Type,
+  Encoded,
+  BaseSchema extends Schema.Schema<Type, Encoded> = Schema.Schema<Type, Encoded>,
+> {
+  readonly _base: BaseSchema;
+  readonly Selectable: Schema.Schema<KyselySelectable<Type>, KyselySelectable<Encoded>, never>;
+  readonly Insertable: Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
+  readonly Updateable: Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never>;
 }
 
 /**
  * Generate all operational schemas (Selectable/Insertable/Updateable) from base schema
  * Used in generated code
  */
-export const getSchemas = <Type, Encoded>(
-  baseSchema: Schema.Schema<Type, Encoded>
-): Schemas<Type, Encoded> => ({
+export const getSchemas = <Type, Encoded, BaseSchema extends Schema.Schema<Type, Encoded>>(
+  baseSchema: BaseSchema
+): Schemas<Type, Encoded, BaseSchema> => ({
+  _base: baseSchema,
   Selectable: Selectable(baseSchema),
   Insertable: Insertable(baseSchema),
   Updateable: Updateable(baseSchema),
@@ -305,6 +355,35 @@ type RemoveIndexSignature<T> = {
 
 type StrictType<T> = RemoveIndexSignature<T>;
 
+// Extract struct fields from base schema
+type ExtractStructFields<T> = T extends { readonly _base: Schema.Struct<infer F> } ? F : never;
+
+// Check if a field has never insert phantom type
+type HasNeverInsert<T> = T extends { readonly [ColumnTypeInsertPhantom]: never } ? true : false;
+
+// Check if a field has never update phantom type
+type HasNeverUpdate<T> = T extends { readonly [ColumnTypeUpdatePhantom]: never } ? true : false;
+
+// Filter out fields with never insert type
+type InsertableFields<Fields> = {
+  [K in keyof Fields as HasNeverInsert<Fields[K]> extends true ? never : K]: Fields[K];
+};
+
+// Filter out fields with never update type
+type UpdateableFields<Fields> = {
+  [K in keyof Fields as HasNeverUpdate<Fields[K]> extends true ? never : K]: Fields[K];
+};
+
+// Compute insertable type from struct fields
+type ComputeInsertableType<Fields> = StrictType<{
+  [K in keyof InsertableFields<Fields>]: ExtractInsertPhantom<Fields[K]>;
+}>;
+
+// Compute updateable type from struct fields (all fields optional)
+type ComputeUpdateableType<Fields> = StrictType<{
+  [K in keyof UpdateableFields<Fields>]?: ExtractUpdatePhantom<Fields[K]>;
+}>;
+
 /**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  * @example type UserSelect = Selectable<typeof User>
@@ -315,19 +394,27 @@ export type Selectable<T extends Schemas<unknown, unknown>> = StrictType<
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
+ * Excludes fields with never insert type (e.g., columnType(T, Schema.Never, ...))
  * @example type UserInsert = Insertable<typeof User>
  */
-export type Insertable<T extends Schemas<unknown, unknown>> = StrictType<
-  Schema.Schema.Type<T['Insertable']>
->;
+export type Insertable<T extends Schemas<unknown, unknown>> =
+  ExtractStructFields<T> extends infer F
+    ? [F] extends [never]
+      ? StrictType<Schema.Schema.Type<T['Insertable']>>
+      : ComputeInsertableType<F>
+    : never;
 
 /**
  * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
+ * Excludes fields with never update type (e.g., columnType(T, ..., Schema.Never))
  * @example type UserUpdate = Updateable<typeof User>
  */
-export type Updateable<T extends Schemas<unknown, unknown>> = StrictType<
-  Schema.Schema.Type<T['Updateable']>
->;
+export type Updateable<T extends Schemas<unknown, unknown>> =
+  ExtractStructFields<T> extends infer F
+    ? [F] extends [never]
+      ? StrictType<Schema.Schema.Type<T['Updateable']>>
+      : ComputeUpdateableType<F>
+    : never;
 
 /**
  * Extract branded ID type from schema
