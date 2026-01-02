@@ -124,20 +124,28 @@ const extractParametersFromTypeLiteral = (
   return ast.propertySignatures
     .map((prop: AST.PropertySignature) => {
       const columnSchemas = getColumnTypeSchemas(prop.type);
+
       if (columnSchemas !== null) {
+        const targetSchema = columnSchemas[schemaType];
+
+        // Check for Schema.Never BEFORE mutable transformation
+        // Schema.mutable() wraps in Transformation node, changing _tag
+        if (AST.isNeverKeyword(targetSchema.ast)) {
+          return null; // Will be filtered out
+        }
+
         // Use Schema.mutable() for insert/update schema to make arrays mutable
         // Kysely expects mutable T[] for insert/update operations
         const shouldBeMutable = schemaType === 'updateSchema' || schemaType === 'insertSchema';
         return new AST.PropertySignature(
           prop.name,
-          shouldBeMutable
-            ? Schema.mutable(columnSchemas[schemaType]).ast
-            : columnSchemas[schemaType].ast,
+          shouldBeMutable ? Schema.mutable(targetSchema).ast : targetSchema.ast,
           prop.isOptional,
           prop.isReadonly,
           prop.annotations
         );
       }
+
       // Apply Schema.mutable() to regular fields for insert/updateSchema to make arrays mutable
       // Safe for all types - no-op for non-arrays
       if (schemaType === 'updateSchema' || schemaType === 'insertSchema') {
@@ -149,10 +157,11 @@ const extractParametersFromTypeLiteral = (
           prop.annotations
         );
       }
+
       // Generated fields are just markers now, return as-is
       return prop;
     })
-    .filter((prop: AST.PropertySignature) => prop.type._tag !== 'NeverKeyword');
+    .filter((prop): prop is AST.PropertySignature => prop !== null);
 };
 
 // ============================================================================

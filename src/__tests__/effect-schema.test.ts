@@ -1,4 +1,5 @@
 import { Schema } from 'effect';
+import * as AST from 'effect/SchemaAST';
 import { describe, expect, it } from 'vitest';
 import {
   columnType,
@@ -355,6 +356,36 @@ describe('Effect Schema - Runtime Behavior', () => {
 
       const result = Schema.decodeUnknownSync(Model.Updateable)(clearUpdate);
       expect(result).toEqual({ optionalField: null });
+    });
+
+    it('should exclude Never-typed fields from Updateable schema structure', () => {
+      const _User = Schema.Struct({
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+        name: Schema.String,
+      });
+      const User = getSchemas(_User);
+
+      // Verify 'id' is NOT in the Updateable schema's property signatures
+      const updateableAst = User.Updateable.ast;
+      expect(AST.isTypeLiteral(updateableAst)).toBe(true);
+      const fieldNames = (updateableAst as AST.TypeLiteral).propertySignatures.map((p) => p.name);
+      expect(fieldNames).not.toContain('id');
+      expect(fieldNames).toContain('name');
+    });
+
+    it('should exclude Never-typed fields from Insertable schema structure', () => {
+      const _User = Schema.Struct({
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+        name: Schema.String,
+      });
+      const User = getSchemas(_User);
+
+      // Verify 'id' is NOT in the Insertable schema's property signatures
+      const insertableAst = User.Insertable.ast;
+      expect(AST.isTypeLiteral(insertableAst)).toBe(true);
+      const fieldNames = (insertableAst as AST.TypeLiteral).propertySignatures.map((p) => p.name);
+      expect(fieldNames).not.toContain('id');
+      expect(fieldNames).toContain('name');
     });
   });
 
