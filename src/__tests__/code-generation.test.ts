@@ -119,10 +119,10 @@ describe('Code Generation - E2E and Validation', () => {
 
       const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
-      // Should generate model schemas
-      expect(typesContent).toMatch(/export const _\w+ = Schema\.Struct/);
+      // Should generate internal base schemas (not exported)
+      expect(typesContent).toMatch(/const _\w+ = Schema\.Struct/);
 
-      // Should generate operational schemas
+      // Should generate operational schemas (exported)
       expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+\)/);
     });
   });
@@ -156,9 +156,13 @@ describe('Code Generation - E2E and Validation', () => {
       expect(enumsContent).toMatch(/import \{ Schema \} from ["']effect["']/);
     });
 
-    it('should export base schemas with underscore prefix', () => {
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
+    it('should generate internal base schemas with underscore prefix', () => {
+      // Base schemas are internal (not exported) - consumers access via User._base if needed
+      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
+      expect(typesContent).toMatch(/const _Post = Schema\.Struct/);
+      // Base schemas should NOT be exported
+      expect(typesContent).not.toMatch(/export const _User/);
+      expect(typesContent).not.toMatch(/export const _Post/);
     });
 
     it('should export operational schemas via getSchemas with branded Id', () => {
@@ -237,13 +241,13 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should generate consistent naming conventions', () => {
-      // Base schemas: _ModelName
-      expect(typesContent).toMatch(/export const _\w+\s*=/);
+      // Base schemas: _ModelName (internal, not exported)
+      expect(typesContent).toMatch(/const _\w+\s*=\s*Schema\.Struct/);
 
-      // Branded ID schemas: ModelNameIdSchema
+      // Branded ID schemas: ModelNameIdSchema (internal, not exported)
       expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema);
+      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema); (exported)
       expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
     });
   });
@@ -354,8 +358,9 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should export all necessary schemas for each model', () => {
-      // For User model
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
+      // For User model - base schema is internal (not exported)
+      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
+      expect(typesContent).not.toMatch(/export const _User/);
       expect(typesContent).toMatch(/const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
       // Pattern: export const User = getSchemas(_User, UserIdSchema);
       expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);

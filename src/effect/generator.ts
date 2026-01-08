@@ -33,15 +33,15 @@ export class EffectGenerator {
 
     const baseSchemaName = `_${model.name}`;
 
-    return `// ${model.name} Base Schema
-export const ${baseSchemaName} = Schema.Struct({
+    return `// ${model.name} Base Schema (internal)
+const ${baseSchemaName} = Schema.Struct({
 ${fieldDefinitions}
 });`;
   }
 
   /**
    * Generate branded ID schema for a model
-   * @returns The branded ID schema declaration, or null if no ID field
+   * @returns The branded ID schema declaration + exported type, or null if no ID field
    */
   generateBrandedIdSchema(model: DMMF.Model, fields: readonly DMMF.Field[]): string | null {
     const idField = fields.find((f) => f.isId);
@@ -53,7 +53,9 @@ ${fieldDefinitions}
     const isUuid = isUuidField(idField);
     const baseType = isUuid ? 'Schema.UUID' : 'Schema.String';
 
-    return `const ${name}IdSchema = ${baseType}.pipe(Schema.brand("${name}Id"));`;
+    // Internal schema + exported branded type
+    return `const ${name}IdSchema = ${baseType}.pipe(Schema.brand("${name}Id"));
+export type ${name}Id = typeof ${name}IdSchema.Type;`;
   }
 
   /**

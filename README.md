@@ -46,55 +46,71 @@ Generates three files in the configured output directory:
 Effect Schema enums from Prisma enums with exact literal types:
 
 ```typescript
-export const UserRole = Schema.Literal('admin', 'user', 'guest');
-export type UserRole = Schema.Schema.Type<typeof UserRole>;
+export const UserRoleSchema = Schema.Literal('admin', 'user', 'guest');
 ```
 
 ### types.ts
 
-Effect Schema structs from Prisma models:
+Effect Schema structs from Prisma models with Kysely integration:
 
 ```typescript
-export const User = Schema.Struct({
-  id: Schema.UUID,
+// Internal (not exported) - Kysely table interface
+interface UserTable {
+  id: ColumnType<string, never, never>;
+  email: string;
+  createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+// Internal (not exported) - Base schema
+const _User = Schema.Struct({
+  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   email: Schema.String,
-  name: Schema.optional(Schema.String),
-  role: UserRole,
-  createdAt: Schema.DateFromSelf,
+  createdAt: generated(Schema.DateFromSelf),
 });
-export type User = Schema.Schema.Type<typeof User>;
+
+// Internal (not exported) - Branded ID
+const UserIdSchema = Schema.UUID.pipe(Schema.brand("UserId"));
+
+// EXPORTED - Operational schemas with branded Id
+export const User = getSchemas(_User, UserIdSchema);
+
+// EXPORTED - Kysely DB interface
+export interface DB {
+  User: UserTable;
+}
 ```
-
-**Naming Convention**: All exported schemas and types use PascalCase, regardless of the Prisma model naming convention:
-
-- Model `User` → `User`, `UserSelect`, `UserInsert`
-- Model `session_preference` → `SessionPreference`, `SessionPreferenceSelect`, `SessionPreferenceInsert`
-
-This ensures consistent TypeScript identifier naming while preserving the original model names for internal schemas.
 
 ### index.ts
 
 Re-exports all generated types for easy importing
 
-## Strict Type Aliases
+## Consumer Usage (v4.0+)
 
-The generator always emits strict `Select` / `Insert` / `Update` aliases (no extra suffix) that remove index signatures introduced by TypeScript’s structural typing rules. Under the hood we wrap the Effect schema output with the `StrictType<T>` helper:
+Use type utilities from `prisma-effect-kysely` to extract types:
 
 ```typescript
-import type { StrictType } from 'prisma-effect-kysely';
+import { Selectable, Insertable, Updateable, Id } from "prisma-effect-kysely";
+import { User, DB } from "./generated";
 
-export type UserSelect = StrictType<Schema.Schema.Type<typeof User.Selectable>>;
-export type UserInsert = StrictType<Omit<Schema.Schema.Type<typeof User.Insertable>, 'id'>>;
-export type UserUpdate = StrictType<Schema.Schema.Type<typeof User.Updateable>>;
+// Extract types using utilities (Kysely-native pattern)
+type UserSelect = Selectable<typeof User>;
+type UserInsert = Insertable<typeof User>;
+type UserUpdate = Updateable<typeof User>;
+type UserId = Id<typeof User>;
+
+// Use with Kysely
+import { Kysely } from 'kysely';
+
+const db = new Kysely<DB>({ ... });
+
+// Type-safe queries
+const user = await db.selectFrom('User').selectAll().executeTakeFirst();
 ```
 
-If you need the original Effect schema type (with the index signature), read it directly from the schema:
+**Naming Convention**: All exported schemas use PascalCase, regardless of the Prisma model naming convention:
 
-```ts
-type RawUserSelect = Schema.Schema.Type<typeof User.Selectable>;
-```
-
-The `StrictSelectable`, `StrictInsertable`, and `StrictUpdateable` helpers remain exported for advanced scenarios, but the generated aliases already apply the strict typing by default.
+- Model `User` → `export const User`
+- Model `session_preference` → `export const SessionPreference`
 
 ## Type Mappings
 

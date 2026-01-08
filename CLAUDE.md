@@ -69,26 +69,45 @@ The generator creates three files in the configured output directory:
 
 - **enums.ts**: Effect Schema Literal types for Prisma enums (supports @map)
 - **types.ts**: Effect Schema Struct types for Prisma models with:
-  - Kysely table interfaces (e.g., `UserTable`)
-  - Base schemas prefixed with `_` (e.g., `_User`)
-  - Branded ID schemas (e.g., `UserIdSchema`)
-  - Unified operational schemas (e.g., `User = { ...getSchemas(_User), Id: UserIdSchema }`)
-  - Kysely `DB` interface with table mappings
+  - Internal Kysely table interfaces (e.g., `interface UserTable` - not exported)
+  - Internal base schemas (e.g., `const _User` - not exported)
+  - Internal branded ID schemas (e.g., `const UserIdSchema` - not exported)
+  - **Exported** branded ID types (e.g., `export type UserId = typeof UserIdSchema.Type`)
+  - **Exported** operational schemas (e.g., `export const User = getSchemas(_User, UserIdSchema)`)
+  - **Exported** Kysely `DB` interface with table mappings
 - **index.ts**: Re-exports all generated types
 
-### Consumer Type Pattern (v2.1+)
+### Minimal Exports API (v4.0+)
 
-**No type exports in generated code**. Consumers use type utilities from `prisma-effect-kysely`:
+Only the operational schemas, branded types, and DB interface are exported. Internal schemas and interfaces are kept private:
 
 ```typescript
-import { Selectable, Insertable, Updateable, Id } from "prisma-effect-kysely";
-import { User, DB } from "./generated";
+// INTERNAL (not exported) - these are implementation details
+interface UserTable { ... }
+const _User = Schema.Struct({ ... });
+const UserIdSchema = Schema.UUID.pipe(Schema.brand("UserId"));
 
-// Types via utilities (matches Kysely's native pattern)
+// EXPORTED - what consumers use
+export type UserId = typeof UserIdSchema.Type;
+export const User = getSchemas(_User, UserIdSchema);
+export interface DB { User: UserTable; ... }
+```
+
+### Consumer Type Pattern (v4.0+)
+
+Branded ID types are exported directly. Other types use utilities from `prisma-effect-kysely`:
+
+```typescript
+import { Selectable, Insertable, Updateable } from "prisma-effect-kysely";
+import { User, UserId, DB } from "./generated";
+
+// Branded ID type - direct import
+function getUser(id: UserId): Promise<User> { ... }
+
+// Other types via utilities (matches Kysely's native pattern)
 type UserSelect = Selectable<typeof User>;
 type UserInsert = Insertable<typeof User>;
 type UserUpdate = Updateable<typeof User>;
-type UserId = Id<typeof User>;
 ```
 
 ### Generated Schema Structure
@@ -96,35 +115,43 @@ type UserId = Id<typeof User>;
 Each model generates:
 
 ```typescript
-// Branded ID schema (for models with @id field)
+// Kysely table interface (internal, not exported)
+interface UserTable {
+  id: ColumnType<string, never, never>;
+  email: string;
+  createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+// Branded ID schema (internal, not exported)
 const UserIdSchema = Schema.UUID.pipe(Schema.brand("UserId"));
 
-// Base schema with field definitions
-export const _User = Schema.Struct({
-  id: columnType(UserIdSchema, Schema.Never, Schema.Never),
+// EXPORTED: Branded ID type
+export type UserId = typeof UserIdSchema.Type;
+
+// Base schema with field definitions (internal, not exported)
+const _User = Schema.Struct({
+  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   email: Schema.String,
   createdAt: generated(Schema.DateFromSelf),
 });
 
-// Unified export with operational schemas + branded Id
-export const User = {
-  ...getSchemas(_User),
-  Id: UserIdSchema,
-} as const;
+// EXPORTED: Operational schemas with branded Id
+export const User = getSchemas(_User, UserIdSchema);
 ```
 
 ### Kysely Integration
 The generator includes deep Kysely integration for type-safe database operations:
 
 **Generated Schemas**: Each model generates:
-- Kysely table interface `ModelTable` with ColumnType wrappers
-- Base schema `_ModelName` with raw field definitions
-- Branded ID schema `ModelNameIdSchema` (if model has @id)
-- Operational schemas via `getSchemas(_ModelName)`:
+- **Internal** Kysely table interface `ModelTable` with ColumnType wrappers (not exported)
+- **Internal** base schema `_ModelName` with raw field definitions (not exported)
+- **Internal** branded ID schema `ModelNameIdSchema` (not exported, if model has @id)
+- **Exported** operational schemas via `getSchemas(_ModelName)`:
   - `ModelName.Selectable`: Schema for SELECT queries
   - `ModelName.Insertable`: Schema for INSERT queries (fields with `@default` omitted)
   - `ModelName.Updateable`: Schema for UPDATE queries (all fields optional)
-- Branded ID: `ModelName.Id`
+  - `ModelName.Id`: Branded ID schema
+  - `ModelName._base`: Original base schema (for type-level utilities)
 
 **Field Behavior**:
 - Fields with `@default`: Wrapped in `generated()` - omitted from insert schema
@@ -165,11 +192,20 @@ export interface DB {
   ```typescript
   // Database: _ProductToProductTag with columns A, B
   // Generated TypeScript:
-  export const _ProductToProductTag = Schema.Struct({
+
+  // Internal Kysely interface (not exported)
+  interface ProductToProductTagTable {
+    product: ColumnType<string, never, never>;
+    product_tag: ColumnType<string, never, never>;
+  }
+
+  // Internal base schema (not exported)
+  const _ProductToProductTag = Schema.Struct({
     product_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
     product_tag_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
   });
 
+  // ONLY EXPORT: Operational schemas (no Id for join tables - composite keys)
   export const ProductToProductTag = getSchemas(_ProductToProductTag);
   ```
 - **Benefits**:
@@ -303,8 +339,10 @@ prisma-effect-kysely/
 
 - [ ] Run `npm test` before making changes to verify baseline
 - [ ] Consumers use type utilities: `Selectable<typeof User>`, NOT `UserSelect`
-- [ ] Each model with `@id` gets a branded ID schema: `const UserIdSchema = ...`
-- [ ] Generated output uses spread pattern: `{ ...getSchemas(_Model), Id: ModelIdSchema }`
+- [ ] Base schemas (`_User`) are INTERNAL (not exported) - access via `User._base` if needed
+- [ ] Kysely table interfaces (`UserTable`) are INTERNAL (not exported)
+- [ ] Only operational schemas are exported: `export const User = getSchemas(_User, UserIdSchema)`
+- [ ] Each model with `@id` gets an internal branded ID schema: `const UserIdSchema = ...`
 - [ ] NO type exports in generated code - only schemas
 - [ ] Join tables do NOT get branded IDs (they use composite keys)
-- [ ] DB interface uses Kysely table interfaces: `User: UserTable`
+- [ ] DB interface references internal table interfaces: `User: UserTable` (TypeScript resolves at compile-time)

@@ -108,7 +108,9 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('export const _CategoryToPost');
+      // Base schema is internal (not exported)
+      expect(generated).toContain('const _CategoryToPost');
+      expect(generated).not.toContain('export const _CategoryToPost');
       expect(generated).toContain('Schema.Struct({');
     });
 

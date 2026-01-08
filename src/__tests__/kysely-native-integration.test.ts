@@ -65,8 +65,9 @@ describe('Kysely Native Integration', () => {
       // Should import ColumnType from kysely
       expect(typesContent).toMatch(/import type \{ ColumnType \} from ["']kysely["']/);
 
-      // Should generate UserTable interface
-      expect(typesContent).toMatch(/export interface UserTable \{/);
+      // Should generate UserTable interface (internal, not exported)
+      expect(typesContent).toMatch(/interface UserTable \{/);
+      expect(typesContent).not.toMatch(/export interface UserTable/);
 
       // Should use ColumnType for read-only fields (id with @default)
       expect(typesContent).toMatch(/id:\s*ColumnType<string,\s*never,\s*never>/);
@@ -87,8 +88,9 @@ describe('Kysely Native Integration', () => {
     it('should generate PostTable with optional fields', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should generate PostTable interface
-      expect(typesContent).toMatch(/export interface PostTable \{/);
+      // Should generate PostTable interface (internal, not exported)
+      expect(typesContent).toMatch(/interface PostTable \{/);
+      expect(typesContent).not.toMatch(/export interface PostTable/);
 
       // Optional content field should be nullable
       expect(typesContent).toMatch(/content:\s*string \| null/);
@@ -164,7 +166,7 @@ const testSelect: UserSelect = {
       // The fact that we can write this file structure proves the types are correct
       // In a real test, you'd use TypeScript compiler API to verify, but for now
       // we verify the structure is generated correctly
-      expect(typesContent).toContain('export interface UserTable');
+      expect(typesContent).toMatch(/interface UserTable/); // internal, not exported
       expect(typesContent).toContain('ColumnType<string, never, never>'); // id field
     });
   });
@@ -173,8 +175,9 @@ const testSelect: UserSelect = {
     it('should still generate Effect schemas with runtime helpers', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should still generate base schemas
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
+      // Should still generate base schemas (internal, not exported)
+      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
+      expect(typesContent).not.toMatch(/export const _User/);
 
       // Should still use columnType and generated helpers
       expect(typesContent).toContain('columnType(');
