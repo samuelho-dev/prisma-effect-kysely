@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.1
+
+### Patch Changes
+
+- [`f8c0cd8`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/f8c0cd8ecce1386292555d835fa13bdd4cf9cb04) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - Export branded ID types directly (e.g., `export type UserId = typeof UserIdSchema.Type`)
+
 ## 4.0.0
 
 ### Major Changes
