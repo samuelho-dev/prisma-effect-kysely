@@ -128,10 +128,10 @@ export class GeneratorOrchestrator {
         // Generate Kysely table interface
         const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
-        // Generate base schema with Kysely fields
+        // Generate base schema with Kysely fields (internal)
         const kyselyFields = this.kyselyGen.generateModelFields(fields);
-        const baseSchema = `// ${model.name} Base Schema
-export const ${baseSchemaName} = Schema.Struct({
+        const baseSchema = `// ${model.name} Base Schema (internal)
+const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
@@ -211,10 +211,10 @@ ${kyselyFields}
         // Generate Kysely table interface
         const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
-        // Generate base schema with Kysely fields
+        // Generate base schema with Kysely fields (internal)
         const kyselyFields = this.kyselyGen.generateModelFields(fields);
-        const baseSchema = `// ${model.name} Base Schema
-export const ${baseSchemaName} = Schema.Struct({
+        const baseSchema = `// ${model.name} Base Schema (internal)
+const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 

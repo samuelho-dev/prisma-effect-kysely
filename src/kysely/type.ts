@@ -159,8 +159,8 @@ export function generateKyselyTableInterface(
     })
     .join('\n');
 
-  return `// Kysely table interface for ${model.name}
-export interface ${tableName} {
+  return `// Kysely table interface for ${model.name} (internal)
+interface ${tableName} {
 ${fieldDefs}
 }`;
 }

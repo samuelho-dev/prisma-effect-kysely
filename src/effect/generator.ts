@@ -33,8 +33,8 @@ export class EffectGenerator {
 
     const baseSchemaName = `_${model.name}`;
 
-    return `// ${model.name} Base Schema
-export const ${baseSchemaName} = Schema.Struct({
+    return `// ${model.name} Base Schema (internal)
+const ${baseSchemaName} = Schema.Struct({
 ${fieldDefinitions}
 });`;
   }

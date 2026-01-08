@@ -14,8 +14,8 @@ export function generateJoinTableKyselyInterface(joinTable: JoinTableInfo) {
   const aType = columnAIsUuid ? 'string' : 'number';
   const bType = columnBIsUuid ? 'string' : 'number';
 
-  return `// Kysely table interface for ${relationName}
-export interface ${relationName}Table {
+  return `// Kysely table interface for ${relationName} (internal)
+interface ${relationName}Table {
   ${modelAField}: ColumnType<${aType}, never, never>;
   ${modelBField}: ColumnType<${bType}, never, never>;
 }`;
@@ -77,11 +77,11 @@ export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Do
   const columnAField = `  ${columnAName}: Schema.propertySignature(columnType(${columnASchema}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A"))`;
   const columnBField = `  ${columnBName}: Schema.propertySignature(columnType(${columnBSchema}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B"))`;
 
-  // Generate base schema
-  const baseSchema = `// ${tableName} Join Table Schema
+  // Generate base schema (internal)
+  const baseSchema = `// ${tableName} Join Table Schema (internal)
 // Database columns: A (${modelA}), B (${modelB})
 // TypeScript fields: ${columnAName}, ${columnBName}
-export const _${relationName} = Schema.Struct({
+const _${relationName} = Schema.Struct({
 ${columnAField},
 ${columnBField},
 });`;

@@ -63,8 +63,11 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should generate base schemas with underscore prefix', () => {
       // Base schemas should be prefixed with _ (e.g., _User, _Post)
-      expect(typesContent).toMatch(/export const _User/);
-      expect(typesContent).toMatch(/export const _Post/);
+      // These are internal (not exported) - consumers access via User._base if needed
+      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
+      expect(typesContent).toMatch(/const _Post = Schema\.Struct/);
+      expect(typesContent).not.toMatch(/export const _User/);
+      expect(typesContent).not.toMatch(/export const _Post/);
     });
 
     it('should use generated() for fields with @default', () => {
@@ -174,8 +177,9 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should use Kysely Table interfaces for type safety', () => {
       // Kysely table interfaces provide native type safety
-      // Consumers use type utilities: Selectable<typeof User>
-      expect(typesContent).toMatch(/export interface \w+Table \{/);
+      // These are internal (not exported) - used by DB interface
+      expect(typesContent).toMatch(/interface \w+Table \{/);
+      expect(typesContent).not.toMatch(/export interface \w+Table/);
     });
 
     it('should generate DB interface with resolved types', () => {
@@ -240,13 +244,13 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should generate consistent naming conventions', () => {
-      // Base schemas: _ModelName
-      expect(typesContent).toMatch(/export const _\w+\s*=/);
+      // Base schemas: _ModelName (internal, not exported)
+      expect(typesContent).toMatch(/const _\w+\s*=\s*Schema\.Struct/);
 
-      // Branded ID schemas: ModelNameIdSchema
+      // Branded ID schemas: ModelNameIdSchema (internal, not exported)
       expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema);
+      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema); (exported)
       expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
     });
   });
