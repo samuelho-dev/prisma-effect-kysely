@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.11
+
+### Patch Changes
+
+- fix: preserve branded Id schema type in compiled .d.ts files
+
+  Changed generic constraints from `Schema.Schema.Any` to `Schema.Schema<unknown, unknown, unknown>` to prevent TypeScript from widening `User.Id` to `any` in declaration files. This ensures branded ID types are correctly preserved when consumers compile their code.
+
 ## 4.0.10
 
 ### Patch Changes

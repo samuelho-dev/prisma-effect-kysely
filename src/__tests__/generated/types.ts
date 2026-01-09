@@ -1,5 +1,5 @@
 /**
- * Generated: 2025-12-28T22:44:45.397Z
+ * Generated: 2026-01-09T22:45:16.374Z
  * DO NOT EDIT MANUALLY
  */
 
@@ -8,8 +8,8 @@ import type { ColumnType } from 'kysely';
 import { columnType, generated, getSchemas } from 'prisma-effect-kysely';
 import { RoleSchema, StatusSchema } from './enums.js';
 
-// Kysely table interface for AllTypes
-export interface AllTypesTable {
+// Kysely table interface for AllTypes (internal)
+interface AllTypesTable {
   bigIntArray: Array<string>;
   bigIntField: string;
   boolArray: Array<boolean>;
@@ -43,10 +43,10 @@ export interface AllTypesTable {
   optionalStatus: Schema.Schema.Type<typeof StatusSchema> | null;
   optionalString: string | null;
   role: Schema.Schema.Type<typeof RoleSchema>;
-  roleArray: Schema.Schema.Type<typeof RoleSchema>;
+  roleArray: Array<Schema.Schema.Type<typeof RoleSchema>>;
   session_id: ColumnType<string, string | undefined, string | undefined>;
   status: Schema.Schema.Type<typeof StatusSchema>;
-  statusArray: Schema.Schema.Type<typeof StatusSchema>;
+  statusArray: Array<Schema.Schema.Type<typeof StatusSchema>>;
   stringArray: Array<string>;
   stringField: string;
   tenant_id: string;
@@ -55,8 +55,8 @@ export interface AllTypesTable {
   updatedAt: ColumnType<Date, Date | undefined, Date | undefined>;
 }
 
-// AllTypes Base Schema
-export const _AllTypes = Schema.Struct({
+// AllTypes Base Schema (internal)
+const _AllTypes = Schema.Struct({
   bigIntArray: Schema.Array(Schema.BigInt),
   bigIntField: Schema.BigInt,
   boolArray: Schema.Array(Schema.Boolean),
@@ -104,17 +104,13 @@ export const _AllTypes = Schema.Struct({
   updatedAt: Schema.DateFromSelf,
 });
 
-export const AllTypes = getSchemas(_AllTypes);
+const AllTypesIdSchema = Schema.UUID.pipe(Schema.brand('AllTypesId'));
+export type AllTypesId = typeof AllTypesIdSchema.Type;
 
-export type AllTypesSelect = Schema.Schema.Type<typeof AllTypes.Selectable>;
-export type AllTypesInsert = Schema.Schema.Type<typeof AllTypes.Insertable>;
-export type AllTypesUpdate = Schema.Schema.Type<typeof AllTypes.Updateable>;
-export type AllTypesSelectEncoded = Schema.Schema.Encoded<typeof AllTypes.Selectable>;
-export type AllTypesInsertEncoded = Schema.Schema.Encoded<typeof AllTypes.Insertable>;
-export type AllTypesUpdateEncoded = Schema.Schema.Encoded<typeof AllTypes.Updateable>;
+export const AllTypes = getSchemas(_AllTypes, AllTypesIdSchema);
 
-// Kysely table interface for AnnotationTest
-export interface AnnotationTestTable {
+// Kysely table interface for AnnotationTest (internal)
+interface AnnotationTestTable {
   age: number;
   coordinates: Array<number>;
   createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
@@ -123,8 +119,8 @@ export interface AnnotationTestTable {
   userId: string;
 }
 
-// AnnotationTest Base Schema
-export const _AnnotationTest = Schema.Struct({
+// AnnotationTest Base Schema (internal)
+const _AnnotationTest = Schema.Struct({
   age: Schema.Number.pipe(Schema.positive()),
   coordinates: Schema.Array(Schema.Array(Schema.Number).pipe(Schema.itemsCount(3))),
   createdAt: generated(Schema.DateFromSelf),
@@ -133,45 +129,37 @@ export const _AnnotationTest = Schema.Struct({
   userId: Schema.String.pipe(Schema.brand('UserId')),
 });
 
-export const AnnotationTest = getSchemas(_AnnotationTest);
+const AnnotationTestIdSchema = Schema.UUID.pipe(Schema.brand('AnnotationTestId'));
+export type AnnotationTestId = typeof AnnotationTestIdSchema.Type;
 
-export type AnnotationTestSelect = Schema.Schema.Type<typeof AnnotationTest.Selectable>;
-export type AnnotationTestInsert = Schema.Schema.Type<typeof AnnotationTest.Insertable>;
-export type AnnotationTestUpdate = Schema.Schema.Type<typeof AnnotationTest.Updateable>;
-export type AnnotationTestSelectEncoded = Schema.Schema.Encoded<typeof AnnotationTest.Selectable>;
-export type AnnotationTestInsertEncoded = Schema.Schema.Encoded<typeof AnnotationTest.Insertable>;
-export type AnnotationTestUpdateEncoded = Schema.Schema.Encoded<typeof AnnotationTest.Updateable>;
+export const AnnotationTest = getSchemas(_AnnotationTest, AnnotationTestIdSchema);
 
-// Kysely table interface for Category
-export interface CategoryTable {
+// Kysely table interface for Category (internal)
+interface CategoryTable {
   id: ColumnType<string, never, never>;
   name: string;
 }
 
-// Category Base Schema
-export const _Category = Schema.Struct({
+// Category Base Schema (internal)
+const _Category = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   name: Schema.String,
 });
 
-export const Category = getSchemas(_Category);
+const CategoryIdSchema = Schema.UUID.pipe(Schema.brand('CategoryId'));
+export type CategoryId = typeof CategoryIdSchema.Type;
 
-export type CategorySelect = Schema.Schema.Type<typeof Category.Selectable>;
-export type CategoryInsert = Schema.Schema.Type<typeof Category.Insertable>;
-export type CategoryUpdate = Schema.Schema.Type<typeof Category.Updateable>;
-export type CategorySelectEncoded = Schema.Schema.Encoded<typeof Category.Selectable>;
-export type CategoryInsertEncoded = Schema.Schema.Encoded<typeof Category.Insertable>;
-export type CategoryUpdateEncoded = Schema.Schema.Encoded<typeof Category.Updateable>;
+export const Category = getSchemas(_Category, CategoryIdSchema);
 
-// Kysely table interface for CompositeIdModel
-export interface CompositeIdModelTable {
+// Kysely table interface for CompositeIdModel (internal)
+interface CompositeIdModelTable {
   postId: string;
   timestamp: ColumnType<Date, Date | undefined, Date | undefined>;
   userId: string;
 }
 
-// CompositeIdModel Base Schema
-export const _CompositeIdModel = Schema.Struct({
+// CompositeIdModel Base Schema (internal)
+const _CompositeIdModel = Schema.Struct({
   postId: Schema.UUID,
   timestamp: generated(Schema.DateFromSelf),
   userId: Schema.UUID,
@@ -179,44 +167,27 @@ export const _CompositeIdModel = Schema.Struct({
 
 export const CompositeIdModel = getSchemas(_CompositeIdModel);
 
-export type CompositeIdModelSelect = Schema.Schema.Type<typeof CompositeIdModel.Selectable>;
-export type CompositeIdModelInsert = Schema.Schema.Type<typeof CompositeIdModel.Insertable>;
-export type CompositeIdModelUpdate = Schema.Schema.Type<typeof CompositeIdModel.Updateable>;
-export type CompositeIdModelSelectEncoded = Schema.Schema.Encoded<
-  typeof CompositeIdModel.Selectable
->;
-export type CompositeIdModelInsertEncoded = Schema.Schema.Encoded<
-  typeof CompositeIdModel.Insertable
->;
-export type CompositeIdModelUpdateEncoded = Schema.Schema.Encoded<
-  typeof CompositeIdModel.Updateable
->;
-
-// Kysely table interface for Employee
-export interface EmployeeTable {
+// Kysely table interface for Employee (internal)
+interface EmployeeTable {
   id: ColumnType<string, never, never>;
   managerId: string | null;
   name: string;
 }
 
-// Employee Base Schema
-export const _Employee = Schema.Struct({
+// Employee Base Schema (internal)
+const _Employee = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   managerId: Schema.NullOr(Schema.UUID),
   name: Schema.String,
 });
 
-export const Employee = getSchemas(_Employee);
+const EmployeeIdSchema = Schema.UUID.pipe(Schema.brand('EmployeeId'));
+export type EmployeeId = typeof EmployeeIdSchema.Type;
 
-export type EmployeeSelect = Schema.Schema.Type<typeof Employee.Selectable>;
-export type EmployeeInsert = Schema.Schema.Type<typeof Employee.Insertable>;
-export type EmployeeUpdate = Schema.Schema.Type<typeof Employee.Updateable>;
-export type EmployeeSelectEncoded = Schema.Schema.Encoded<typeof Employee.Selectable>;
-export type EmployeeInsertEncoded = Schema.Schema.Encoded<typeof Employee.Insertable>;
-export type EmployeeUpdateEncoded = Schema.Schema.Encoded<typeof Employee.Updateable>;
+export const Employee = getSchemas(_Employee, EmployeeIdSchema);
 
-// Kysely table interface for Post
-export interface PostTable {
+// Kysely table interface for Post (internal)
+interface PostTable {
   authorId: string;
   content: string | null;
   createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
@@ -226,8 +197,8 @@ export interface PostTable {
   updatedAt: ColumnType<Date, Date | undefined, Date | undefined>;
 }
 
-// Post Base Schema
-export const _Post = Schema.Struct({
+// Post Base Schema (internal)
+const _Post = Schema.Struct({
   authorId: Schema.UUID,
   content: Schema.NullOr(Schema.String),
   createdAt: generated(Schema.DateFromSelf),
@@ -237,82 +208,66 @@ export const _Post = Schema.Struct({
   updatedAt: Schema.DateFromSelf,
 });
 
-export const Post = getSchemas(_Post);
+const PostIdSchema = Schema.UUID.pipe(Schema.brand('PostId'));
+export type PostId = typeof PostIdSchema.Type;
 
-export type PostSelect = Schema.Schema.Type<typeof Post.Selectable>;
-export type PostInsert = Schema.Schema.Type<typeof Post.Insertable>;
-export type PostUpdate = Schema.Schema.Type<typeof Post.Updateable>;
-export type PostSelectEncoded = Schema.Schema.Encoded<typeof Post.Selectable>;
-export type PostInsertEncoded = Schema.Schema.Encoded<typeof Post.Insertable>;
-export type PostUpdateEncoded = Schema.Schema.Encoded<typeof Post.Updateable>;
+export const Post = getSchemas(_Post, PostIdSchema);
 
-// Kysely table interface for Product
-export interface ProductTable {
+// Kysely table interface for Product (internal)
+interface ProductTable {
   id: ColumnType<string, never, never>;
   name: string;
 }
 
-// Product Base Schema
-export const _Product = Schema.Struct({
+// Product Base Schema (internal)
+const _Product = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   name: Schema.String,
 });
 
-export const Product = getSchemas(_Product);
+const ProductIdSchema = Schema.UUID.pipe(Schema.brand('ProductId'));
+export type ProductId = typeof ProductIdSchema.Type;
 
-export type ProductSelect = Schema.Schema.Type<typeof Product.Selectable>;
-export type ProductInsert = Schema.Schema.Type<typeof Product.Insertable>;
-export type ProductUpdate = Schema.Schema.Type<typeof Product.Updateable>;
-export type ProductSelectEncoded = Schema.Schema.Encoded<typeof Product.Selectable>;
-export type ProductInsertEncoded = Schema.Schema.Encoded<typeof Product.Insertable>;
-export type ProductUpdateEncoded = Schema.Schema.Encoded<typeof Product.Updateable>;
+export const Product = getSchemas(_Product, ProductIdSchema);
 
-// Kysely table interface for ProductTag
-export interface ProductTagTable {
+// Kysely table interface for ProductTag (internal)
+interface ProductTagTable {
   id: ColumnType<string, never, never>;
   name: string;
 }
 
-// ProductTag Base Schema
-export const _ProductTag = Schema.Struct({
+// ProductTag Base Schema (internal)
+const _ProductTag = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   name: Schema.String,
 });
 
-export const ProductTag = getSchemas(_ProductTag);
+const ProductTagIdSchema = Schema.UUID.pipe(Schema.brand('ProductTagId'));
+export type ProductTagId = typeof ProductTagIdSchema.Type;
 
-export type ProductTagSelect = Schema.Schema.Type<typeof ProductTag.Selectable>;
-export type ProductTagInsert = Schema.Schema.Type<typeof ProductTag.Insertable>;
-export type ProductTagUpdate = Schema.Schema.Type<typeof ProductTag.Updateable>;
-export type ProductTagSelectEncoded = Schema.Schema.Encoded<typeof ProductTag.Selectable>;
-export type ProductTagInsertEncoded = Schema.Schema.Encoded<typeof ProductTag.Insertable>;
-export type ProductTagUpdateEncoded = Schema.Schema.Encoded<typeof ProductTag.Updateable>;
+export const ProductTag = getSchemas(_ProductTag, ProductTagIdSchema);
 
-// Kysely table interface for Profile
-export interface ProfileTable {
+// Kysely table interface for Profile (internal)
+interface ProfileTable {
   bio: string;
   id: ColumnType<string, never, never>;
   userId: string;
 }
 
-// Profile Base Schema
-export const _Profile = Schema.Struct({
+// Profile Base Schema (internal)
+const _Profile = Schema.Struct({
   bio: Schema.String,
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   userId: Schema.UUID,
 });
 
-export const Profile = getSchemas(_Profile);
+const ProfileIdSchema = Schema.UUID.pipe(Schema.brand('ProfileId'));
+export type ProfileId = typeof ProfileIdSchema.Type;
 
-export type ProfileSelect = Schema.Schema.Type<typeof Profile.Selectable>;
-export type ProfileInsert = Schema.Schema.Type<typeof Profile.Insertable>;
-export type ProfileUpdate = Schema.Schema.Type<typeof Profile.Updateable>;
-export type ProfileSelectEncoded = Schema.Schema.Encoded<typeof Profile.Selectable>;
-export type ProfileInsertEncoded = Schema.Schema.Encoded<typeof Profile.Insertable>;
-export type ProfileUpdateEncoded = Schema.Schema.Encoded<typeof Profile.Updateable>;
+export const Profile = getSchemas(_Profile, ProfileIdSchema);
 
-// Kysely table interface for session_model_preference
-export interface SessionModelPreferenceTable {
+// Kysely table interface for session_model_preference (internal)
+interface SessionModelPreferenceTable {
   createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
   id: ColumnType<string, never, never>;
   language: ColumnType<string, string | undefined, string | undefined>;
@@ -322,8 +277,8 @@ export interface SessionModelPreferenceTable {
   user_id: string;
 }
 
-// session_model_preference Base Schema
-export const _session_model_preference = Schema.Struct({
+// session_model_preference Base Schema (internal)
+const _session_model_preference = Schema.Struct({
   createdAt: generated(Schema.DateFromSelf),
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   language: generated(Schema.String),
@@ -333,29 +288,16 @@ export const _session_model_preference = Schema.Struct({
   user_id: Schema.UUID,
 });
 
-export const SessionModelPreference = getSchemas(_session_model_preference);
+const SessionModelPreferenceIdSchema = Schema.UUID.pipe(Schema.brand('SessionModelPreferenceId'));
+export type SessionModelPreferenceId = typeof SessionModelPreferenceIdSchema.Type;
 
-export type SessionModelPreferenceSelect = Schema.Schema.Type<
-  typeof SessionModelPreference.Selectable
->;
-export type SessionModelPreferenceInsert = Schema.Schema.Type<
-  typeof SessionModelPreference.Insertable
->;
-export type SessionModelPreferenceUpdate = Schema.Schema.Type<
-  typeof SessionModelPreference.Updateable
->;
-export type SessionModelPreferenceSelectEncoded = Schema.Schema.Encoded<
-  typeof SessionModelPreference.Selectable
->;
-export type SessionModelPreferenceInsertEncoded = Schema.Schema.Encoded<
-  typeof SessionModelPreference.Insertable
->;
-export type SessionModelPreferenceUpdateEncoded = Schema.Schema.Encoded<
-  typeof SessionModelPreference.Updateable
->;
+export const SessionModelPreference = getSchemas(
+  _session_model_preference,
+  SessionModelPreferenceIdSchema
+);
 
-// Kysely table interface for User
-export interface UserTable {
+// Kysely table interface for User (internal)
+interface UserTable {
   createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
   email: string;
   id: ColumnType<string, never, never>;
@@ -363,8 +305,8 @@ export interface UserTable {
   updatedAt: ColumnType<Date, Date | undefined, Date | undefined>;
 }
 
-// User Base Schema
-export const _User = Schema.Struct({
+// User Base Schema (internal)
+const _User = Schema.Struct({
   createdAt: generated(Schema.DateFromSelf),
   email: Schema.String,
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
@@ -372,31 +314,27 @@ export const _User = Schema.Struct({
   updatedAt: Schema.DateFromSelf,
 });
 
-export const User = getSchemas(_User);
+const UserIdSchema = Schema.UUID.pipe(Schema.brand('UserId'));
+export type UserId = typeof UserIdSchema.Type;
 
-export type UserSelect = Schema.Schema.Type<typeof User.Selectable>;
-export type UserInsert = Schema.Schema.Type<typeof User.Insertable>;
-export type UserUpdate = Schema.Schema.Type<typeof User.Updateable>;
-export type UserSelectEncoded = Schema.Schema.Encoded<typeof User.Selectable>;
-export type UserInsertEncoded = Schema.Schema.Encoded<typeof User.Insertable>;
-export type UserUpdateEncoded = Schema.Schema.Encoded<typeof User.Updateable>;
+export const User = getSchemas(_User, UserIdSchema);
 
-// Kysely table interface for CategoryToPost
-export interface CategoryToPostTable {
+// Kysely table interface for CategoryToPost (internal)
+interface CategoryToPostTable {
   category: ColumnType<string, never, never>;
   post: ColumnType<string, never, never>;
 }
 
-// Kysely table interface for product_tags
-export interface product_tagsTable {
+// Kysely table interface for product_tags (internal)
+interface product_tagsTable {
   product: ColumnType<string, never, never>;
   product_tag: ColumnType<string, never, never>;
 }
 
-// _CategoryToPost Join Table Schema
+// _CategoryToPost Join Table Schema (internal)
 // Database columns: A (Category), B (Post)
 // TypeScript fields: category_id, post_id
-export const _CategoryToPost = Schema.Struct({
+const _CategoryToPost = Schema.Struct({
   category_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(
     Schema.fromKey('A')
   ),
@@ -407,17 +345,10 @@ export const _CategoryToPost = Schema.Struct({
 
 export const CategoryToPost = getSchemas(_CategoryToPost);
 
-export type CategoryToPostSelect = Schema.Schema.Type<typeof CategoryToPost.Selectable>;
-export type CategoryToPostInsert = Schema.Schema.Type<typeof CategoryToPost.Insertable>;
-export type CategoryToPostUpdate = Schema.Schema.Type<typeof CategoryToPost.Updateable>;
-export type CategoryToPostSelectEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Selectable>;
-export type CategoryToPostInsertEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Insertable>;
-export type CategoryToPostUpdateEncoded = Schema.Schema.Encoded<typeof CategoryToPost.Updateable>;
-
-// _product_tags Join Table Schema
+// _product_tags Join Table Schema (internal)
 // Database columns: A (Product), B (ProductTag)
 // TypeScript fields: product_id, product_tag_id
-export const _product_tags = Schema.Struct({
+const _product_tags = Schema.Struct({
   product_id: Schema.propertySignature(columnType(Schema.UUID, Schema.Never, Schema.Never)).pipe(
     Schema.fromKey('A')
   ),
@@ -427,13 +358,6 @@ export const _product_tags = Schema.Struct({
 });
 
 export const product_tags = getSchemas(_product_tags);
-
-export type product_tagsSelect = Schema.Schema.Type<typeof product_tags.Selectable>;
-export type product_tagsInsert = Schema.Schema.Type<typeof product_tags.Insertable>;
-export type product_tagsUpdate = Schema.Schema.Type<typeof product_tags.Updateable>;
-export type product_tagsSelectEncoded = Schema.Schema.Encoded<typeof product_tags.Selectable>;
-export type product_tagsInsertEncoded = Schema.Schema.Encoded<typeof product_tags.Insertable>;
-export type product_tagsUpdateEncoded = Schema.Schema.Encoded<typeof product_tags.Updateable>;
 
 // Kysely Database Interface
 export interface DB {

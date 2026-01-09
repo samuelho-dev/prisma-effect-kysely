@@ -277,10 +277,10 @@ export const Updateable = <Type, Encoded>(
  * Schemas interface returned by getSchemas().
  * Includes a _base property to preserve the original schema for type-level computations.
  *
- * Uses Schema.Schema.Any constraint to support schemas with phantom types
- * (columnType, generated) that use intersection types internally.
+ * Uses Schema.Schema<unknown, unknown, unknown> constraint instead of Schema.Schema.Any
+ * to prevent type widening (Schema.Any uses `any` which causes Id to compile as `any`).
  */
-export interface Schemas<BaseSchema extends Schema.Schema.Any> {
+export interface Schemas<BaseSchema extends Schema.Schema<unknown, unknown, unknown>> {
   readonly _base: BaseSchema;
   readonly Selectable: Schema.Schema<
     KyselySelectable<Schema.Schema.Type<BaseSchema>>,
@@ -304,8 +304,8 @@ export interface Schemas<BaseSchema extends Schema.Schema.Any> {
  * Returned when getSchemas() is called with an idSchema parameter.
  */
 export interface SchemasWithId<
-  BaseSchema extends Schema.Schema.Any,
-  IdSchema extends Schema.Schema.Any,
+  BaseSchema extends Schema.Schema<unknown, unknown, unknown>,
+  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
 > extends Schemas<BaseSchema> {
   readonly Id: IdSchema;
 }
@@ -318,17 +318,17 @@ export interface SchemasWithId<
  * @param idSchema - Optional branded ID schema for models with @id fields
  */
 export function getSchemas<
-  BaseSchema extends Schema.Schema.Any,
-  IdSchema extends Schema.Schema.Any,
+  BaseSchema extends Schema.Schema<unknown, unknown, unknown>,
+  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
 >(baseSchema: BaseSchema, idSchema: IdSchema): SchemasWithId<BaseSchema, IdSchema>;
 
-export function getSchemas<BaseSchema extends Schema.Schema.Any>(
+export function getSchemas<BaseSchema extends Schema.Schema<unknown, unknown, unknown>>(
   baseSchema: BaseSchema
 ): Schemas<BaseSchema>;
 
 export function getSchemas<
-  BaseSchema extends Schema.Schema.Any,
-  IdSchema extends Schema.Schema.Any,
+  BaseSchema extends Schema.Schema<unknown, unknown, unknown>,
+  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
 >(
   baseSchema: BaseSchema,
   idSchema?: IdSchema
@@ -381,9 +381,9 @@ type StrictType<T> = RemoveIndexSignature<T>;
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  * @example type UserSelect = Selectable<typeof User>
  */
-export type Selectable<T extends { readonly Selectable: Schema.Schema.Any }> = StrictType<
-  Schema.Schema.Type<T['Selectable']>
->;
+export type Selectable<
+  T extends { readonly Selectable: Schema.Schema<unknown, unknown, unknown> },
+> = StrictType<Schema.Schema.Type<T['Selectable']>>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
@@ -396,9 +396,9 @@ export type Selectable<T extends { readonly Selectable: Schema.Schema.Any }> = S
  *
  * @example type UserInsert = Insertable<typeof User>
  */
-export type Insertable<T extends { readonly Insertable: Schema.Schema.Any }> = StrictType<
-  Schema.Schema.Type<T['Insertable']>
->;
+export type Insertable<
+  T extends { readonly Insertable: Schema.Schema<unknown, unknown, unknown> },
+> = StrictType<Schema.Schema.Type<T['Insertable']>>;
 
 /**
  * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
@@ -409,12 +409,14 @@ export type Insertable<T extends { readonly Insertable: Schema.Schema.Any }> = S
  *
  * @example type UserUpdate = Updateable<typeof User>
  */
-export type Updateable<T extends { readonly Updateable: Schema.Schema.Any }> = StrictType<
-  Schema.Schema.Type<T['Updateable']>
->;
+export type Updateable<
+  T extends { readonly Updateable: Schema.Schema<unknown, unknown, unknown> },
+> = StrictType<Schema.Schema.Type<T['Updateable']>>;
 
 /**
  * Extract branded ID type from schema
  * @example type UserId = Id<typeof User>
  */
-export type Id<T extends { Id: Schema.Schema.Any }> = Schema.Schema.Type<T['Id']>;
+export type Id<T extends { Id: Schema.Schema<unknown, unknown, unknown> }> = Schema.Schema.Type<
+  T['Id']
+>;
