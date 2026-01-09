@@ -18,6 +18,7 @@ export const GeneratedId = Symbol.for('/GeneratedId');
 // Phantom type symbols for compile-time type propagation
 declare const ColumnTypeInsertPhantom: unique symbol;
 declare const ColumnTypeUpdatePhantom: unique symbol;
+declare const GeneratedInsertPhantom: unique symbol;
 
 /**
  * A schema with phantom types encoding insert/update type constraints.
@@ -33,12 +34,22 @@ export type ColumnTypeSchema<SType, SEncoded, SR, IType, UType> = Schema.Schema<
   readonly [ColumnTypeUpdatePhantom]: UType;
 };
 
+/**
+ * A schema with phantom type encoding that this field is generated.
+ * Insert type is `never` (excluded from inserts), update type is the original type.
+ */
+export type GeneratedSchema<SType, SEncoded, SR> = Schema.Schema<SType, SEncoded, SR> & {
+  readonly [GeneratedInsertPhantom]: never;
+};
+
 // Type guards for extracting phantom types
-type ExtractInsertPhantom<T> = T extends { readonly [ColumnTypeInsertPhantom]: infer I }
-  ? I
-  : T extends Schema.Schema<infer S, unknown, unknown>
-    ? S
-    : never;
+type ExtractInsertPhantom<T> = T extends { readonly [GeneratedInsertPhantom]: never }
+  ? never
+  : T extends { readonly [ColumnTypeInsertPhantom]: infer I }
+    ? I
+    : T extends Schema.Schema<infer S, unknown, unknown>
+      ? S
+      : never;
 
 type ExtractUpdatePhantom<T> = T extends { readonly [ColumnTypeUpdatePhantom]: infer U }
   ? U
@@ -87,8 +98,14 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  */
-export const generated = <SType, SEncoded, R>(schema: Schema.Schema<SType, SEncoded, R>) => {
-  return Schema.asSchema(schema.annotations({ [GeneratedId]: true }));
+export const generated = <SType, SEncoded, R>(
+  schema: Schema.Schema<SType, SEncoded, R>
+): GeneratedSchema<SType, SEncoded, R> => {
+  return Schema.asSchema(schema.annotations({ [GeneratedId]: true })) as GeneratedSchema<
+    SType,
+    SEncoded,
+    R
+  >;
 };
 
 // ============================================================================
@@ -400,7 +417,11 @@ type StrictType<T> = RemoveIndexSignature<T>;
 type ExtractStructFields<T> = T extends { readonly _base: Schema.Struct<infer F> } ? F : never;
 
 // Check if a field has never insert phantom type
-type HasNeverInsert<T> = T extends { readonly [ColumnTypeInsertPhantom]: never } ? true : false;
+type HasNeverInsert<T> = T extends { readonly [GeneratedInsertPhantom]: never }
+  ? true
+  : T extends { readonly [ColumnTypeInsertPhantom]: never }
+    ? true
+    : false;
 
 // Check if a field has never update phantom type
 type HasNeverUpdate<T> = T extends { readonly [ColumnTypeUpdatePhantom]: never } ? true : false;

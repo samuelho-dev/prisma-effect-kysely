@@ -3,6 +3,7 @@ import * as AST from 'effect/SchemaAST';
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import {
   columnType,
+  generated,
   getSchemas,
   Insertable,
   Updateable,
@@ -204,5 +205,103 @@ describe('getSchemas with Id parameter', () => {
     type PostInsert = Insertable<typeof Post>;
     expectTypeOf<PostInsert>().toHaveProperty('title');
     expectTypeOf<PostInsert>().toHaveProperty('content');
+  });
+});
+
+describe('Type-level tests for generated() exclusion', () => {
+  it('should exclude generated() fields from Insertable at compile time', () => {
+    const _User = Schema.Struct({
+      id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      createdAt: generated(Schema.DateFromSelf),
+      name: Schema.String,
+    });
+
+    const User = getSchemas(_User);
+
+    // Runtime assertion (already works)
+    const insertableFields = getPropertyNames(User.Insertable);
+    expect(insertableFields).toContain('name');
+    expect(insertableFields).not.toContain('id');
+    expect(insertableFields).not.toContain('createdAt');
+
+    // Type-level assertion using explicit key check
+    type UserInsert = Insertable<typeof User>;
+
+    // These should be in UserInsert
+    type HasName = 'name' extends keyof UserInsert ? true : false;
+    expectTypeOf<HasName>().toEqualTypeOf<true>();
+
+    // These should NOT be in UserInsert (generated/columnType with Never)
+    type HasId = 'id' extends keyof UserInsert ? true : false;
+    type HasCreatedAt = 'createdAt' extends keyof UserInsert ? true : false;
+    expectTypeOf<HasId>().toEqualTypeOf<false>();
+    expectTypeOf<HasCreatedAt>().toEqualTypeOf<false>(); // This will fail until fix is applied
+  });
+
+  it('should include generated() fields in Updateable at compile time', () => {
+    const _User = Schema.Struct({
+      id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      createdAt: generated(Schema.DateFromSelf),
+      name: Schema.String,
+    });
+
+    const User = getSchemas(_User);
+
+    // generated() fields SHOULD be in Updateable (unlike columnType with Never)
+    type UserUpdate = Updateable<typeof User>;
+    type UpdateHasId = 'id' extends keyof UserUpdate ? true : false;
+    type UpdateHasCreatedAt = 'createdAt' extends keyof UserUpdate ? true : false;
+    type UpdateHasName = 'name' extends keyof UserUpdate ? true : false;
+
+    expectTypeOf<UpdateHasId>().toEqualTypeOf<false>(); // columnType excludes
+    expectTypeOf<UpdateHasCreatedAt>().toEqualTypeOf<true>(); // generated() includes in update
+    expectTypeOf<UpdateHasName>().toEqualTypeOf<true>();
+  });
+
+  it('should include generated() fields in Selectable at compile time', () => {
+    const _User = Schema.Struct({
+      id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      createdAt: generated(Schema.DateFromSelf),
+      name: Schema.String,
+    });
+
+    const User = getSchemas(_User);
+
+    type UserSelect = Selectable<typeof User>;
+    type SelectHasId = 'id' extends keyof UserSelect ? true : false;
+    type SelectHasCreatedAt = 'createdAt' extends keyof UserSelect ? true : false;
+    type SelectHasName = 'name' extends keyof UserSelect ? true : false;
+
+    expectTypeOf<SelectHasId>().toEqualTypeOf<true>();
+    expectTypeOf<SelectHasCreatedAt>().toEqualTypeOf<true>();
+    expectTypeOf<SelectHasName>().toEqualTypeOf<true>();
+  });
+
+  it('should handle multiple generated() fields', () => {
+    const _User = Schema.Struct({
+      id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      createdAt: generated(Schema.DateFromSelf),
+      updatedAt: generated(Schema.DateFromSelf),
+      sessionId: generated(Schema.UUID),
+      name: Schema.String,
+      email: Schema.String,
+    });
+
+    const User = getSchemas(_User);
+
+    type UserInsert = Insertable<typeof User>;
+    type HasName = 'name' extends keyof UserInsert ? true : false;
+    type HasEmail = 'email' extends keyof UserInsert ? true : false;
+    type HasId = 'id' extends keyof UserInsert ? true : false;
+    type HasCreatedAt = 'createdAt' extends keyof UserInsert ? true : false;
+    type HasUpdatedAt = 'updatedAt' extends keyof UserInsert ? true : false;
+    type HasSessionId = 'sessionId' extends keyof UserInsert ? true : false;
+
+    expectTypeOf<HasName>().toEqualTypeOf<true>();
+    expectTypeOf<HasEmail>().toEqualTypeOf<true>();
+    expectTypeOf<HasId>().toEqualTypeOf<false>();
+    expectTypeOf<HasCreatedAt>().toEqualTypeOf<false>();
+    expectTypeOf<HasUpdatedAt>().toEqualTypeOf<false>();
+    expectTypeOf<HasSessionId>().toEqualTypeOf<false>();
   });
 });
