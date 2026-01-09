@@ -15,32 +15,9 @@ import type { DeepMutable } from 'effect/Types';
 export const ColumnTypeId = Symbol.for('/ColumnTypeId');
 export const GeneratedId = Symbol.for('/GeneratedId');
 
-// Phantom type symbols for compile-time type propagation
-declare const ColumnTypeInsertPhantom: unique symbol;
-declare const ColumnTypeUpdatePhantom: unique symbol;
-declare const GeneratedInsertPhantom: unique symbol;
-
-/**
- * A schema with phantom types encoding insert/update type constraints.
- * This allows TypeScript to know at compile time which fields have
- * `never` insert/update types and should be excluded.
- */
-export type ColumnTypeSchema<SType, SEncoded, SR, IType, UType> = Schema.Schema<
-  SType,
-  SEncoded,
-  SR
-> & {
-  readonly [ColumnTypeInsertPhantom]: IType;
-  readonly [ColumnTypeUpdatePhantom]: UType;
-};
-
-/**
- * A schema with phantom type encoding that this field is generated.
- * Insert type is `never` (excluded from inserts), update type is the original type.
- */
-export type GeneratedSchema<SType, SEncoded, SR> = Schema.Schema<SType, SEncoded, SR> & {
-  readonly [GeneratedInsertPhantom]: never;
-};
+// Note: Previous versions used phantom types with intersection types for compile-time
+// field exclusion, but this approach breaks Schema compatibility when skipLibCheck: false.
+// The current approach trusts runtime schema construction which correctly excludes fields.
 
 interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> {
   selectSchema: Schema.Schema<SType, SEncoded, SR>;
@@ -52,27 +29,21 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
  * Mark a field as having different types for select/insert/update
  * Used for ID fields with @default (read-only)
  *
- * Returns a schema with phantom types so TypeScript knows at compile time
- * which fields should be excluded from insert/update operations.
+ * The insert/update schemas are stored in annotations and used at runtime
+ * to determine which fields to include in Insertable/Updateable schemas.
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
   selectSchema: Schema.Schema<SType, SEncoded, SR>,
   insertSchema: Schema.Schema<IType, IEncoded, IR>,
   updateSchema: Schema.Schema<UType, UEncoded, UR>
-): ColumnTypeSchema<SType, SEncoded, SR, IType, UType> => {
+): Schema.Schema<SType, SEncoded, SR> => {
   const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
     {
       selectSchema,
       insertSchema,
       updateSchema,
     };
-  return Schema.asSchema(selectSchema.annotations({ [ColumnTypeId]: schemas })) as ColumnTypeSchema<
-    SType,
-    SEncoded,
-    SR,
-    IType,
-    UType
-  >;
+  return Schema.asSchema(selectSchema.annotations({ [ColumnTypeId]: schemas }));
 };
 
 /**
@@ -85,12 +56,8 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  */
 export const generated = <SType, SEncoded, R>(
   schema: Schema.Schema<SType, SEncoded, R>
-): GeneratedSchema<SType, SEncoded, R> => {
-  return Schema.asSchema(schema.annotations({ [GeneratedId]: true })) as GeneratedSchema<
-    SType,
-    SEncoded,
-    R
-  >;
+): Schema.Schema<SType, SEncoded, R> => {
+  return Schema.asSchema(schema.annotations({ [GeneratedId]: true }));
 };
 
 // ============================================================================
@@ -309,16 +276,27 @@ export const Updateable = <Type, Encoded>(
 /**
  * Schemas interface returned by getSchemas().
  * Includes a _base property to preserve the original schema for type-level computations.
+ *
+ * Uses Schema.Schema.Any constraint to support schemas with phantom types
+ * (columnType, generated) that use intersection types internally.
  */
-export interface Schemas<
-  Type,
-  Encoded,
-  BaseSchema extends Schema.Schema<Type, Encoded> = Schema.Schema<Type, Encoded>,
-> {
+export interface Schemas<BaseSchema extends Schema.Schema.Any> {
   readonly _base: BaseSchema;
-  readonly Selectable: Schema.Schema<KyselySelectable<Type>, KyselySelectable<Encoded>, never>;
-  readonly Insertable: Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
-  readonly Updateable: Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never>;
+  readonly Selectable: Schema.Schema<
+    KyselySelectable<Schema.Schema.Type<BaseSchema>>,
+    KyselySelectable<Schema.Schema.Encoded<BaseSchema>>,
+    never
+  >;
+  readonly Insertable: Schema.Schema<
+    MutableInsert<Schema.Schema.Type<BaseSchema>>,
+    MutableInsert<Schema.Schema.Encoded<BaseSchema>>,
+    never
+  >;
+  readonly Updateable: Schema.Schema<
+    MutableUpdate<Schema.Schema.Type<BaseSchema>>,
+    MutableUpdate<Schema.Schema.Encoded<BaseSchema>>,
+    never
+  >;
 }
 
 /**
@@ -326,11 +304,9 @@ export interface Schemas<
  * Returned when getSchemas() is called with an idSchema parameter.
  */
 export interface SchemasWithId<
-  Type,
-  Encoded,
-  BaseSchema extends Schema.Schema<Type, Encoded>,
-  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
-> extends Schemas<Type, Encoded, BaseSchema> {
+  BaseSchema extends Schema.Schema.Any,
+  IdSchema extends Schema.Schema.Any,
+> extends Schemas<BaseSchema> {
   readonly Id: IdSchema;
 }
 
@@ -342,34 +318,37 @@ export interface SchemasWithId<
  * @param idSchema - Optional branded ID schema for models with @id fields
  */
 export function getSchemas<
-  Type,
-  Encoded,
-  BaseSchema extends Schema.Schema<Type, Encoded>,
-  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
->(baseSchema: BaseSchema, idSchema: IdSchema): SchemasWithId<Type, Encoded, BaseSchema, IdSchema>;
+  BaseSchema extends Schema.Schema.Any,
+  IdSchema extends Schema.Schema.Any,
+>(baseSchema: BaseSchema, idSchema: IdSchema): SchemasWithId<BaseSchema, IdSchema>;
 
-export function getSchemas<Type, Encoded, BaseSchema extends Schema.Schema<Type, Encoded>>(
+export function getSchemas<BaseSchema extends Schema.Schema.Any>(
   baseSchema: BaseSchema
-): Schemas<Type, Encoded, BaseSchema>;
+): Schemas<BaseSchema>;
 
 export function getSchemas<
-  Type,
-  Encoded,
-  BaseSchema extends Schema.Schema<Type, Encoded>,
-  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+  BaseSchema extends Schema.Schema.Any,
+  IdSchema extends Schema.Schema.Any,
 >(
   baseSchema: BaseSchema,
   idSchema?: IdSchema
-): Schemas<Type, Encoded, BaseSchema> | SchemasWithId<Type, Encoded, BaseSchema, IdSchema> {
-  const base: Schemas<Type, Encoded, BaseSchema> = {
+): Schemas<BaseSchema> | SchemasWithId<BaseSchema, IdSchema> {
+  // Use type assertion via unknown to handle Schema.Any -> Schema<Type, Encoded> conversion
+  // This is safe because Schema.Any is a supertype of all Schema types
+  const schema = baseSchema as unknown as Schema.Schema<
+    Schema.Schema.Type<BaseSchema>,
+    Schema.Schema.Encoded<BaseSchema>
+  >;
+
+  const base: Schemas<BaseSchema> = {
     _base: baseSchema,
-    Selectable: Selectable(baseSchema),
-    Insertable: Insertable(baseSchema),
-    Updateable: Updateable(baseSchema),
+    Selectable: Selectable(schema),
+    Insertable: Insertable(schema),
+    Updateable: Updateable(schema),
   };
 
   if (idSchema) {
-    return { ...base, Id: idSchema } as SchemasWithId<Type, Encoded, BaseSchema, IdSchema>;
+    return { ...base, Id: idSchema } as SchemasWithId<BaseSchema, IdSchema>;
   }
 
   return base;
