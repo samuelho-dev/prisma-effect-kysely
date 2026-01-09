@@ -42,21 +42,6 @@ export type GeneratedSchema<SType, SEncoded, SR> = Schema.Schema<SType, SEncoded
   readonly [GeneratedInsertPhantom]: never;
 };
 
-// Type guards for extracting phantom types
-type ExtractInsertPhantom<T> = T extends { readonly [GeneratedInsertPhantom]: never }
-  ? never
-  : T extends { readonly [ColumnTypeInsertPhantom]: infer I }
-    ? I
-    : T extends Schema.Schema<infer S, unknown, unknown>
-      ? S
-      : never;
-
-type ExtractUpdatePhantom<T> = T extends { readonly [ColumnTypeUpdatePhantom]: infer U }
-  ? U
-  : T extends Schema.Schema<infer S, unknown, unknown>
-    ? S
-    : never;
-
 interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> {
   selectSchema: Schema.Schema<SType, SEncoded, SR>;
   insertSchema: Schema.Schema<IType, IEncoded, IR>;
@@ -413,39 +398,6 @@ type RemoveIndexSignature<T> = {
 
 type StrictType<T> = RemoveIndexSignature<T>;
 
-// Extract struct fields from base schema
-type ExtractStructFields<T> = T extends { readonly _base: Schema.Struct<infer F> } ? F : never;
-
-// Check if a field has never insert phantom type
-type HasNeverInsert<T> = T extends { readonly [GeneratedInsertPhantom]: never }
-  ? true
-  : T extends { readonly [ColumnTypeInsertPhantom]: never }
-    ? true
-    : false;
-
-// Check if a field has never update phantom type
-type HasNeverUpdate<T> = T extends { readonly [ColumnTypeUpdatePhantom]: never } ? true : false;
-
-// Filter out fields with never insert type
-type InsertableFields<Fields> = {
-  [K in keyof Fields as HasNeverInsert<Fields[K]> extends true ? never : K]: Fields[K];
-};
-
-// Filter out fields with never update type
-type UpdateableFields<Fields> = {
-  [K in keyof Fields as HasNeverUpdate<Fields[K]> extends true ? never : K]: Fields[K];
-};
-
-// Compute insertable type from struct fields
-type ComputeInsertableType<Fields> = StrictType<{
-  [K in keyof InsertableFields<Fields>]: ExtractInsertPhantom<Fields[K]>;
-}>;
-
-// Compute updateable type from struct fields (all fields optional)
-type ComputeUpdateableType<Fields> = StrictType<{
-  [K in keyof UpdateableFields<Fields>]?: ExtractUpdatePhantom<Fields[K]>;
-}>;
-
 /**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  * @example type UserSelect = Selectable<typeof User>
@@ -457,36 +409,30 @@ export type Selectable<T extends { readonly Selectable: Schema.Schema.Any }> = S
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
  * Excludes fields with never insert type (e.g., columnType(T, Schema.Never, ...))
+ * and generated fields (marked with generated()).
+ *
+ * Note: This extracts types from the pre-computed Insertable schema which already
+ * correctly excludes generated fields at runtime. This avoids phantom type issues
+ * with unique symbols that don't maintain identity across module boundaries.
+ *
  * @example type UserInsert = Insertable<typeof User>
  */
-export type Insertable<
-  T extends {
-    readonly _base: Schema.Schema.Any;
-    readonly Insertable: Schema.Schema.Any;
-  },
-> =
-  ExtractStructFields<T> extends infer F
-    ? [F] extends [never]
-      ? StrictType<Schema.Schema.Type<T['Insertable']>>
-      : ComputeInsertableType<F>
-    : never;
+export type Insertable<T extends { readonly Insertable: Schema.Schema.Any }> = StrictType<
+  Schema.Schema.Type<T['Insertable']>
+>;
 
 /**
  * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
  * Excludes fields with never update type (e.g., columnType(T, ..., Schema.Never))
+ *
+ * Note: This extracts types from the pre-computed Updateable schema which already
+ * correctly handles field transformations at runtime.
+ *
  * @example type UserUpdate = Updateable<typeof User>
  */
-export type Updateable<
-  T extends {
-    readonly _base: Schema.Schema.Any;
-    readonly Updateable: Schema.Schema.Any;
-  },
-> =
-  ExtractStructFields<T> extends infer F
-    ? [F] extends [never]
-      ? StrictType<Schema.Schema.Type<T['Updateable']>>
-      : ComputeUpdateableType<F>
-    : never;
+export type Updateable<T extends { readonly Updateable: Schema.Schema.Any }> = StrictType<
+  Schema.Schema.Type<T['Updateable']>
+>;
 
 /**
  * Extract branded ID type from schema
