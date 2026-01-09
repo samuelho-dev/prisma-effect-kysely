@@ -429,9 +429,9 @@ type ComputeUpdateableType<Fields> = StrictType<{
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  * @example type UserSelect = Selectable<typeof User>
  */
-export type Selectable<
-  T extends { readonly Selectable: Schema.Schema<unknown, unknown, unknown> },
-> = StrictType<Schema.Schema.Type<T['Selectable']>>;
+export type Selectable<T extends { readonly Selectable: Schema.Schema.Any }> = StrictType<
+  Schema.Schema.Type<T['Selectable']>
+>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
@@ -440,8 +440,8 @@ export type Selectable<
  */
 export type Insertable<
   T extends {
-    readonly _base: Schema.Schema<unknown, unknown, unknown>;
-    readonly Insertable: Schema.Schema<unknown, unknown, unknown>;
+    readonly _base: Schema.Schema.Any;
+    readonly Insertable: Schema.Schema.Any;
   },
 > =
   ExtractStructFields<T> extends infer F
@@ -457,8 +457,8 @@ export type Insertable<
  */
 export type Updateable<
   T extends {
-    readonly _base: Schema.Schema<unknown, unknown, unknown>;
-    readonly Updateable: Schema.Schema<unknown, unknown, unknown>;
+    readonly _base: Schema.Schema.Any;
+    readonly Updateable: Schema.Schema.Any;
   },
 > =
   ExtractStructFields<T> extends infer F
@@ -471,6 +471,4 @@ export type Updateable<
  * Extract branded ID type from schema
  * @example type UserId = Id<typeof User>
  */
-export type Id<T extends { Id: Schema.Schema<unknown, unknown, unknown> }> = Schema.Schema.Type<
-  T['Id']
->;
+export type Id<T extends { Id: Schema.Schema.Any }> = Schema.Schema.Type<T['Id']>;

@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.7
+
+### Patch Changes
+
+- fix: use Schema.Schema.Any for type utility constraints to fix exactOptionalPropertyTypes compatibility
+
+  The type utilities (Selectable, Insertable, Updateable, Id) now use Effect's Schema.Schema.Any instead of Schema.Schema<unknown, unknown, unknown> as constraints. This fixes compatibility with TypeScript's exactOptionalPropertyTypes: true setting.
+
 ## 4.0.6
 
 ### Patch Changes
