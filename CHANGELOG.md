@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.6
+
+### Patch Changes
+
+- Internal: configure eslint to recognize expectTypeOf as valid assertion for type-level tests
+
 ## 4.0.5
 
 ### Patch Changes
