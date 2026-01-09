@@ -8,7 +8,69 @@ import {
   Updateable,
   Selectable,
   Id,
+  type SchemasWithId,
 } from '../kysely/helpers.js';
+
+/**
+ * Test that type utilities work with exactOptionalPropertyTypes: true
+ * This is a compile-time test - if it compiles, the test passes
+ */
+describe('exactOptionalPropertyTypes compatibility', () => {
+  it('should work with SchemasWithId type', () => {
+    const _Transaction = Schema.Struct({
+      id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+      amount: Schema.Number,
+      description: Schema.String,
+    });
+    const TransactionIdSchema = Schema.UUID.pipe(Schema.brand('TransactionId'));
+
+    const Transaction = getSchemas(_Transaction, TransactionIdSchema);
+
+    // These should compile without errors under exactOptionalPropertyTypes: true
+    type Order = Selectable<typeof Transaction>;
+    type OrderInsert = Insertable<typeof Transaction>;
+    type OrderUpdate = Updateable<typeof Transaction>;
+    type OrderId = Id<typeof Transaction>;
+
+    // Also test the direct Schema access pattern (should always work)
+    type OrderDirect = Schema.Schema.Type<typeof Transaction.Selectable>;
+    type OrderInsertDirect = Schema.Schema.Type<typeof Transaction.Insertable>;
+
+    // Runtime assertion to satisfy lint
+    expect(Transaction).toHaveProperty('Selectable');
+    expect(Transaction).toHaveProperty('Insertable');
+    expect(Transaction).toHaveProperty('Id');
+
+    // Type-level assertions
+    expectTypeOf<Order>().toHaveProperty('id');
+    expectTypeOf<Order>().toHaveProperty('amount');
+    expectTypeOf<OrderInsert>().not.toHaveProperty('id');
+    expectTypeOf<OrderInsert>().toHaveProperty('amount');
+    expectTypeOf<OrderId>().toBeString();
+  });
+
+  it('should work with Schemas type (no Id)', () => {
+    const _Post = Schema.Struct({
+      title: Schema.String,
+      content: Schema.String,
+    });
+
+    const Post = getSchemas(_Post);
+
+    // These should compile without errors under exactOptionalPropertyTypes: true
+    type PostSelect = Selectable<typeof Post>;
+    type PostInsert = Insertable<typeof Post>;
+    type PostUpdate = Updateable<typeof Post>;
+
+    // Runtime assertion to satisfy lint
+    expect(Post).toHaveProperty('Selectable');
+    expect(Post).toHaveProperty('Insertable');
+
+    // Type-level assertions
+    expectTypeOf<PostSelect>().toHaveProperty('title');
+    expectTypeOf<PostInsert>().toHaveProperty('title');
+  });
+});
 
 /**
  * Helper to extract property names from a TypeLiteral AST

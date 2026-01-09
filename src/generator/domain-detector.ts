@@ -138,11 +138,14 @@ function detectDomainsFromFiles(dmmf: DMMF.Document, schemaPath: string): Domain
   }
 
   // Build final DomainInfo array
-  return Array.from(domainModels.entries()).map(([name, models]) => ({
-    name,
-    models: models,
-    sourceFile: domainSourceFiles.get(name),
-  }));
+  return Array.from(domainModels.entries()).map(([name, models]) => {
+    const sourceFile = domainSourceFiles.get(name);
+    return {
+      name,
+      models: models,
+      ...(sourceFile !== undefined && { sourceFile }),
+    };
+  });
 }
 
 /**

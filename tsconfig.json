@@ -8,6 +8,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
+    "exactOptionalPropertyTypes": true,
     "isolatedModules": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

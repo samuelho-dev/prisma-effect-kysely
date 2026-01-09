@@ -1,5 +1,18 @@
 # Changelog
 
+## 4.0.4
+
+### Patch Changes
+
+- Fix type utilities compatibility with `exactOptionalPropertyTypes: true`
+- Enable `exactOptionalPropertyTypes` in tsconfig
+
+## 4.0.3
+
+### Patch Changes
+
+- Fix enum array types missing Array wrapper in Kysely table interfaces
+
 ## 4.0.2
 
 ### Patch Changes

@@ -429,16 +429,21 @@ type ComputeUpdateableType<Fields> = StrictType<{
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  * @example type UserSelect = Selectable<typeof User>
  */
-export type Selectable<T extends Schemas<unknown, unknown>> = StrictType<
-  Schema.Schema.Type<T['Selectable']>
->;
+export type Selectable<
+  T extends { readonly Selectable: Schema.Schema<unknown, unknown, unknown> },
+> = StrictType<Schema.Schema.Type<T['Selectable']>>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
  * Excludes fields with never insert type (e.g., columnType(T, Schema.Never, ...))
  * @example type UserInsert = Insertable<typeof User>
  */
-export type Insertable<T extends Schemas<unknown, unknown>> =
+export type Insertable<
+  T extends {
+    readonly _base: Schema.Schema<unknown, unknown, unknown>;
+    readonly Insertable: Schema.Schema<unknown, unknown, unknown>;
+  },
+> =
   ExtractStructFields<T> extends infer F
     ? [F] extends [never]
       ? StrictType<Schema.Schema.Type<T['Insertable']>>
@@ -450,7 +455,12 @@ export type Insertable<T extends Schemas<unknown, unknown>> =
  * Excludes fields with never update type (e.g., columnType(T, ..., Schema.Never))
  * @example type UserUpdate = Updateable<typeof User>
  */
-export type Updateable<T extends Schemas<unknown, unknown>> =
+export type Updateable<
+  T extends {
+    readonly _base: Schema.Schema<unknown, unknown, unknown>;
+    readonly Updateable: Schema.Schema<unknown, unknown, unknown>;
+  },
+> =
   ExtractStructFields<T> extends infer F
     ? [F] extends [never]
       ? StrictType<Schema.Schema.Type<T['Updateable']>>
