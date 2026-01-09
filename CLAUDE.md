@@ -1,3 +1,12 @@
+---
+scope: project
+updated: 2025-01-08
+relates_to:
+  - src/kysely/helpers.ts
+  - src/effect/generator.ts
+  - src/generator/orchestrator.ts
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -343,6 +352,6 @@ prisma-effect-kysely/
 - [ ] Kysely table interfaces (`UserTable`) are INTERNAL (not exported)
 - [ ] Only operational schemas are exported: `export const User = getSchemas(_User, UserIdSchema)`
 - [ ] Each model with `@id` gets an internal branded ID schema: `const UserIdSchema = ...`
-- [ ] NO type exports in generated code - only schemas
+- [ ] Only branded ID types are exported (e.g., `export type UserId = ...`) - no other type exports
 - [ ] Join tables do NOT get branded IDs (they use composite keys)
 - [ ] DB interface references internal table interfaces: `User: UserTable` (TypeScript resolves at compile-time)
