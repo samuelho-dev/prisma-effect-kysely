@@ -76,31 +76,35 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field) {
  * For enums, uses Schema.Schema.Type extraction to get the type from the imported Schema
  */
 export function mapPrismaTypeToTS(field: DMMF.Field, _dmmf: DMMF.Document) {
+  let baseType: string;
+
   // Handle enums - use Schema type extraction since we only import Schema wrappers
   if (field.kind === 'enum') {
     const schemaName = toEnumSchemaName(field.type);
-    return `Schema.Schema.Type<typeof ${schemaName}>`;
+    baseType = `Schema.Schema.Type<typeof ${schemaName}>`;
   }
-
   // UUID detection
-  if (isUuidField(field)) {
-    return 'string'; // Kysely uses string for UUIDs
+  else if (isUuidField(field)) {
+    baseType = 'string'; // Kysely uses string for UUIDs
+  }
+  // Standard Prisma → TS mappings
+  else {
+    const typeMap: Record<string, string> = {
+      String: 'string',
+      Int: 'number',
+      Float: 'number',
+      Boolean: 'boolean',
+      DateTime: 'Date',
+      Json: 'unknown',
+      Bytes: 'Buffer',
+      Decimal: 'string',
+      BigInt: 'string', // Kysely convention
+    };
+
+    baseType = typeMap[field.type] || field.type;
   }
 
-  // Standard Prisma → TS mappings
-  const typeMap: Record<string, string> = {
-    String: 'string',
-    Int: 'number',
-    Float: 'number',
-    Boolean: 'boolean',
-    DateTime: 'Date',
-    Json: 'unknown',
-    Bytes: 'Buffer',
-    Decimal: 'string',
-    BigInt: 'string', // Kysely convention
-  };
-
-  const baseType = typeMap[field.type] || field.type;
+  // Apply array wrapping for ALL types (including enums)
   return field.isList ? `Array<${baseType}>` : baseType;
 }
 
