@@ -42,6 +42,13 @@ export default tseslint.config(
       ...vitest.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'off', // Allow any in tests for mocking
       '@typescript-eslint/no-unused-vars': 'off', // Allow unused vars in tests
+      // Recognize expectTypeOf as valid assertion for type-level tests
+      'vitest/expect-expect': [
+        'error',
+        {
+          assertFunctionNames: ['expect', 'expectTypeOf'],
+        },
+      ],
     },
   },
 

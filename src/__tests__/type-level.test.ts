@@ -13,7 +13,7 @@ import {
 
 /**
  * Test that type utilities work with exactOptionalPropertyTypes: true
- * This is a compile-time test - if it compiles, the test passes
+ * These are compile-time tests - if they compile, the test passes
  */
 describe('exactOptionalPropertyTypes compatibility', () => {
   it('should work with SchemasWithId type', () => {
@@ -26,26 +26,22 @@ describe('exactOptionalPropertyTypes compatibility', () => {
 
     const Transaction = getSchemas(_Transaction, TransactionIdSchema);
 
-    // These should compile without errors under exactOptionalPropertyTypes: true
+    // These type aliases must compile under exactOptionalPropertyTypes: true
     type Order = Selectable<typeof Transaction>;
     type OrderInsert = Insertable<typeof Transaction>;
     type OrderUpdate = Updateable<typeof Transaction>;
     type OrderId = Id<typeof Transaction>;
 
-    // Also test the direct Schema access pattern (should always work)
-    type OrderDirect = Schema.Schema.Type<typeof Transaction.Selectable>;
-    type OrderInsertDirect = Schema.Schema.Type<typeof Transaction.Insertable>;
+    // Also test the direct Schema access pattern
+    type _OrderDirect = Schema.Schema.Type<typeof Transaction.Selectable>;
+    type _OrderInsertDirect = Schema.Schema.Type<typeof Transaction.Insertable>;
 
-    // Runtime assertion to satisfy lint
-    expect(Transaction).toHaveProperty('Selectable');
-    expect(Transaction).toHaveProperty('Insertable');
-    expect(Transaction).toHaveProperty('Id');
-
-    // Type-level assertions
+    // Type-level assertions verify correct field inclusion/exclusion
     expectTypeOf<Order>().toHaveProperty('id');
     expectTypeOf<Order>().toHaveProperty('amount');
     expectTypeOf<OrderInsert>().not.toHaveProperty('id');
     expectTypeOf<OrderInsert>().toHaveProperty('amount');
+    expectTypeOf<OrderUpdate>().not.toHaveProperty('id');
     expectTypeOf<OrderId>().toBeString();
   });
 
@@ -57,14 +53,10 @@ describe('exactOptionalPropertyTypes compatibility', () => {
 
     const Post = getSchemas(_Post);
 
-    // These should compile without errors under exactOptionalPropertyTypes: true
+    // These type aliases must compile under exactOptionalPropertyTypes: true
     type PostSelect = Selectable<typeof Post>;
     type PostInsert = Insertable<typeof Post>;
-    type PostUpdate = Updateable<typeof Post>;
-
-    // Runtime assertion to satisfy lint
-    expect(Post).toHaveProperty('Selectable');
-    expect(Post).toHaveProperty('Insertable');
+    type _PostUpdate = Updateable<typeof Post>;
 
     // Type-level assertions
     expectTypeOf<PostSelect>().toHaveProperty('title');
