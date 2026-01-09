@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.0.10
+
+### Patch Changes
+
+- [`cad965c`](https://github.com/samuelho-dev/prisma-effect-kysely/commit/cad965cd4c933f4bd84912fffe82519290d14260) Thanks [@samuelho-dev](https://github.com/samuelho-dev)! - fix: Improved Schema type compatibility
+  - Updated `getSchemas()` to use `Schema.Schema.Any` constraint for better type inference
+  - Removed intersection-based phantom types that could cause type compatibility issues
+  - Simplified `columnType()` and `generated()` return types to plain `Schema.Schema`
+
+  Note: Like all Effect-based packages, consumers must use `skipLibCheck: true` in their tsconfig. This is a requirement of the Effect ecosystem, not specific to this package.
+
 ## 4.0.9
 
 ### Patch Changes
