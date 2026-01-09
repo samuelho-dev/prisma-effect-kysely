@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.2
+
+### Patch Changes
+
+- Fix enum array types missing Array wrapper in Kysely table interfaces
+
 ## 4.0.1
 
 ### Patch Changes
