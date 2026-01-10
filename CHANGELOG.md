@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.0.12
+
+### Patch Changes
+
+- fix: export IdSchema to prevent TypeScript type expansion in .d.ts files
+
+  Changed `const ${name}IdSchema` to `export const ${name}IdSchema` in generated code. This allows TypeScript to reference the schema by name rather than expanding it inline, which prevents issues with SchemasWithId receiving the wrong number of type parameters in declaration files.
+
 ## 4.0.11
 
 ### Patch Changes

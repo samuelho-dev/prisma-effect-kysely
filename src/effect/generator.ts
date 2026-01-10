@@ -53,8 +53,9 @@ ${fieldDefinitions}
     const isUuid = isUuidField(idField);
     const baseType = isUuid ? 'Schema.UUID' : 'Schema.String';
 
-    // Internal schema + exported branded type
-    return `const ${name}IdSchema = ${baseType}.pipe(Schema.brand("${name}Id"));
+    // Export IdSchema so TypeScript can reference it by name in .d.ts files
+    // (prevents type expansion that causes SchemasWithId to receive wrong # of type params)
+    return `export const ${name}IdSchema = ${baseType}.pipe(Schema.brand("${name}Id"));
 export type ${name}Id = typeof ${name}IdSchema.Type;`;
   }
 
