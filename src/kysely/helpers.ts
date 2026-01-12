@@ -4,6 +4,8 @@ import type {
   Insertable as KyselyInsertable,
   Selectable as KyselySelectable,
   Updateable as KyselyUpdateable,
+  ColumnType as KyselyColumnType,
+  Generated as KyselyGenerated,
 } from 'kysely';
 import type { DeepMutable } from 'effect/Types';
 
@@ -13,43 +15,70 @@ import type { DeepMutable } from 'effect/Types';
  *
  * ## Type Extraction Patterns
  *
- * For Kysely Table Interfaces (recommended for type-safe queries):
+ * For Effect Schemas (recommended - full type safety):
  * ```typescript
- * import type { Selectable, Insertable, Updateable } from 'kysely';
- * import { UserTable } from './generated/types';
- *
- * type UserSelect = Selectable<UserTable>;   // All fields
- * type UserInsert = Insertable<UserTable>;   // Excludes ColumnType<S, never, U>
- * type UserUpdate = Updateable<UserTable>;   // Excludes ColumnType<S, I, never>
- * ```
- *
- * For Effect Schemas (runtime validation):
- * ```typescript
- * import { Selectable, Insertable, Updateable } from 'prisma-effect-kysely/kysely';
+ * import { Selectable, Insertable, Updateable, ColumnType, Generated } from 'prisma-effect-kysely/kysely';
  * import { User } from './generated/types';
  *
  * type UserSelect = Selectable<typeof User>;
  * type UserInsert = Insertable<typeof User>;
  * type UserUpdate = Updateable<typeof User>;
  * ```
+ *
+ * Note: This package exports branded versions of ColumnType and Generated that
+ * are compatible with Effect Schema's type inference. These extend the base
+ * select type (S) while carrying phantom insert/update type information.
  */
 
-// Re-export Kysely's native type utilities for use with table interfaces
-export type { KyselySelectable, KyselyInsertable, KyselyUpdateable };
+// Re-export Kysely's native type utilities with aliases for advanced use cases
+export type {
+  KyselySelectable,
+  KyselyInsertable,
+  KyselyUpdateable,
+  KyselyColumnType,
+  KyselyGenerated,
+};
 
 export const ColumnTypeId = Symbol.for('/ColumnTypeId');
 export const GeneratedId = Symbol.for('/GeneratedId');
 
 // ============================================================================
-// Kysely-Compatible Type Brands
+// Branded Type Definitions (Override Kysely's types)
 // ============================================================================
-// These mirror Kysely's ColumnType and Generated patterns exactly.
-// This allows Kysely's Insertable<T> and Updateable<T> to work directly.
+// These branded types extend S while carrying phantom insert/update information.
+// Unlike Kysely's ColumnType<S,I,U> = { __select__: S, __insert__: I, __update__: U },
+// our branded types ARE subtypes of S, so Schema.make<ColumnType<...>>(ast) works.
 
-import type { ColumnType, Generated } from 'kysely';
+/**
+ * Branded ColumnType that extends S while carrying phantom insert/update type information.
+ *
+ * This replaces Kysely's ColumnType because:
+ * 1. Kysely's ColumnType<S,I,U> = { __select__: S, __insert__: I, __update__: U } is NOT a subtype of S
+ * 2. Schema.make<KyselyColumnType<...>>(ast) doesn't work because AST represents S, not the struct
+ * 3. Our ColumnType<S,I,U> = S & Brand IS a subtype of S, so Schema.make works correctly
+ *
+ * Usage is identical to Kysely's ColumnType:
+ * ```typescript
+ * type IdField = ColumnType<string, never, never>;  // Read-only ID
+ * type CreatedAt = ColumnType<Date, Date | undefined, Date>;  // Optional on insert
+ * ```
+ */
+export type ColumnType<S, I = S, U = S> = S & {
+  readonly [ColumnTypeId]: { readonly __insert__: I; readonly __update__: U };
+};
 
-// Re-export for use in generated code
-export type { ColumnType, Generated };
+/**
+ * Branded Generated type for database-generated fields.
+ *
+ * Equivalent to ColumnType<T, T | undefined, T> - the field is:
+ * - Required on select (T)
+ * - Optional on insert (T | undefined)
+ * - Allowed on update (T)
+ */
+export type Generated<T> = T & {
+  readonly [GeneratedId]: true;
+  readonly [ColumnTypeId]: { readonly __insert__: T | undefined; readonly __update__: T };
+};
 
 // ============================================================================
 // Runtime Annotation Schemas
@@ -68,8 +97,10 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
  * The insert/update schemas are stored in annotations and used at runtime
  * to determine which fields to include in Insertable/Updateable schemas.
  *
- * The return type uses Kysely's ColumnType<S, I, U> so that Kysely's
- * Insertable<T> and Updateable<T> type utilities work correctly.
+ * Returns a schema with our branded ColumnType<S,I,U> that extends S, ensuring:
+ * 1. TypeScript correctly infers the return type across module boundaries
+ * 2. Runtime decode returns S values (not wrapped structs)
+ * 3. Type utilities can extract I and U from the brand
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
   selectSchema: Schema.Schema<SType, SEncoded, SR>,
@@ -83,6 +114,8 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
       updateSchema,
     };
   const annotated = selectSchema.annotations({ [ColumnTypeId]: schemas });
+  // ColumnType<S,I,U> extends S, so this type assertion is valid
+  // because the runtime value IS of type S
   return Schema.make<ColumnType<SType, IType, UType>, SEncoded, SR>(annotated.ast);
 };
 
@@ -94,13 +127,15 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  *
- * The return type uses Kysely's Generated<T> so that Kysely's
- * Insertable<T> makes this field optional.
+ * Returns a schema with our branded Generated<T> that extends T, ensuring:
+ * 1. TypeScript correctly infers the return type across module boundaries
+ * 2. Runtime decode returns T values (not wrapped structs)
  */
 export const generated = <SType, SEncoded, R>(
   schema: Schema.Schema<SType, SEncoded, R>
 ): Schema.Schema<Generated<SType>, SEncoded, R> => {
   const annotated = schema.annotations({ [GeneratedId]: true });
+  // Generated<T> extends T, so this type assertion is valid
   return Schema.make<Generated<SType>, SEncoded, R>(annotated.ast);
 };
 
@@ -225,18 +260,23 @@ const extractParametersFromTypeLiteral = (
 
 /**
  * Extract the insert type from a field:
- * - ColumnType<S, I, U> -> I
- * - Generated<T> -> T | undefined (optional)
+ * - ColumnType<S, I, U> -> I (via brand)
+ * - Generated<T> -> T | undefined (via brand)
  * - Other types -> as-is
  */
-type ExtractInsertType<T> = T extends ColumnType<any, infer I, any> ? I : T;
+type ExtractInsertType<T> = T extends { readonly [ColumnTypeId]: { readonly __insert__: infer I } }
+  ? I
+  : T;
 
 /**
  * Extract the update type from a field:
- * - ColumnType<S, I, U> -> U
+ * - ColumnType<S, I, U> -> U (via brand)
+ * - Generated<T> -> T (via brand)
  * - Other types -> as-is
  */
-type ExtractUpdateType<T> = T extends ColumnType<any, any, infer U> ? U : T;
+type ExtractUpdateType<T> = T extends { readonly [ColumnTypeId]: { readonly __update__: infer U } }
+  ? U
+  : T;
 
 /**
  * Custom Insertable type that properly omits fields with `never` insert types.
