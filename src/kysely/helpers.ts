@@ -298,20 +298,48 @@ type MutableInsert<Type> = CustomInsertable<Type>;
 type MutableUpdate<Type> = CustomUpdateable<Type>;
 
 // ============================================================================
+// Branding Utilities (for Schema functions)
+// ============================================================================
+// These utilities strip the ColumnType/Generated branding to get plain types.
+
+/**
+ * Strip branding from a single field type using conditional type inference.
+ * Uses inference to extract the base type S from branded types.
+ *
+ * - Generated<T> = T & {...} -> T (via infer)
+ * - ColumnType<S, I, U> = S & {...} -> S (via infer)
+ * - Other types -> as-is
+ */
+type StripFieldBranding<T> =
+  T extends Generated<infer S> ? S : T extends ColumnType<infer S, unknown, unknown> ? S : T;
+
+/**
+ * Strip branding from all properties in an object type.
+ * Converts ColumnType<S,I,U> to S and Generated<T> to T.
+ */
+type StripBrandingFromObject<T> = {
+  [K in keyof T]: StripFieldBranding<T[K]>;
+};
+
+/**
+ * Selectable type with branding stripped - used for Schema function return types.
+ * This ensures that `Schema.Type` returns plain types without ColumnType/Generated branding.
+ */
+type SelectableType<T> = KyselySelectable<StripBrandingFromObject<T>>;
+
+// ============================================================================
 // Schema Functions
 // ============================================================================
 
 export const Selectable = <Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<KyselySelectable<Type>, KyselySelectable<Encoded>, never> => {
+): Schema.Schema<SelectableType<Type>, SelectableType<Encoded>, never> => {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(
-      Schema.make<KyselySelectable<Type>, KyselySelectable<Encoded>, never>(ast)
-    );
+    return Schema.asSchema(Schema.make<SelectableType<Type>, SelectableType<Encoded>, never>(ast));
   }
   return Schema.asSchema(
-    Schema.make<KyselySelectable<Type>, KyselySelectable<Encoded>, never>(
+    Schema.make<SelectableType<Type>, SelectableType<Encoded>, never>(
       new AST.TypeLiteral(
         extractParametersFromTypeLiteral(ast, 'selectSchema'),
         ast.indexSignatures,
@@ -401,8 +429,8 @@ export const Updateable = <Type, Encoded>(
 export interface Schemas<BaseSchema extends Schema.Schema<unknown, unknown, unknown>> {
   readonly _base: BaseSchema;
   readonly Selectable: Schema.Schema<
-    KyselySelectable<Schema.Schema.Type<BaseSchema>>,
-    KyselySelectable<Schema.Schema.Encoded<BaseSchema>>,
+    SelectableType<Schema.Schema.Type<BaseSchema>>,
+    SelectableType<Schema.Schema.Encoded<BaseSchema>>,
     never
   >;
   readonly Insertable: Schema.Schema<
@@ -513,18 +541,21 @@ type StrictType<T> = OmitNever<RemoveIndexSignature<T>>;
 
 /**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
+ * Strips ColumnType/Generated branding to return plain types.
  * @example type UserSelect = Selectable<typeof User>
  */
 export type Selectable<
-  T extends { readonly Selectable: Schema.Schema<unknown, unknown, unknown> },
-> = StrictType<Schema.Schema.Type<T['Selectable']>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  T extends { readonly Selectable: Schema.Schema<any, any, any> },
+> = StrictType<StripBrandingFromObject<Schema.Schema.Type<T['Selectable']>>>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
  * @example type UserInsert = Insertable<typeof User>
  */
 export type Insertable<
-  T extends { readonly Insertable: Schema.Schema<unknown, unknown, unknown> },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  T extends { readonly Insertable: Schema.Schema<any, any, any> },
 > = StrictType<Schema.Schema.Type<T['Insertable']>>;
 
 /**
@@ -532,13 +563,13 @@ export type Insertable<
  * @example type UserUpdate = Updateable<typeof User>
  */
 export type Updateable<
-  T extends { readonly Updateable: Schema.Schema<unknown, unknown, unknown> },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  T extends { readonly Updateable: Schema.Schema<any, any, any> },
 > = StrictType<Schema.Schema.Type<T['Updateable']>>;
 
 /**
  * Extract branded ID type from schema
  * @example type UserId = Id<typeof User>
  */
-export type Id<T extends { Id: Schema.Schema<unknown, unknown, unknown> }> = Schema.Schema.Type<
-  T['Id']
->;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Id<T extends { Id: Schema.Schema<any, any, any> }> = Schema.Schema.Type<T['Id']>;

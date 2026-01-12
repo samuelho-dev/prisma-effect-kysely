@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.2.7
+
+### Patch Changes
+
+- Fix StripFieldBranding type to correctly extract base types from branded ColumnType and Generated types.
+
+  Previously used `Omit` which doesn't work for intersection types like `S & { [brand]: ... }`.
+  Now uses conditional type inference (`T extends ColumnType<infer S, ...> ? S : ...`) to properly extract the base type.
+
+  This fixes type errors where `Selectable<T>` was returning `Omit<ColumnType<string, never, never>, symbol>` instead of `string`.
+
 ## 4.1.0
 
 ### Minor Changes
