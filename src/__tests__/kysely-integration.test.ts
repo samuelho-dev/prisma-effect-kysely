@@ -63,11 +63,10 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should generate base schemas with underscore prefix', () => {
       // Base schemas should be prefixed with _ (e.g., _User, _Post)
-      // These are internal (not exported) - consumers access via User._base if needed
-      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/const _Post = Schema\.Struct/);
-      expect(typesContent).not.toMatch(/export const _User/);
-      expect(typesContent).not.toMatch(/export const _Post/);
+      // EXPORTED so TypeScript can reference by name in declaration emit
+      // (prevents type expansion that breaks SchemasWithId type params)
+      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
     });
 
     it('should use generated() for fields with @default', () => {
@@ -76,8 +75,11 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should export operational schemas with branded Id', () => {
-      // Pattern: export const User = getSchemas(_User, UserIdSchema);
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
+      // Pattern: export const User = { _base: _User, Selectable: ..., Id: UserIdSchema } as const;
+      // TypeScript can infer correct type because _User is exported
+      expect(typesContent).toMatch(/export const User = \{/);
+      expect(typesContent).toMatch(/_base: _User/);
+      expect(typesContent).toMatch(/Id: UserIdSchema/);
     });
 
     it('should generate DB interface with Kysely Table types', () => {
@@ -139,8 +141,10 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should export operational schema objects with branded Id', () => {
-      // Should export: export const User = getSchemas(_User, UserIdSchema);
-      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
+      // Pattern: export const User = { _base: _User, ..., Id: UserIdSchema } as const;
+      expect(typesContent).toMatch(/export const \w+ = \{/);
+      expect(typesContent).toMatch(/_base: _\w+/);
+      expect(typesContent).toMatch(/Id: \w+IdSchema/);
     });
 
     it('should not export individual type aliases', () => {
@@ -176,10 +180,9 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should use Kysely Table interfaces for type safety', () => {
-      // Kysely table interfaces provide native type safety
-      // These are internal (not exported) - used by DB interface
-      expect(typesContent).toMatch(/interface \w+Table \{/);
-      expect(typesContent).not.toMatch(/export interface \w+Table/);
+      // Kysely table interfaces are exported for use with Kysely's native type utilities
+      // Selectable<UserTable>, Insertable<UserTable>, Updateable<UserTable>
+      expect(typesContent).toMatch(/export interface \w+Table \{/);
     });
 
     it('should generate DB interface with resolved types', () => {
@@ -244,14 +247,16 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should generate consistent naming conventions', () => {
-      // Base schemas: _ModelName (internal, not exported)
-      expect(typesContent).toMatch(/const _\w+\s*=\s*Schema\.Struct/);
+      // Base schemas: _ModelName (EXPORTED for TypeScript declaration emit)
+      expect(typesContent).toMatch(/export const _\w+\s*=\s*Schema\.Struct/);
 
-      // Branded ID schemas: ModelNameIdSchema (internal, not exported)
-      expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
+      // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
+      expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema); (exported)
-      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
+      // Operational schemas: ModelName = { _base: _ModelName, ..., Id: ModelNameIdSchema } as const; (exported)
+      expect(typesContent).toMatch(/export const \w+ = \{/);
+      expect(typesContent).toMatch(/_base: _\w+/);
+      expect(typesContent).toMatch(/Id: \w+IdSchema/);
     });
   });
 
@@ -286,7 +291,10 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should generate schemas compatible with Effect runtime', () => {
       // Schemas should be usable with Effect's decoder/encoder functions
-      expect(typesContent).toMatch(/getSchemas\(_\w+\)/);
+      // Uses explicit object literals with Selectable/Insertable/Updateable functions
+      expect(typesContent).toMatch(/Selectable\(_\w+\)/);
+      expect(typesContent).toMatch(/Insertable\(_\w+\)/);
+      expect(typesContent).toMatch(/Updateable\(_\w+\)/);
     });
   });
 });

@@ -148,6 +148,10 @@ export function generateKyselyFieldType(field: DMMF.Field, dmmf: DMMF.Document) 
 
 /**
  * Generate Kysely table interface for a model
+ * Exported so consumers can use Kysely's native type utilities:
+ * - Selectable<UserTable> - all fields
+ * - Insertable<UserTable> - excludes ColumnType<S, never, U> fields
+ * - Updateable<UserTable> - excludes ColumnType<S, I, never> fields
  */
 export function generateKyselyTableInterface(
   model: DMMF.Model,
@@ -163,8 +167,9 @@ export function generateKyselyTableInterface(
     })
     .join('\n');
 
-  return `// Kysely table interface for ${model.name} (internal)
-interface ${tableName} {
+  return `// Kysely table interface for ${model.name}
+// Use with Kysely type utilities: Selectable<${tableName}>, Insertable<${tableName}>, Updateable<${tableName}>
+export interface ${tableName} {
 ${fieldDefs}
 }`;
 }

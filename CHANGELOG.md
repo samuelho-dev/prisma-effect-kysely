@@ -1,5 +1,30 @@
 # Changelog
 
+## 4.1.0
+
+### Minor Changes
+
+- feat: export Kysely table interfaces for use with native Kysely type utilities
+
+  Table interfaces (e.g., `UserTable`) are now exported, allowing direct use with Kysely's native type utilities:
+  - `Selectable<UserTable>` - all fields
+  - `Insertable<UserTable>` - excludes ColumnType<S, never, U> fields (correctly omits id)
+  - `Updateable<UserTable>` - excludes ColumnType<S, I, never> fields (correctly omits id)
+
+  This provides proper compile-time type safety for fields marked with `ColumnType<string, never, never>`.
+
+## 4.0.19
+
+### Patch Changes
+
+- fix(types): improve OmitNever to also filter properties that are only `undefined` (from `never | undefined` simplifying to `undefined`). This properly excludes id fields from Insertable/Updateable types when using ColumnType<Select, never, never>.
+
+## 4.0.18
+
+### Patch Changes
+
+- fix(types): add OmitNever to StrictType to filter out never-valued properties from Insertable/Updateable types
+
 ## 4.0.12
 
 ### Patch Changes

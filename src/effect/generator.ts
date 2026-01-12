@@ -22,6 +22,8 @@ export class EffectGenerator {
 
   /**
    * Generate base schema for a model (_ModelName)
+   * EXPORTED to allow TypeScript to reference by name in declaration emit
+   * (prevents type expansion that breaks SchemasWithId type params)
    */
   generateBaseSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const fieldDefinitions = fields
@@ -33,8 +35,8 @@ export class EffectGenerator {
 
     const baseSchemaName = `_${model.name}`;
 
-    return `// ${model.name} Base Schema (internal)
-const ${baseSchemaName} = Schema.Struct({
+    return `// ${model.name} Base Schema (exported for TypeScript declaration emit)
+export const ${baseSchemaName} = Schema.Struct({
 ${fieldDefinitions}
 });`;
   }
@@ -61,19 +63,29 @@ export type ${name}Id = typeof ${name}IdSchema.Type;`;
 
   /**
    * Generate operational schemas with branded Id
-   * Exports: { Selectable, Insertable, Updateable, Id }
+   * Uses explicit object literal with `as const` to avoid TypeScript declaration emit issues
+   * (prevents SchemasWithId interface from receiving wrong number of type parameters)
    */
   generateOperationalSchemas(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const baseSchemaName = `_${model.name}`;
     const name = toPascalCase(model.name);
     const idField = fields.find((f) => f.isId);
 
+    const baseProps = `  _base: ${baseSchemaName},
+  Selectable: Selectable(${baseSchemaName}),
+  Insertable: Insertable(${baseSchemaName}),
+  Updateable: Updateable(${baseSchemaName}),`;
+
     if (idField) {
-      // Use getSchemas(base, id) to preserve _base for type utilities
-      return `export const ${name} = getSchemas(${baseSchemaName}, ${name}IdSchema);`;
+      return `export const ${name} = {
+${baseProps}
+  Id: ${name}IdSchema,
+} as const;`;
     }
 
-    return `export const ${name} = getSchemas(${baseSchemaName});`;
+    return `export const ${name} = {
+${baseProps}
+} as const;`;
   }
 
   /**
@@ -110,7 +122,7 @@ export type ${name}Id = typeof ${name}IdSchema.Type;`;
     const imports = [
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
-      `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
+      `import { columnType, generated, Selectable, Insertable, Updateable } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {

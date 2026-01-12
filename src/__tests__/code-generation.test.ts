@@ -122,8 +122,8 @@ describe('Code Generation - E2E and Validation', () => {
       // Should generate internal base schemas (not exported)
       expect(typesContent).toMatch(/const _\w+ = Schema\.Struct/);
 
-      // Should generate operational schemas (exported)
-      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+\)/);
+      // Should generate operational schemas (exported, using explicit object literal)
+      expect(typesContent).toMatch(/export const \w+ = \{/);
     });
   });
 
@@ -157,18 +157,18 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should generate internal base schemas with underscore prefix', () => {
-      // Base schemas are internal (not exported) - consumers access via User._base if needed
-      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/const _Post = Schema\.Struct/);
-      // Base schemas should NOT be exported
-      expect(typesContent).not.toMatch(/export const _User/);
-      expect(typesContent).not.toMatch(/export const _Post/);
+      // Base schemas EXPORTED for TypeScript declaration emit
+      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
     });
 
-    it('should export operational schemas via getSchemas with branded Id', () => {
+    it('should export operational schemas with branded Id using explicit object literal', () => {
       // Models with ID fields get branded Id schema
-      // Pattern: export const Model = getSchemas(_Model, ModelIdSchema);
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
+      // Pattern: export const Model = { _base: _Model, Id: ModelIdSchema, ... } as const;
+      expect(typesContent).toContain('export const User = {');
+      expect(typesContent).toContain('_base: _User,');
+      expect(typesContent).toContain('Id: UserIdSchema,');
+      expect(typesContent).toContain('} as const;');
     });
 
     it('should generate branded ID schemas for models with @id field', () => {
@@ -237,18 +237,22 @@ describe('Code Generation - E2E and Validation', () => {
     it('should use proper columnType and generated helpers', () => {
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
-      expect(typesContent).toContain('getSchemas(');
+      // Uses Selectable/Insertable/Updateable functions instead of getSchemas
+      expect(typesContent).toContain('Selectable(');
+      expect(typesContent).toContain('Insertable(');
+      expect(typesContent).toContain('Updateable(');
     });
 
     it('should generate consistent naming conventions', () => {
-      // Base schemas: _ModelName (internal, not exported)
-      expect(typesContent).toMatch(/const _\w+\s*=\s*Schema\.Struct/);
+      // Base schemas: _ModelName (exported for TypeScript declaration emit)
+      expect(typesContent).toMatch(/export const _\w+\s*=\s*Schema\.Struct/);
 
-      // Branded ID schemas: ModelNameIdSchema (internal, not exported)
-      expect(typesContent).toMatch(/const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
+      // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
+      expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = getSchemas(_ModelName, ModelNameIdSchema); (exported)
-      expect(typesContent).toMatch(/export const \w+ = getSchemas\(_\w+, \w+IdSchema\)/);
+      // Operational schemas: ModelName = { ... } as const; (exported)
+      expect(typesContent).toMatch(/export const \w+ = \{/);
+      expect(typesContent).toContain('} as const;');
     });
   });
 
@@ -358,12 +362,14 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should export all necessary schemas for each model', () => {
-      // For User model - base schema is internal (not exported)
-      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
-      expect(typesContent).not.toMatch(/export const _User/);
-      expect(typesContent).toMatch(/const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
-      // Pattern: export const User = getSchemas(_User, UserIdSchema);
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
+      // For User model - base schema is EXPORTED for TypeScript declaration emit
+      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
+      // IdSchema is exported for TypeScript declaration emit
+      expect(typesContent).toMatch(/export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
+      // Pattern: export const User = { _base: _User, Id: UserIdSchema, ... } as const;
+      expect(typesContent).toContain('export const User = {');
+      expect(typesContent).toContain('_base: _User,');
+      expect(typesContent).toContain('Id: UserIdSchema,');
       // No type aliases - consumers use type utilities: Selectable<typeof User>
     });
 

@@ -65,9 +65,8 @@ describe('Kysely Native Integration', () => {
       // Should import ColumnType from kysely
       expect(typesContent).toMatch(/import type \{ ColumnType \} from ["']kysely["']/);
 
-      // Should generate UserTable interface (internal, not exported)
-      expect(typesContent).toMatch(/interface UserTable \{/);
-      expect(typesContent).not.toMatch(/export interface UserTable/);
+      // Should generate exported UserTable interface for Kysely type utilities
+      expect(typesContent).toMatch(/export interface UserTable \{/);
 
       // Should use ColumnType for read-only fields (id with @default)
       expect(typesContent).toMatch(/id:\s*ColumnType<string,\s*never,\s*never>/);
@@ -88,9 +87,8 @@ describe('Kysely Native Integration', () => {
     it('should generate PostTable with optional fields', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should generate PostTable interface (internal, not exported)
-      expect(typesContent).toMatch(/interface PostTable \{/);
-      expect(typesContent).not.toMatch(/export interface PostTable/);
+      // Should generate exported PostTable interface for Kysely type utilities
+      expect(typesContent).toMatch(/export interface PostTable \{/);
 
       // Optional content field should be nullable
       expect(typesContent).toMatch(/content:\s*string \| null/);
@@ -175,22 +173,24 @@ const testSelect: UserSelect = {
     it('should still generate Effect schemas with runtime helpers', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should still generate base schemas (internal, not exported)
-      expect(typesContent).toMatch(/const _User = Schema\.Struct/);
-      expect(typesContent).not.toMatch(/export const _User/);
+      // Should still generate base schemas (EXPORTED for TypeScript declaration emit)
+      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
 
       // Should still use columnType and generated helpers
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
 
       // Should generate branded ID schemas
+      // IdSchema is exported for TypeScript declaration emit
       expect(typesContent).toMatch(
-        /const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
+        /export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
       );
 
       // Should generate operational schemas with branded Id
-      // Pattern: export const User = getSchemas(_User, UserIdSchema);
-      expect(typesContent).toMatch(/export const User = getSchemas\(_User, UserIdSchema\)/);
+      // Pattern: export const User = { _base: _User, ..., Id: UserIdSchema } as const;
+      expect(typesContent).toMatch(/export const User = \{/);
+      expect(typesContent).toMatch(/_base: _User/);
+      expect(typesContent).toMatch(/Id: UserIdSchema/);
 
       // No type aliases - consumers use type utilities: Selectable<typeof User>
       expect(typesContent).not.toMatch(/export type UserSelect\s*=/);

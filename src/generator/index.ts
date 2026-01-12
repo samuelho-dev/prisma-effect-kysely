@@ -11,8 +11,16 @@ const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json') as { version: string };
 
 // Re-export kysely helpers and type utilities for generated code
-export type { Schemas, Selectable, Insertable, Updateable, Id } from '../kysely/helpers.js';
-export { columnType, generated, getSchemas } from '../kysely/helpers.js';
+// Selectable, Insertable, Updateable are exported as both values AND types (same name pattern)
+export type { Schemas, SchemasWithId, Id } from '../kysely/helpers.js';
+export {
+  columnType,
+  generated,
+  getSchemas,
+  Selectable,
+  Insertable,
+  Updateable,
+} from '../kysely/helpers.js';
 
 export const generator = generatorHandler({
   onManifest: () => ({

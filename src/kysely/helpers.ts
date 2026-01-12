@@ -10,14 +10,50 @@ import type { DeepMutable } from 'effect/Types';
 /**
  * Runtime helpers for Kysely schema integration
  * These are imported by generated code
+ *
+ * ## Type Extraction Patterns
+ *
+ * For Kysely Table Interfaces (recommended for type-safe queries):
+ * ```typescript
+ * import type { Selectable, Insertable, Updateable } from 'kysely';
+ * import { UserTable } from './generated/types';
+ *
+ * type UserSelect = Selectable<UserTable>;   // All fields
+ * type UserInsert = Insertable<UserTable>;   // Excludes ColumnType<S, never, U>
+ * type UserUpdate = Updateable<UserTable>;   // Excludes ColumnType<S, I, never>
+ * ```
+ *
+ * For Effect Schemas (runtime validation):
+ * ```typescript
+ * import { Selectable, Insertable, Updateable } from 'prisma-effect-kysely/kysely';
+ * import { User } from './generated/types';
+ *
+ * type UserSelect = Selectable<typeof User>;
+ * type UserInsert = Insertable<typeof User>;
+ * type UserUpdate = Updateable<typeof User>;
+ * ```
  */
+
+// Re-export Kysely's native type utilities for use with table interfaces
+export type { KyselySelectable, KyselyInsertable, KyselyUpdateable };
 
 export const ColumnTypeId = Symbol.for('/ColumnTypeId');
 export const GeneratedId = Symbol.for('/GeneratedId');
 
-// Note: Previous versions used phantom types with intersection types for compile-time
-// field exclusion, but this approach breaks Schema compatibility when skipLibCheck: false.
-// The current approach trusts runtime schema construction which correctly excludes fields.
+// ============================================================================
+// Kysely-Compatible Type Brands
+// ============================================================================
+// These mirror Kysely's ColumnType and Generated patterns exactly.
+// This allows Kysely's Insertable<T> and Updateable<T> to work directly.
+
+import type { ColumnType, Generated } from 'kysely';
+
+// Re-export for use in generated code
+export type { ColumnType, Generated };
+
+// ============================================================================
+// Runtime Annotation Schemas
+// ============================================================================
 
 interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> {
   selectSchema: Schema.Schema<SType, SEncoded, SR>;
@@ -31,19 +67,23 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
  *
  * The insert/update schemas are stored in annotations and used at runtime
  * to determine which fields to include in Insertable/Updateable schemas.
+ *
+ * The return type uses Kysely's ColumnType<S, I, U> so that Kysely's
+ * Insertable<T> and Updateable<T> type utilities work correctly.
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
   selectSchema: Schema.Schema<SType, SEncoded, SR>,
   insertSchema: Schema.Schema<IType, IEncoded, IR>,
   updateSchema: Schema.Schema<UType, UEncoded, UR>
-): Schema.Schema<SType, SEncoded, SR> => {
+): Schema.Schema<ColumnType<SType, IType, UType>, SEncoded, SR> => {
   const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
     {
       selectSchema,
       insertSchema,
       updateSchema,
     };
-  return Schema.asSchema(selectSchema.annotations({ [ColumnTypeId]: schemas }));
+  const annotated = selectSchema.annotations({ [ColumnTypeId]: schemas });
+  return Schema.make<ColumnType<SType, IType, UType>, SEncoded, SR>(annotated.ast);
 };
 
 /**
@@ -53,11 +93,15 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * Follows @effect/sql Model.Generated pattern:
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
+ *
+ * The return type uses Kysely's Generated<T> so that Kysely's
+ * Insertable<T> makes this field optional.
  */
 export const generated = <SType, SEncoded, R>(
   schema: Schema.Schema<SType, SEncoded, R>
-): Schema.Schema<SType, SEncoded, R> => {
-  return Schema.asSchema(schema.annotations({ [GeneratedId]: true }));
+): Schema.Schema<Generated<SType>, SEncoded, R> => {
+  const annotated = schema.annotations({ [GeneratedId]: true });
+  return Schema.make<Generated<SType>, SEncoded, R>(annotated.ast);
 };
 
 // ============================================================================
@@ -359,6 +403,9 @@ export function getSchemas<
 // Usage: Selectable<typeof User>, Insertable<typeof User>
 // ============================================================================
 
+/**
+ * Remove index signatures to get strict object type
+ */
 type RemoveIndexSignature<T> = {
   [K in keyof T as K extends string
     ? string extends K
@@ -375,7 +422,20 @@ type RemoveIndexSignature<T> = {
         : K]: T[K];
 };
 
-type StrictType<T> = RemoveIndexSignature<T>;
+/**
+ * Remove properties with never values from an object type.
+ * Also removes properties that are only `undefined` (from `never | undefined` simplifying to `undefined`).
+ * This handles ColumnType<Select, never, never> for id fields in Insertable/Updateable.
+ */
+type OmitNever<T> = {
+  [K in keyof T as T[K] extends never
+    ? never
+    : [Exclude<T[K], undefined>] extends [never]
+      ? never
+      : K]: T[K];
+};
+
+type StrictType<T> = OmitNever<RemoveIndexSignature<T>>;
 
 /**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
@@ -387,13 +447,6 @@ export type Selectable<
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
- * Excludes fields with never insert type (e.g., columnType(T, Schema.Never, ...))
- * and generated fields (marked with generated()).
- *
- * Note: This extracts types from the pre-computed Insertable schema which already
- * correctly excludes generated fields at runtime. This avoids phantom type issues
- * with unique symbols that don't maintain identity across module boundaries.
- *
  * @example type UserInsert = Insertable<typeof User>
  */
 export type Insertable<
@@ -402,11 +455,6 @@ export type Insertable<
 
 /**
  * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
- * Excludes fields with never update type (e.g., columnType(T, ..., Schema.Never))
- *
- * Note: This extracts types from the pre-computed Updateable schema which already
- * correctly handles field transformations at runtime.
- *
  * @example type UserUpdate = Updateable<typeof User>
  */
 export type Updateable<

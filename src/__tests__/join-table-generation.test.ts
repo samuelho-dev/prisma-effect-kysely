@@ -135,7 +135,9 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('export const CategoryToPost = getSchemas(_CategoryToPost)');
+      expect(generated).toContain('export const CategoryToPost = {');
+      expect(generated).toContain('_base: _CategoryToPost');
+      expect(generated).toContain('} as const');
     });
 
     it('should include descriptive comment header', async () => {
@@ -187,8 +189,11 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      // Should export operational schemas via getSchemas
-      expect(generated).toContain('export const CategoryToPost = getSchemas(_CategoryToPost)');
+      // Should export operational schemas via explicit object literal
+      expect(generated).toContain('export const CategoryToPost = {');
+      expect(generated).toContain('_base: _CategoryToPost');
+      expect(generated).toContain('Selectable: Selectable(_CategoryToPost)');
+      expect(generated).toContain('} as const');
     });
 
     it('should not export individual type aliases', async () => {

@@ -128,10 +128,10 @@ export class GeneratorOrchestrator {
         // Generate Kysely table interface
         const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
-        // Generate base schema with Kysely fields (internal)
+        // Generate base schema with Kysely fields (EXPORTED for TypeScript declaration emit)
         const kyselyFields = this.kyselyGen.generateModelFields(fields);
-        const baseSchema = `// ${model.name} Base Schema (internal)
-const ${baseSchemaName} = Schema.Struct({
+        const baseSchema = `// ${model.name} Base Schema (exported for TypeScript declaration emit)
+export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
@@ -211,10 +211,10 @@ ${kyselyFields}
         // Generate Kysely table interface
         const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
-        // Generate base schema with Kysely fields (internal)
+        // Generate base schema with Kysely fields (EXPORTED for TypeScript declaration emit)
         const kyselyFields = this.kyselyGen.generateModelFields(fields);
-        const baseSchema = `// ${model.name} Base Schema (internal)
-const ${baseSchemaName} = Schema.Struct({
+        const baseSchema = `// ${model.name} Base Schema (exported for TypeScript declaration emit)
+export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
