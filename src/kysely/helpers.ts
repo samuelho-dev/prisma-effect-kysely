@@ -218,14 +218,48 @@ const extractParametersFromTypeLiteral = (
 };
 
 // ============================================================================
-// Schema Functions
+// Custom Type Utilities for Insert/Update
 // ============================================================================
+// Kysely's Insertable/Updateable don't properly omit fields with `never` insert types.
+// These custom types handle ColumnType and Generated correctly.
 
 /**
- * Create Selectable schema from base schema
+ * Extract the insert type from a field:
+ * - ColumnType<S, I, U> -> I
+ * - Generated<T> -> T | undefined (optional)
+ * - Other types -> as-is
  */
-type MutableInsert<Type> = DeepMutable<KyselyInsertable<Type>>;
-type MutableUpdate<Type> = DeepMutable<KyselyUpdateable<Type>>;
+type ExtractInsertType<T> = T extends ColumnType<any, infer I, any> ? I : T;
+
+/**
+ * Extract the update type from a field:
+ * - ColumnType<S, I, U> -> U
+ * - Other types -> as-is
+ */
+type ExtractUpdateType<T> = T extends ColumnType<any, any, infer U> ? U : T;
+
+/**
+ * Custom Insertable type that properly omits fields with `never` insert types.
+ * This is needed because Kysely's Insertable includes never fields which makes types unusable.
+ */
+type CustomInsertable<T> = DeepMutable<{
+  [K in keyof T as ExtractInsertType<T[K]> extends never ? never : K]: ExtractInsertType<T[K]>;
+}>;
+
+/**
+ * Custom Updateable type that properly omits fields with `never` update types.
+ */
+type CustomUpdateable<T> = DeepMutable<{
+  [K in keyof T as ExtractUpdateType<T[K]> extends never ? never : K]?: ExtractUpdateType<T[K]>;
+}>;
+
+// Legacy aliases for backwards compatibility
+type MutableInsert<Type> = CustomInsertable<Type>;
+type MutableUpdate<Type> = CustomUpdateable<Type>;
+
+// ============================================================================
+// Schema Functions
+// ============================================================================
 
 export const Selectable = <Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
