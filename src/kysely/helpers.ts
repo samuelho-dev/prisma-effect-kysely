@@ -57,6 +57,8 @@ export const GeneratedId = Symbol.for('/GeneratedId');
  * 2. Schema.make<KyselyColumnType<...>>(ast) doesn't work because AST represents S, not the struct
  * 3. Our ColumnType<S,I,U> = S & Brand IS a subtype of S, so Schema.make works correctly
  *
+ * Includes __select__ property for reliable type extraction in declaration emit.
+ *
  * Usage is identical to Kysely's ColumnType:
  * ```typescript
  * type IdField = ColumnType<string, never, never>;  // Read-only ID
@@ -65,6 +67,7 @@ export const GeneratedId = Symbol.for('/GeneratedId');
  */
 export type ColumnType<S, I = S, U = S> = S & {
   readonly [ColumnTypeId]: { readonly __insert__: I; readonly __update__: U };
+  readonly __select__: S;
 };
 
 /**
@@ -74,10 +77,13 @@ export type ColumnType<S, I = S, U = S> = S & {
  * - Required on select (T)
  * - Optional on insert (T | undefined)
  * - Allowed on update (T)
+ *
+ * Includes __select__ property for reliable type extraction in declaration emit.
  */
 export type Generated<T> = T & {
   readonly [GeneratedId]: true;
   readonly [ColumnTypeId]: { readonly __insert__: T | undefined; readonly __update__: T };
+  readonly __select__: T;
 };
 
 // ============================================================================
@@ -234,6 +240,26 @@ const extractParametersFromTypeLiteral = (
         );
       }
 
+      // Handle Generated fields for Selectable - need to unwrap the base type
+      // Generated<T> annotates the schema but we want plain T for select
+      if (schemaType === 'selectSchema' && isGeneratedType(prop.type)) {
+        // Generated fields have the base schema stored in annotations
+        // The AST is the annotated version of the base schema, so just strip annotations
+        // Get the underlying type by removing the Generated annotation
+        const baseAst = AST.annotations(prop.type, {
+          ...prop.type.annotations,
+          [GeneratedId]: undefined,
+          [ColumnTypeId]: undefined,
+        });
+        return new AST.PropertySignature(
+          prop.name,
+          baseAst,
+          prop.isOptional,
+          prop.isReadonly,
+          prop.annotations
+        );
+      }
+
       // Apply Schema.mutable() to regular fields for insert/updateSchema to make arrays mutable
       // Safe for all types - no-op for non-arrays
       if (schemaType === 'updateSchema' || schemaType === 'insertSchema') {
@@ -246,7 +272,7 @@ const extractParametersFromTypeLiteral = (
         );
       }
 
-      // Generated fields are just markers now, return as-is
+      // Regular fields - return as-is
       return prop;
     })
     .filter((prop): prop is AST.PropertySignature => prop !== null);
@@ -305,44 +331,48 @@ type MutableUpdate<Type> = CustomUpdateable<Type>;
 /**
  * Strip branding from a single field type.
  *
- * Uses explicit symbol check rather than conditional inference because
- * TypeScript's `infer` with intersection types can be unreliable.
+ * Extracts the base select type from ColumnType<S,I,U> by checking for __select__ property.
+ * The branded types are defined as S & Brand, so S (the base type) extends the primitive.
  *
- * For branded types (ColumnType<S,I,U> = S & {...} or Generated<T> = T & {...}),
- * we check for the brand symbol and extract the base primitive type.
+ * Note: Uses __select__ string literal key instead of unique symbol for reliable
+ * cross-module type checking in TypeScript declaration emit.
  */
-type StripFieldBranding<T> = T extends { readonly [ColumnTypeId]: unknown }
-  ? // Has ColumnType branding - extract base type by checking primitives
-    T extends string
-    ? string
-    : T extends number
-      ? number
-      : T extends boolean
-        ? boolean
-        : T extends Date
-          ? Date
-          : T extends readonly (infer E)[]
-            ? readonly E[]
-            : T extends (infer E)[]
-              ? E[]
-              : T // Unknown branded type, keep as-is (shouldn't happen)
-  : T extends { readonly [GeneratedId]: true }
-    ? // Has Generated branding without ColumnType - same extraction
-      T extends string
-      ? string
-      : T extends number
-        ? number
-        : T extends boolean
-          ? boolean
-          : T extends Date
-            ? Date
-            : T extends readonly (infer E)[]
-              ? readonly E[]
-              : T extends (infer E)[]
-                ? E[]
-                : T
-    : // No branding - return as-is
-      T;
+type StripFieldBranding<T> =
+  // Check for our ColumnType/Generated brand with __insert__/__update__ structure
+  T extends { readonly __select__: infer S }
+    ? S // Direct extraction if __select__ exists
+    : T extends { readonly [ColumnTypeId]: { readonly __insert__: unknown } }
+      ? // Has ColumnType branding - extract base type by checking primitives
+        T extends string
+        ? string
+        : T extends number
+          ? number
+          : T extends boolean
+            ? boolean
+            : T extends Date
+              ? Date
+              : T extends readonly (infer E)[]
+                ? readonly E[]
+                : T extends (infer E)[]
+                  ? E[]
+                  : T
+      : T extends { readonly [GeneratedId]: true }
+        ? // Has Generated branding - same extraction
+          T extends string
+          ? string
+          : T extends number
+            ? number
+            : T extends boolean
+              ? boolean
+              : T extends Date
+                ? Date
+                : T extends readonly (infer E)[]
+                  ? readonly E[]
+                  : T extends (infer E)[]
+                    ? E[]
+                    : T
+        : // No branding - return as-is
+          T;
 
 /**
  * Strip branding from all properties in an object type.
@@ -543,17 +573,17 @@ export function getSchemas<
 /**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  *
- * Simply extracts Schema.Type - no additional transformations needed
- * because the schema function already handles branding removal.
+ * Applies StripBrandingFromObject to ensure ColumnType/Generated branding
+ * is properly stripped at the type utility level, regardless of declaration emit.
  *
- * This ensures: Selectable<typeof User> === typeof User.Selectable.Type
+ * This ensures: Selectable<typeof User> produces plain types { id: string, ... }
  *
  * @example type UserSelect = Selectable<typeof User>
  */
 export type Selectable<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends { readonly Selectable: Schema.Schema<any, any, any> },
-> = Schema.Schema.Type<T['Selectable']>;
+> = StripBrandingFromObject<Schema.Schema.Type<T['Selectable']>>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
