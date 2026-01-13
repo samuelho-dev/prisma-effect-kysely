@@ -398,13 +398,18 @@ type SelectableType<T> = StripBrandingFromObject<T>;
 
 export const Selectable = <Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<SelectableType<Type>, SelectableType<Encoded>, never> => {
+): Schema.Schema<SelectableType<Encoded>, SelectableType<Encoded>, never> => {
+  // Use Encoded for both Type and Encoded to produce clean unbranded types
+  // This makes the schema an identity transformation (Type = Encoded)
+  // which matches what Kysely returns from queries
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make<SelectableType<Type>, SelectableType<Encoded>, never>(ast));
+    return Schema.asSchema(
+      Schema.make<SelectableType<Encoded>, SelectableType<Encoded>, never>(ast)
+    );
   }
   return Schema.asSchema(
-    Schema.make<SelectableType<Type>, SelectableType<Encoded>, never>(
+    Schema.make<SelectableType<Encoded>, SelectableType<Encoded>, never>(
       new AST.TypeLiteral(
         extractParametersFromTypeLiteral(ast, 'selectSchema'),
         ast.indexSignatures,
@@ -493,8 +498,10 @@ export const Updateable = <Type, Encoded>(
  */
 export interface Schemas<BaseSchema extends Schema.Schema<unknown, unknown, unknown>> {
   readonly _base: BaseSchema;
+  // Selectable uses Encoded for both Type and Encoded to produce clean unbranded types
+  // This matches what Kysely returns from queries and enables type-safe repository implementations
   readonly Selectable: Schema.Schema<
-    SelectableType<Schema.Schema.Type<BaseSchema>>,
+    SelectableType<Schema.Schema.Encoded<BaseSchema>>,
     SelectableType<Schema.Schema.Encoded<BaseSchema>>,
     never
   >;
@@ -573,17 +580,22 @@ export function getSchemas<
 /**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  *
- * Applies StripBrandingFromObject to ensure ColumnType/Generated branding
- * is properly stripped at the type utility level, regardless of declaration emit.
+ * Uses Schema.Encoded to get the unbranded type directly.
+ * The Selectable schema's Encoded type is already properly constructed
+ * with plain types (string, Date, number) without ColumnType/Generated branding.
  *
  * This ensures: Selectable<typeof User> produces plain types { id: string, ... }
+ *
+ * Note: We use Encoded instead of Type because the Selectable function
+ * already applies SelectableType to both Type and Encoded, and the Encoded
+ * side gets the clean unbranded types that match what Kysely returns.
  *
  * @example type UserSelect = Selectable<typeof User>
  */
 export type Selectable<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends { readonly Selectable: Schema.Schema<any, any, any> },
-> = StripBrandingFromObject<Schema.Schema.Type<T['Selectable']>>;
+> = Schema.Schema.Encoded<T['Selectable']>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
