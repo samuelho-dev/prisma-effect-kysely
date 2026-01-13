@@ -303,15 +303,46 @@ type MutableUpdate<Type> = CustomUpdateable<Type>;
 // These utilities strip the ColumnType/Generated branding to get plain types.
 
 /**
- * Strip branding from a single field type using conditional type inference.
- * Uses inference to extract the base type S from branded types.
+ * Strip branding from a single field type.
  *
- * - Generated<T> = T & {...} -> T (via infer)
- * - ColumnType<S, I, U> = S & {...} -> S (via infer)
- * - Other types -> as-is
+ * Uses explicit symbol check rather than conditional inference because
+ * TypeScript's `infer` with intersection types can be unreliable.
+ *
+ * For branded types (ColumnType<S,I,U> = S & {...} or Generated<T> = T & {...}),
+ * we check for the brand symbol and extract the base primitive type.
  */
-type StripFieldBranding<T> =
-  T extends Generated<infer S> ? S : T extends ColumnType<infer S, unknown, unknown> ? S : T;
+type StripFieldBranding<T> = T extends { readonly [ColumnTypeId]: unknown }
+  ? // Has ColumnType branding - extract base type by checking primitives
+    T extends string
+    ? string
+    : T extends number
+      ? number
+      : T extends boolean
+        ? boolean
+        : T extends Date
+          ? Date
+          : T extends readonly (infer E)[]
+            ? readonly E[]
+            : T extends (infer E)[]
+              ? E[]
+              : T // Unknown branded type, keep as-is (shouldn't happen)
+  : T extends { readonly [GeneratedId]: true }
+    ? // Has Generated branding without ColumnType - same extraction
+      T extends string
+      ? string
+      : T extends number
+        ? number
+        : T extends boolean
+          ? boolean
+          : T extends Date
+            ? Date
+            : T extends readonly (infer E)[]
+              ? readonly E[]
+              : T extends (infer E)[]
+                ? E[]
+                : T
+    : // No branding - return as-is
+      T;
 
 /**
  * Strip branding from all properties in an object type.
@@ -324,8 +355,12 @@ type StripBrandingFromObject<T> = {
 /**
  * Selectable type with branding stripped - used for Schema function return types.
  * This ensures that `Schema.Type` returns plain types without ColumnType/Generated branding.
+ *
+ * Note: We apply StripBrandingFromObject directly instead of using KyselySelectable
+ * because KyselySelectable adds unnecessary complexity and our branding is already
+ * designed to extend the base type.
  */
-type SelectableType<T> = KyselySelectable<StripBrandingFromObject<T>>;
+type SelectableType<T> = StripBrandingFromObject<T>;
 
 // ============================================================================
 // Schema Functions
@@ -506,66 +541,49 @@ export function getSchemas<
 // ============================================================================
 
 /**
- * Remove index signatures to get strict object type
- */
-type RemoveIndexSignature<T> = {
-  [K in keyof T as K extends string
-    ? string extends K
-      ? never
-      : K
-    : K extends number
-      ? number extends K
-        ? never
-        : K
-      : K extends symbol
-        ? symbol extends K
-          ? never
-          : K
-        : K]: T[K];
-};
-
-/**
- * Remove properties with never values from an object type.
- * Also removes properties that are only `undefined` (from `never | undefined` simplifying to `undefined`).
- * This handles ColumnType<Select, never, never> for id fields in Insertable/Updateable.
- */
-type OmitNever<T> = {
-  [K in keyof T as T[K] extends never
-    ? never
-    : [Exclude<T[K], undefined>] extends [never]
-      ? never
-      : K]: T[K];
-};
-
-type StrictType<T> = OmitNever<RemoveIndexSignature<T>>;
-
-/**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
- * Strips ColumnType/Generated branding to return plain types.
+ *
+ * Simply extracts Schema.Type - no additional transformations needed
+ * because the schema function already handles branding removal.
+ *
+ * This ensures: Selectable<typeof User> === typeof User.Selectable.Type
+ *
  * @example type UserSelect = Selectable<typeof User>
  */
 export type Selectable<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends { readonly Selectable: Schema.Schema<any, any, any> },
-> = StrictType<StripBrandingFromObject<Schema.Schema.Type<T['Selectable']>>>;
+> = Schema.Schema.Type<T['Selectable']>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
+ *
+ * Simply extracts Schema.Type - the schema function already handles
+ * field filtering and type transformations.
+ *
+ * This ensures: Insertable<typeof User> === typeof User.Insertable.Type
+ *
  * @example type UserInsert = Insertable<typeof User>
  */
 export type Insertable<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends { readonly Insertable: Schema.Schema<any, any, any> },
-> = StrictType<Schema.Schema.Type<T['Insertable']>>;
+> = Schema.Schema.Type<T['Insertable']>;
 
 /**
  * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
+ *
+ * Simply extracts Schema.Type - the schema function already handles
+ * field filtering and optional transformations.
+ *
+ * This ensures: Updateable<typeof User> === typeof User.Updateable.Type
+ *
  * @example type UserUpdate = Updateable<typeof User>
  */
 export type Updateable<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends { readonly Updateable: Schema.Schema<any, any, any> },
-> = StrictType<Schema.Schema.Type<T['Updateable']>>;
+> = Schema.Schema.Type<T['Updateable']>;
 
 /**
  * Extract branded ID type from schema

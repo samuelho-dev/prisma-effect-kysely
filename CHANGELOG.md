@@ -1,5 +1,30 @@
 # Changelog
 
+## 4.2.9
+
+### Patch Changes
+
+- Fix type stripping for branded ColumnType and Generated types
+
+  The StripFieldBranding type utility now uses explicit primitive type checks instead of
+  conditional type inference with `infer`, which was unreliable for intersection types.
+  This ensures that Selectable schema types correctly resolve to plain types (string, number,
+  Date, etc.) without ColumnType/Generated branding.
+
+## 4.2.8
+
+### Patch Changes
+
+- Fix type utilities to match schema-derived types
+
+  Simplified `Selectable<T>`, `Insertable<T>`, and `Updateable<T>` type utilities to directly extract `Schema.Schema.Type` without additional transformations.
+
+  Previously, the type utilities applied extra wrappers (`StrictType`, `StripBrandingFromObject`) that caused type mismatches when comparing:
+  - `Selectable<typeof User>` (type utility)
+  - `typeof User.Selectable.Type` (direct schema extraction)
+
+  Now both produce identical types, enabling seamless integration between repository types and RPC schemas.
+
 ## 4.2.7
 
 ### Patch Changes
