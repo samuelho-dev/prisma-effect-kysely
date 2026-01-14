@@ -101,3 +101,32 @@ export function buildFieldType(
 
   return baseType;
 }
+
+/**
+ * Build field type for explicit Insertable schema
+ * This is used for fields that SHOULD be included in insert operations
+ * Does NOT apply generated() or columnType() wrappers
+ *
+ * @param field - The Prisma field to build type for
+ * @param dmmf - The full DMMF document for enum lookups
+ * @param fkMap - Optional FK field → target model mapping for branded FK types
+ */
+export function buildInsertableFieldType(
+  field: DMMF.Field,
+  dmmf: DMMF.Document,
+  fkMap?: Map<string, string>
+) {
+  let baseType = mapFieldToEffectType(field, dmmf, fkMap);
+
+  // Handle arrays - use Schema.mutable for insert compatibility
+  if (isListField(field)) {
+    baseType = `Schema.mutable(Schema.Array(${baseType}))`;
+  }
+
+  // Handle optional fields
+  if (!isRequiredField(field)) {
+    baseType = `Schema.NullOr(${baseType})`;
+  }
+
+  return baseType;
+}

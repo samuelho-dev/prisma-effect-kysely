@@ -1,11 +1,19 @@
 import type { DMMF } from '@prisma/generator-helper';
 import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
-import { isUuidField } from '../prisma/type.js';
+import { hasDefaultValue, isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
 import { generateJoinTableKyselyInterface, generateJoinTableSchema } from './join-table.js';
-import { buildFieldType } from './type.js';
+import { buildFieldType, buildInsertableFieldType } from './type.js';
+
+/**
+ * Determine if field should be omitted from explicit Insertable schema
+ * ID fields with @default and non-ID fields with @default are omitted
+ */
+function needsOmitFromInsert(field: DMMF.Field): boolean {
+  return hasDefaultValue(field);
+}
 
 /**
  * Effect domain generator - orchestrates Effect Schema generation
@@ -66,35 +74,64 @@ export type ${name}Id = typeof ${name}IdSchema.Type;`;
   }
 
   /**
+   * Generate explicit Insertable schema for a model
+   * This schema only includes fields that should be present during INSERT operations
+   * Fields with @default are omitted since the database generates them
+   *
+   * This is the key fix for declaration emit issues:
+   * - The base schema uses generated()/columnType() wrappers which get simplified in .d.ts
+   * - This explicit schema has no wrappers, so TypeScript preserves the exact types
+   */
+  generateInsertableSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    const fkMap = buildForeignKeyMap(model, this.dmmf.datamodel.models);
+
+    // Filter out fields that should be omitted from insert
+    const insertableFields = fields.filter((field) => !needsOmitFromInsert(field));
+
+    const fieldDefinitions = insertableFields
+      .map((field) => {
+        const fieldType = buildInsertableFieldType(field, this.dmmf, fkMap);
+        return `  ${field.name}: ${fieldType}`;
+      })
+      .join(',\n');
+
+    const insertableSchemaName = `_${model.name}_insertable`;
+
+    return `// ${model.name} Insertable Schema (explicit - avoids declaration emit issues)
+export const ${insertableSchemaName} = Schema.Struct({
+${fieldDefinitions}
+});`;
+  }
+
+  /**
    * Generate operational schemas with branded Id
-   * Uses type annotation (:) for verification instead of type assertion (as)
-   * Type annotations work correctly with TypeScript declaration emit
+   * Uses explicit Insertable schema instead of computed one to survive declaration emit
    */
   generateOperationalSchemas(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const baseSchemaName = `_${model.name}`;
+    const insertableSchemaName = `_${model.name}_insertable`;
     const name = toPascalCase(model.name);
     const idField = fields.find((f) => f.isId);
 
     if (idField) {
-      // Model with ID field - use type annotation (not assertion)
+      // Model with ID field - override Insertable with explicit schema
       return `// Operational schemas for ${name}
-const _${name}Schemas = getSchemas(${baseSchemaName}, ${name}IdSchema);
-
-export const ${name}: SchemasWithId<
-  typeof ${baseSchemaName},
-  typeof ${name}IdSchema
-> = _${name}Schemas;`;
+export const ${name} = {
+  ...getSchemas(${baseSchemaName}, ${name}IdSchema),
+  Insertable: ${insertableSchemaName},
+};`;
     }
 
-    // Model without ID field - use type annotation (not assertion)
+    // Model without ID field - override Insertable with explicit schema
     return `// Operational schemas for ${name}
-const _${name}Schemas = getSchemas(${baseSchemaName});
-
-export const ${name}: Schemas<typeof ${baseSchemaName}> = _${name}Schemas;`;
+export const ${name} = {
+  ...getSchemas(${baseSchemaName}),
+  Insertable: ${insertableSchemaName},
+};`;
   }
 
   /**
-   * Generate complete model schema (base + branded ID + operational)
+   * Generate complete model schema (base + branded ID + insertable + operational)
    * No type exports - consumers use type utilities: Selectable<typeof User>
    */
   generateModelSchema(model: DMMF.Model, fields: DMMF.Field[]) {
@@ -106,10 +143,13 @@ export const ${name}: Schemas<typeof ${baseSchemaName}> = _${name}Schemas;`;
       parts.push(brandedIdSchema);
     }
 
-    // Base schema
+    // Base schema (with generated()/columnType() wrappers)
     parts.push(this.generateBaseSchema(model, fields));
 
-    // Operational schemas with Id
+    // Explicit Insertable schema (without wrappers - survives declaration emit)
+    parts.push(this.generateInsertableSchema(model, fields));
+
+    // Operational schemas with Id (uses explicit Insertable)
     parts.push(this.generateOperationalSchemas(model, fields));
 
     return parts.join('\n\n');

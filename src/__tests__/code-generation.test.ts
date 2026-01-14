@@ -162,15 +162,14 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
     });
 
-    it('should export operational schemas with type annotation pattern', () => {
-      // Models with ID fields use type annotation pattern (not type assertion)
-      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
-      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
-      expect(typesContent).toContain('const _UserSchemas = getSchemas(_User, UserIdSchema);');
-      expect(typesContent).toContain('export const User: SchemasWithId<');
-      expect(typesContent).toContain('typeof _User');
-      expect(typesContent).toContain('typeof UserIdSchema');
-      expect(typesContent).toContain('> = _UserSchemas;');
+    it('should export operational schemas with explicit insertable pattern', () => {
+      // Models use explicit insertable schema to survive declaration emit
+      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
+      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
+      expect(typesContent).toContain('Insertable: _User_insertable');
+      expect(typesContent).toContain('export const User = {');
+      // Should also have explicit insertable schema defined
+      expect(typesContent).toContain('export const _User_insertable = Schema.Struct(');
     });
 
     it('should generate branded ID schemas for models with @id field', () => {
@@ -366,10 +365,11 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
       // IdSchema is exported for TypeScript declaration emit
       expect(typesContent).toMatch(/export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
-      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
-      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
-      expect(typesContent).toContain('const _UserSchemas = getSchemas(_User, UserIdSchema);');
-      expect(typesContent).toContain('export const User: SchemasWithId<');
+      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
+      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
+      expect(typesContent).toContain('Insertable: _User_insertable');
+      // Should also have explicit insertable schema defined
+      expect(typesContent).toContain('export const _User_insertable = Schema.Struct(');
       // No type aliases - consumers use type utilities: Selectable<typeof User>
     });
 

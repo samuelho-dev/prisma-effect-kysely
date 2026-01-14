@@ -129,7 +129,7 @@ export class GeneratorOrchestrator {
       .filter((schema): schema is string => schema !== null)
       .join('\n\n');
 
-    // PHASE 2: Generate model schemas for this domain only
+    // PHASE 2: Generate model schemas for this domain only (with insertable schemas)
     const modelSchemas = domain.models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -146,11 +146,14 @@ export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
+        // Generate explicit insertable schema (avoids declaration emit issues)
+        const insertableSchema = this.effectGen.generateInsertableSchema(model, fields);
+
         // Generate operational schemas (no type exports - consumers use type utilities)
         const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
 
         // Assemble model output (ID schemas already generated in Phase 1)
-        const parts = [kyselyTable, baseSchema, operationalSchema];
+        const parts = [kyselyTable, baseSchema, insertableSchema, operationalSchema];
 
         return parts.join('\n\n');
       })
@@ -221,7 +224,7 @@ ${kyselyFields}
       .filter((schema): schema is string => schema !== null)
       .join('\n\n');
 
-    // PHASE 2: Generate all model schemas (Kysely tables + Effect structs + operational schemas)
+    // PHASE 2: Generate all model schemas (Kysely tables + Effect structs + insertable + operational schemas)
     const modelSchemas = models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -238,11 +241,14 @@ export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
+        // Generate explicit insertable schema (avoids declaration emit issues)
+        const insertableSchema = this.effectGen.generateInsertableSchema(model, fields);
+
         // Generate operational schemas (no type exports - consumers use type utilities)
         const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
 
         // Assemble model output (ID schemas already generated in Phase 1)
-        const parts = [kyselyTable, baseSchema, operationalSchema];
+        const parts = [kyselyTable, baseSchema, insertableSchema, operationalSchema];
 
         return parts.join('\n\n');
       })

@@ -74,12 +74,13 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/generated\(/);
     });
 
-    it('should export operational schemas with type annotation pattern', () => {
-      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
-      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
-      expect(typesContent).toMatch(/const _UserSchemas = getSchemas\(_User, UserIdSchema\)/);
-      expect(typesContent).toMatch(/export const User: SchemasWithId</);
-      expect(typesContent).toMatch(/typeof _User/);
+    it('should export operational schemas with explicit insertable pattern', () => {
+      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
+      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
+      expect(typesContent).toContain('Insertable: _User_insertable');
+      expect(typesContent).toContain('export const User = {');
+      // Should also have explicit insertable schema defined
+      expect(typesContent).toContain('export const _User_insertable = Schema.Struct(');
     });
 
     it('should generate DB interface with Kysely Table types', () => {
@@ -140,12 +141,13 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should export operational schema objects with type annotation pattern', () => {
-      // Pattern: const _ModelSchemas = getSchemas(_Model, ModelIdSchema);
-      //          export const Model: SchemasWithId<typeof _Model, typeof ModelIdSchema> = _ModelSchemas;
-      expect(typesContent).toMatch(/const _\w+Schemas = getSchemas\(/);
-      expect(typesContent).toMatch(/export const \w+: SchemasWithId</);
-      expect(typesContent).toMatch(/typeof _\w+/);
+    it('should export operational schema objects with explicit insertable pattern', () => {
+      // Pattern: export const Model = { ...getSchemas(_Model, ModelIdSchema), Insertable: _Model_insertable };
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+/);
+      expect(typesContent).toMatch(/Insertable: _\w+_insertable/);
+      expect(typesContent).toMatch(/export const \w+ = \{/);
+      // Should also have explicit insertable schemas defined
+      expect(typesContent).toMatch(/export const _\w+_insertable = Schema\.Struct\(/);
     });
 
     it('should not export individual type aliases', () => {
@@ -254,10 +256,12 @@ describe('Kysely Integration - Functional Tests', () => {
       // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
       expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas using type annotation pattern
-      expect(typesContent).toMatch(/const _\w+Schemas = getSchemas\(/);
-      expect(typesContent).toMatch(/export const \w+: SchemasWithId</);
-      expect(typesContent).toMatch(/typeof _\w+/);
+      // Explicit insertable schemas: _ModelName_insertable
+      expect(typesContent).toMatch(/export const _\w+_insertable = Schema\.Struct\(/);
+
+      // Operational schemas using explicit insertable pattern
+      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+/);
+      expect(typesContent).toMatch(/Insertable: _\w+_insertable/);
     });
   });
 
