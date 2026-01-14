@@ -570,24 +570,42 @@ export function getSchemas<
 // ============================================================================
 
 /**
+ * Strip Generated<T> wrapper from a type, returning the underlying type T.
+ * For non-Generated types, returns the type as-is.
+ *
+ * This is needed because GeneratedSchema has Generated<T> in both Type and Encoded,
+ * but Kysely queries return plain types (Date, not Generated<Date>).
+ */
+type StripGenerated<T> = T extends Generated<infer U> ? U : T;
+
+/**
+ * Recursively strip Generated<T> wrappers from all fields in an object type.
+ * Handles nested objects and preserves readonly/optional modifiers.
+ */
+type StripGeneratedFields<T> = {
+  readonly [K in keyof T]: StripGenerated<T[K]>;
+};
+
+/**
  * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
  *
- * Uses Schema.Encoded to get the unbranded type directly.
- * The Selectable schema's Encoded type is already properly constructed
- * with plain types (string, Date, number) without ColumnType/Generated branding.
+ * Uses Schema.Encoded to get the unbranded type directly, then strips
+ * any Generated<T> wrappers to produce clean types that match Kysely query results.
  *
- * This ensures: Selectable<typeof User> produces plain types { id: string, ... }
+ * This ensures: Selectable<typeof User> produces plain types { id: string, created_at: Date, ... }
  *
- * Note: We use Encoded instead of Type because the Selectable function
- * returns Schema<Encoded, Encoded, never> - the Encoded type gets the clean
- * unbranded types that match what Kysely returns from queries.
+ * Note: We strip Generated<T> because:
+ * 1. GeneratedSchema has Generated<T> in both Type and Encoded
+ * 2. But Kysely queries return plain types (Date, not Generated<Date>)
+ * 3. The runtime Selectable() function correctly strips annotations
+ * 4. The type-level utility must match the runtime behavior
  *
  * @example type UserSelect = Selectable<typeof User>
  */
 export type Selectable<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   T extends { readonly Selectable: Schema.Schema<any, any, any> },
-> = Schema.Schema.Encoded<T['Selectable']>;
+> = StripGeneratedFields<Schema.Schema.Encoded<T['Selectable']>>;
 
 /**
  * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
