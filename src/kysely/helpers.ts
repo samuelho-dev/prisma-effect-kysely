@@ -432,10 +432,10 @@ export function Updateable<Type, Encoded>(
  * Schemas interface returned by getSchemas().
  * Includes a _base property to preserve the original schema for type-level computations.
  *
- * Uses Schema.Schema<unknown, unknown, unknown> constraint instead of Schema.Schema.Any
- * to prevent type widening (Schema.Any uses `any` which causes Id to compile as `any`).
+ * Uses Schema.Schema.All constraint which handles both covariant and contravariant positions.
+ * This avoids variance issues with `unknown` constraints while still preserving type safety.
  */
-export interface Schemas<BaseSchema extends Schema.Schema<unknown, unknown, unknown>> {
+export interface Schemas<BaseSchema extends Schema.Schema.All> {
   readonly _base: BaseSchema;
   // Selectable uses Encoded for both Type and Encoded to produce clean unbranded types
   // This matches what Kysely returns from queries and enables type-safe repository implementations
@@ -461,8 +461,8 @@ export interface Schemas<BaseSchema extends Schema.Schema<unknown, unknown, unkn
  * Returned when getSchemas() is called with an idSchema parameter.
  */
 export interface SchemasWithId<
-  BaseSchema extends Schema.Schema<unknown, unknown, unknown>,
-  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+  BaseSchema extends Schema.Schema.All,
+  IdSchema extends Schema.Schema.All,
 > extends Schemas<BaseSchema> {
   readonly Id: IdSchema;
 }
@@ -475,23 +475,23 @@ export interface SchemasWithId<
  * @param idSchema - Optional branded ID schema for models with @id fields
  */
 export function getSchemas<
-  BaseSchema extends Schema.Schema<unknown, unknown, unknown>,
-  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+  BaseSchema extends Schema.Schema.All,
+  IdSchema extends Schema.Schema.All,
 >(baseSchema: BaseSchema, idSchema: IdSchema): SchemasWithId<BaseSchema, IdSchema>;
 
-export function getSchemas<BaseSchema extends Schema.Schema<unknown, unknown, unknown>>(
+export function getSchemas<BaseSchema extends Schema.Schema.All>(
   baseSchema: BaseSchema
 ): Schemas<BaseSchema>;
 
 export function getSchemas<
-  BaseSchema extends Schema.Schema<unknown, unknown, unknown>,
-  IdSchema extends Schema.Schema<unknown, unknown, unknown>,
+  BaseSchema extends Schema.Schema.All,
+  IdSchema extends Schema.Schema.All,
 >(
   baseSchema: BaseSchema,
   idSchema?: IdSchema
 ): Schemas<BaseSchema> | SchemasWithId<BaseSchema, IdSchema> {
   // Cast to the expected schema type for the functions
-  // This is safe because BaseSchema extends Schema.Schema<unknown, unknown, unknown>
+  // This is safe because BaseSchema extends Schema.Schema.All
   type SchemaForFunctions = Schema.Schema<
     Schema.Schema.Type<BaseSchema>,
     Schema.Schema.Encoded<BaseSchema>

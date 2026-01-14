@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.4.0
+
+### Minor Changes
+
+- Fix type constraints for better TypeScript compatibility
+  - Changed `Schemas` and `SchemasWithId` interfaces to use `Schema.Schema.All` constraint instead of `Schema<unknown, unknown, unknown>` to fix variance issues with struct schemas
+  - Updated `getSchemas()` function overloads to use `Schema.Schema.All` constraint
+  - Removed type assertions from `columnType()` and `generated()` functions - now return base types
+  - Updated generator to use type annotation pattern instead of type assertion for better declaration emit
+
 ## 4.2.9
 
 ### Patch Changes
