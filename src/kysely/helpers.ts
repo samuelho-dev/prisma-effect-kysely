@@ -42,12 +42,40 @@ export type {
 export const ColumnTypeId = Symbol.for('/ColumnTypeId');
 export const GeneratedId = Symbol.for('/GeneratedId');
 
+/**
+ * Symbol for VariantMarker - used in mapped type pattern that survives declaration emit.
+ */
+export const VariantTypeId: unique symbol = Symbol.for('prisma-effect-kysely/VariantType');
+export type VariantTypeId = typeof VariantTypeId;
+
 // ============================================================================
 // Branded Type Definitions (Override Kysely's types)
 // ============================================================================
 // These branded types extend S while carrying phantom insert/update information.
 // Unlike Kysely's ColumnType<S,I,U> = { __select__: S, __insert__: I, __update__: U },
 // our branded types ARE subtypes of S, so Schema.make<ColumnType<...>>(ast) works.
+
+/**
+ * Variant marker using mapped type pattern from Effect's Brand.
+ *
+ * TypeScript cannot simplify mapped types that depend on generic parameters.
+ * This ensures the variant information survives declaration emit (.d.ts generation).
+ *
+ * Pattern derived from Effect's Brand<K>:
+ * ```typescript
+ * readonly [BrandTypeId]: { readonly [k in K]: K }  // Mapped type - cannot be simplified!
+ * ```
+ *
+ * Our pattern uses a conditional type within the mapped type to encode both I and U:
+ * ```typescript
+ * readonly [VariantTypeId]: { readonly [K in "insert" | "update"]: K extends "insert" ? I : U }
+ * ```
+ */
+export interface VariantMarker<in out I, in out U> {
+  readonly [VariantTypeId]: {
+    readonly [K in 'insert' | 'update']: K extends 'insert' ? I : U;
+  };
+}
 
 /**
  * Branded ColumnType that extends S while carrying phantom insert/update type information.
@@ -57,7 +85,7 @@ export const GeneratedId = Symbol.for('/GeneratedId');
  * 2. Schema.make<KyselyColumnType<...>>(ast) doesn't work because AST represents S, not the struct
  * 3. Our ColumnType<S,I,U> = S & Brand IS a subtype of S, so Schema.make works correctly
  *
- * Includes __select__ property for reliable type extraction in declaration emit.
+ * Uses VariantMarker with mapped types to survive TypeScript declaration emit.
  *
  * Usage is identical to Kysely's ColumnType:
  * ```typescript
@@ -65,10 +93,7 @@ export const GeneratedId = Symbol.for('/GeneratedId');
  * type CreatedAt = ColumnType<Date, Date | undefined, Date>;  // Optional on insert
  * ```
  */
-export type ColumnType<S, I = S, U = S> = S & {
-  readonly [ColumnTypeId]: { readonly __insert__: I; readonly __update__: U };
-  readonly __select__: S;
-};
+export type ColumnType<S, I = S, U = S> = S & VariantMarker<I, U>;
 
 /**
  * Branded Generated type for database-generated fields.
@@ -81,13 +106,14 @@ export type ColumnType<S, I = S, U = S> = S & {
  * This matches the runtime behavior of Insertable() which filters out
  * generated fields entirely (not optional, completely absent).
  *
- * Includes __select__ property for reliable type extraction in declaration emit.
+ * Uses VariantMarker with mapped types to survive TypeScript declaration emit.
+ * The mapped type pattern `[_ in "insert"]: I` cannot be simplified by TypeScript,
+ * ensuring the brand is preserved in .d.ts files.
  */
-export type Generated<T> = T & {
-  readonly [GeneratedId]: true;
-  readonly [ColumnTypeId]: { readonly __insert__: never; readonly __update__: T };
-  readonly __select__: T;
-};
+export type Generated<T> = T &
+  VariantMarker<never, T> & {
+    readonly [GeneratedId]: true;
+  };
 
 // ============================================================================
 // Runtime Annotation Schemas
@@ -125,6 +151,23 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
 };
 
 /**
+ * Interface for Generated schema - preserves type parameter in declaration emit.
+ *
+ * Named interfaces with type parameters are preserved by TypeScript in declaration files,
+ * unlike anonymous intersection types which may be simplified.
+ *
+ * This follows the Schema.brand pattern from Effect which returns a named interface.
+ */
+export interface GeneratedSchema<S extends Schema.Schema.All> extends Schema.Schema<
+  Generated<Schema.Schema.Type<S>>,
+  Generated<Schema.Schema.Encoded<S>>,
+  Schema.Schema.Context<S>
+> {
+  /** The original schema before Generated wrapper */
+  readonly from: S;
+}
+
+/**
  * Mark a field as database-generated (omitted from insert)
  * Used for fields with @default
  *
@@ -132,20 +175,19 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  *
- * Returns the schema branded with Generated<T> at the type level.
+ * Returns a GeneratedSchema<S> which:
+ * 1. Is a named interface (preserved in declaration emit)
+ * 2. Contains the Generated<T> brand using VariantMarker (mapped types survive emit)
+ * 3. Includes the original schema via `from` property
+ *
  * This enables CustomInsertable to filter out generated fields at compile time.
  */
-export const generated = <SType, SEncoded, R>(
-  schema: Schema.Schema<SType, SEncoded, R>
-): Schema.Schema<Generated<SType>, Generated<SEncoded>, R> => {
+export const generated = <S extends Schema.Schema.All>(schema: S): GeneratedSchema<S> => {
   // Return annotated schema with Generated brand at type level
   // The runtime annotation enables filtering in Insertable() function
   // The type-level brand enables filtering in CustomInsertable type utility
-  return schema.annotations({ [GeneratedId]: true }) as Schema.Schema<
-    Generated<SType>,
-    Generated<SEncoded>,
-    R
-  >;
+  const annotated = schema.annotations({ [GeneratedId]: true });
+  return Object.assign(annotated, { from: schema }) as GeneratedSchema<S>;
 };
 
 // ============================================================================
@@ -288,24 +330,25 @@ const extractParametersFromTypeLiteral = (
 // These custom types handle ColumnType and Generated correctly.
 
 /**
- * Extract the insert type from a field:
- * - ColumnType<S, I, U> -> I (via brand)
- * - Generated<T> -> T | undefined (via brand)
+ * Extract the insert type from a field using VariantMarker:
+ * - ColumnType<S, I, U> -> I (via VariantMarker)
+ * - Generated<T> -> never (via VariantMarker)
  * - Other types -> as-is
+ *
+ * Uses the mapped type in VariantMarker which survives declaration emit.
+ * TypeScript cannot simplify `[_ in "insert"]: I` so the type information is preserved.
  */
-type ExtractInsertType<T> = T extends { readonly [ColumnTypeId]: { readonly __insert__: infer I } }
-  ? I
-  : T;
+type ExtractInsertType<T> = T extends VariantMarker<infer I, unknown> ? I : T;
 
 /**
- * Extract the update type from a field:
- * - ColumnType<S, I, U> -> U (via brand)
- * - Generated<T> -> T (via brand)
+ * Extract the update type from a field using VariantMarker:
+ * - ColumnType<S, I, U> -> U (via VariantMarker)
+ * - Generated<T> -> T (via VariantMarker)
  * - Other types -> as-is
+ *
+ * Uses the mapped type in VariantMarker which survives declaration emit.
  */
-type ExtractUpdateType<T> = T extends { readonly [ColumnTypeId]: { readonly __update__: infer U } }
-  ? U
-  : T;
+type ExtractUpdateType<T> = T extends VariantMarker<unknown, infer U> ? U : T;
 
 /**
  * Custom Insertable type that properly omits fields with `never` insert types.

@@ -1,5 +1,52 @@
 # Changelog
 
+## 4.6.0
+
+### Minor Changes
+
+- fix: Use mapped type pattern to survive TypeScript declaration emit
+
+  Previously, the `Generated<T>` type used static properties that TypeScript would inline/simplify during declaration emit (.d.ts generation). This caused the brand to be lost when consumers imported the types, making `CustomInsertable` unable to properly filter out generated fields.
+
+  This release adopts Effect's proven `Brand<K>` pattern using mapped types:
+
+  ```typescript
+  // Effect's Brand pattern - mapped types cannot be simplified
+  interface Brand<K> {
+    readonly [BrandTypeId]: { readonly [k in K]: K };
+  }
+
+  // Our new VariantMarker pattern
+  interface VariantMarker<I, U> {
+    readonly [VariantTypeId]: {
+      readonly [K in 'insert' | 'update']: K extends 'insert' ? I : U;
+    };
+  }
+  ```
+
+  Key changes:
+  - Added `VariantMarker<I, U>` interface with mapped type that survives declaration emit
+  - Updated `Generated<T>` to use `VariantMarker<never, T>`
+  - Updated `ColumnType<S, I, U>` to use `VariantMarker<I, U>`
+  - Added `GeneratedSchema<S>` named interface for `generated()` return type (named interfaces are preserved)
+  - Updated type extractors to use `VariantMarker` for reliable type inference
+
+  This is a **breaking change** for internal type structure but **not breaking** for consumers:
+  - `Insertable<T>`, `Selectable<T>`, `Updateable<T>` work identically
+  - Generated types must be regenerated after upgrading
+
+## 4.5.4
+
+### Patch Changes
+
+- 2d2a0e9: Fix: properly brand `generated()` return type for type-level Insertable filtering
+
+  The `generated()` function was returning `Schema<SType, ...>` instead of `Schema<Generated<SType>, ...>`, which meant the Generated brand was not present at the type level.
+
+  Also fixed `Generated<T>` type to use `__insert__: never` (instead of `T | undefined`) to match the runtime behavior where `Insertable()` completely filters out generated fields rather than making them optional.
+
+  This fixes type errors in consuming projects where `Insertable<T>` was including all fields instead of excluding generated ones.
+
 ## 4.5.3
 
 ### Patch Changes
