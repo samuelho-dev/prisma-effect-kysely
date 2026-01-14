@@ -73,16 +73,19 @@ export type ColumnType<S, I = S, U = S> = S & {
 /**
  * Branded Generated type for database-generated fields.
  *
- * Equivalent to ColumnType<T, T | undefined, T> - the field is:
+ * Follows @effect/sql Model.Generated pattern - the field is:
  * - Required on select (T)
- * - Optional on insert (T | undefined)
+ * - EXCLUDED from insert (never) - database generates the value
  * - Allowed on update (T)
+ *
+ * This matches the runtime behavior of Insertable() which filters out
+ * generated fields entirely (not optional, completely absent).
  *
  * Includes __select__ property for reliable type extraction in declaration emit.
  */
 export type Generated<T> = T & {
   readonly [GeneratedId]: true;
-  readonly [ColumnTypeId]: { readonly __insert__: T | undefined; readonly __update__: T };
+  readonly [ColumnTypeId]: { readonly __insert__: never; readonly __update__: T };
   readonly __select__: T;
 };
 
@@ -129,14 +132,20 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  *
- * Returns the base schema with annotation - branding happens at type level
- * in generated code via type declarations, not via runtime type assertions.
+ * Returns the schema branded with Generated<T> at the type level.
+ * This enables CustomInsertable to filter out generated fields at compile time.
  */
 export const generated = <SType, SEncoded, R>(
   schema: Schema.Schema<SType, SEncoded, R>
-): Schema.Schema<SType, SEncoded, R> => {
-  // Return annotated schema - no type assertion, just metadata marker
-  return schema.annotations({ [GeneratedId]: true });
+): Schema.Schema<Generated<SType>, Generated<SEncoded>, R> => {
+  // Return annotated schema with Generated brand at type level
+  // The runtime annotation enables filtering in Insertable() function
+  // The type-level brand enables filtering in CustomInsertable type utility
+  return schema.annotations({ [GeneratedId]: true }) as Schema.Schema<
+    Generated<SType>,
+    Generated<SEncoded>,
+    R
+  >;
 };
 
 // ============================================================================
