@@ -532,6 +532,12 @@ describe('Prisma Parsing & Domain Logic', () => {
 
   describe('Foreign Key Detection & Branded ID Schemas', () => {
     it('should detect FK field from relation field with relationFromFields', () => {
+      // Create target User model with ID field
+      const userModel = createMockModel({
+        name: 'User',
+        fields: [createMockField({ name: 'id', type: 'String', isId: true })],
+      });
+
       const model = createMockModel({
         name: 'Seller',
         fields: [
@@ -550,13 +556,23 @@ describe('Prisma Parsing & Domain Logic', () => {
         ],
       });
 
-      const fkMap = buildForeignKeyMap(model);
+      const fkMap = buildForeignKeyMap(model, [userModel, model]);
 
       expect(fkMap.size).toBe(1);
       expect(fkMap.get('user_id')).toBe('User');
     });
 
     it('should detect multiple FK fields in a model', () => {
+      // Create target models with ID fields
+      const userModel = createMockModel({
+        name: 'User',
+        fields: [createMockField({ name: 'id', type: 'String', isId: true })],
+      });
+      const categoryModel = createMockModel({
+        name: 'Category',
+        fields: [createMockField({ name: 'id', type: 'String', isId: true })],
+      });
+
       const model = createMockModel({
         name: 'Post',
         fields: [
@@ -586,7 +602,7 @@ describe('Prisma Parsing & Domain Logic', () => {
         ],
       });
 
-      const fkMap = buildForeignKeyMap(model);
+      const fkMap = buildForeignKeyMap(model, [userModel, categoryModel, model]);
 
       expect(fkMap.size).toBe(2);
       expect(fkMap.get('author_id')).toBe('User');
@@ -673,7 +689,8 @@ describe('Prisma Parsing & Domain Logic', () => {
         ],
       });
 
-      const fkMap = buildForeignKeyMap(model);
+      // For self-referential FK, pass the model itself in the models array
+      const fkMap = buildForeignKeyMap(model, [model]);
 
       expect(fkMap.get('parent_id')).toBe('Category');
 
@@ -709,7 +726,8 @@ describe('Prisma Parsing & Domain Logic', () => {
         throw new Error('Seller model not found');
       }
 
-      const fkMap = buildForeignKeyMap(sellerModel);
+      // Pass models array so FK can be verified against target's ID field
+      const fkMap = buildForeignKeyMap(sellerModel, dmmf.datamodel.models);
 
       expect(fkMap.get('user_id')).toBe('User');
 

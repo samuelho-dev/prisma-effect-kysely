@@ -300,7 +300,7 @@ type ExtractUpdateType<T> = T extends { readonly [ColumnTypeId]: { readonly __up
 
 /**
  * Custom Insertable type that properly omits fields with `never` insert types.
- * This is needed because Kysely's Insertable includes never fields which makes types unusable.
+ * This handles ColumnType<S, never, U> fields (read-only ID fields).
  */
 type CustomInsertable<T> = DeepMutable<{
   [K in keyof T as ExtractInsertType<T[K]> extends never ? never : K]: ExtractInsertType<T[K]>;

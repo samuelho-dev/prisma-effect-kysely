@@ -72,15 +72,32 @@ export function getModelIdField(model: DMMF.Model): DMMF.Field {
  * Detection logic: A scalar field is a FK if any relation field
  * in the same model has this field in its `relationFromFields` array.
  *
+ * IMPORTANT: Only includes FKs that reference the target model's ID field.
+ * FKs to non-ID unique fields (like enums) should use the target field's type,
+ * not a branded ID schema.
+ *
+ * @param model - The model to analyze
+ * @param models - All models in the datamodel (for looking up target model ID fields)
+ *
  * @example
  * // For Seller model with user_id FK:
  * // fields = [
  * //   { name: "user_id", kind: "scalar", type: "String" },
- * //   { name: "user", kind: "object", type: "User", relationFromFields: ["user_id"] }
+ * //   { name: "user", kind: "object", type: "User", relationFromFields: ["user_id"], relationToFields: ["id"] }
  * // ]
  * // Returns: Map { "user_id" => "User" }
+ *
+ * // For Product model with market FK to market.code (enum):
+ * // fields = [
+ * //   { name: "market", kind: "scalar", type: "MARKET_TYPE" },
+ * //   { name: "market_relation", kind: "object", type: "market", relationFromFields: ["market"], relationToFields: ["code"] }
+ * // ]
+ * // Returns: Map {} (empty - code is not the ID field)
  */
-export function buildForeignKeyMap(model: DMMF.Model): Map<string, string> {
+export function buildForeignKeyMap(
+  model: DMMF.Model,
+  models?: readonly DMMF.Model[]
+): Map<string, string> {
   const fkMap = new Map<string, string>();
 
   // Find all relation fields (kind === "object")
@@ -88,6 +105,37 @@ export function buildForeignKeyMap(model: DMMF.Model): Map<string, string> {
 
   for (const relation of relationFields) {
     if (relation.relationFromFields && relation.relationFromFields.length > 0) {
+      // Check if this FK references the target model's ID field
+      const targetModel = models?.find((m) => m.name === relation.type);
+      if (!targetModel) {
+        // Can't verify - skip this FK to be safe
+        continue;
+      }
+
+      // Get target model's ID field name
+      let targetIdFieldName: string | undefined;
+      const idField = targetModel.fields.find((f) => f.isId === true);
+      if (idField) {
+        targetIdFieldName = idField.name;
+      } else if (targetModel.primaryKey && targetModel.primaryKey.fields.length > 0) {
+        targetIdFieldName = targetModel.primaryKey.fields[0];
+      }
+
+      if (!targetIdFieldName) {
+        // Target model has no ID field - skip
+        continue;
+      }
+
+      // Check if relationToFields references the ID field
+      const refersToIdField =
+        relation.relationToFields?.length === 1 &&
+        relation.relationToFields[0] === targetIdFieldName;
+
+      if (!refersToIdField) {
+        // FK points to non-ID field (e.g., enum) - don't use branded ID
+        continue;
+      }
+
       // Map each FK field to the target model
       for (const fkFieldName of relation.relationFromFields) {
         fkMap.set(fkFieldName, relation.type); // relation.type is the target model name

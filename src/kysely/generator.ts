@@ -34,7 +34,8 @@ export class KyselyGenerator {
    */
   generateModelFields(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     // Build FK map for this model to enable branded FK types
-    const fkMap = buildForeignKeyMap(model);
+    // Pass all models so we can verify FK points to target's ID field
+    const fkMap = buildForeignKeyMap(model, this.dmmf.datamodel.models);
 
     return Array.from(fields)
       .map((field) => this.generateFieldWithKysely(field, fkMap))

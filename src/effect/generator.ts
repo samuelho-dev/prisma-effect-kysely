@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import type { JoinTableInfo } from '../prisma/relation.js';
+import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
 import { isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
@@ -26,9 +26,13 @@ export class EffectGenerator {
    * (prevents type expansion that breaks SchemasWithId type params)
    */
   generateBaseSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    // Build FK map to determine which fields should use branded FK types
+    // Only includes FKs that reference the target model's ID field
+    const fkMap = buildForeignKeyMap(model, this.dmmf.datamodel.models);
+
     const fieldDefinitions = fields
       .map((field) => {
-        const fieldType = buildFieldType(field, this.dmmf);
+        const fieldType = buildFieldType(field, this.dmmf, fkMap);
         return `  ${field.name}: ${fieldType}`;
       })
       .join(',\n');
