@@ -186,11 +186,12 @@ const testSelect: UserSelect = {
         /export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
       );
 
-      // Should generate operational schemas with branded Id
-      // Pattern: export const User = { _base: _User, ..., Id: UserIdSchema } as const;
-      expect(typesContent).toMatch(/export const User = \{/);
-      expect(typesContent).toMatch(/_base: _User/);
-      expect(typesContent).toMatch(/Id: UserIdSchema/);
+      // Should generate operational schemas with type annotation pattern
+      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
+      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
+      expect(typesContent).toMatch(/const _UserSchemas = getSchemas\(_User, UserIdSchema\)/);
+      expect(typesContent).toMatch(/export const User: SchemasWithId</);
+      expect(typesContent).toMatch(/typeof _User/);
 
       // No type aliases - consumers use type utilities: Selectable<typeof User>
       expect(typesContent).not.toMatch(/export type UserSelect\s*=/);

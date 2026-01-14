@@ -74,12 +74,12 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/generated\(/);
     });
 
-    it('should export operational schemas with branded Id', () => {
-      // Pattern: export const User = { _base: _User, Selectable: ..., Id: UserIdSchema } as const;
-      // TypeScript can infer correct type because _User is exported
-      expect(typesContent).toMatch(/export const User = \{/);
-      expect(typesContent).toMatch(/_base: _User/);
-      expect(typesContent).toMatch(/Id: UserIdSchema/);
+    it('should export operational schemas with type annotation pattern', () => {
+      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
+      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
+      expect(typesContent).toMatch(/const _UserSchemas = getSchemas\(_User, UserIdSchema\)/);
+      expect(typesContent).toMatch(/export const User: SchemasWithId</);
+      expect(typesContent).toMatch(/typeof _User/);
     });
 
     it('should generate DB interface with Kysely Table types', () => {
@@ -140,11 +140,12 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should export operational schema objects with branded Id', () => {
-      // Pattern: export const User = { _base: _User, ..., Id: UserIdSchema } as const;
-      expect(typesContent).toMatch(/export const \w+ = \{/);
-      expect(typesContent).toMatch(/_base: _\w+/);
-      expect(typesContent).toMatch(/Id: \w+IdSchema/);
+    it('should export operational schema objects with type annotation pattern', () => {
+      // Pattern: const _ModelSchemas = getSchemas(_Model, ModelIdSchema);
+      //          export const Model: SchemasWithId<typeof _Model, typeof ModelIdSchema> = _ModelSchemas;
+      expect(typesContent).toMatch(/const _\w+Schemas = getSchemas\(/);
+      expect(typesContent).toMatch(/export const \w+: SchemasWithId</);
+      expect(typesContent).toMatch(/typeof _\w+/);
     });
 
     it('should not export individual type aliases', () => {
@@ -253,10 +254,10 @@ describe('Kysely Integration - Functional Tests', () => {
       // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
       expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = { _base: _ModelName, ..., Id: ModelNameIdSchema } as const; (exported)
-      expect(typesContent).toMatch(/export const \w+ = \{/);
-      expect(typesContent).toMatch(/_base: _\w+/);
-      expect(typesContent).toMatch(/Id: \w+IdSchema/);
+      // Operational schemas using type annotation pattern
+      expect(typesContent).toMatch(/const _\w+Schemas = getSchemas\(/);
+      expect(typesContent).toMatch(/export const \w+: SchemasWithId</);
+      expect(typesContent).toMatch(/typeof _\w+/);
     });
   });
 

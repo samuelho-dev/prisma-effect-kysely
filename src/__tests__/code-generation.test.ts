@@ -162,13 +162,15 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
     });
 
-    it('should export operational schemas with branded Id using explicit object literal', () => {
-      // Models with ID fields get branded Id schema
-      // Pattern: export const Model = { _base: _Model, Id: ModelIdSchema, ... } as const;
-      expect(typesContent).toContain('export const User = {');
-      expect(typesContent).toContain('_base: _User,');
-      expect(typesContent).toContain('Id: UserIdSchema,');
-      expect(typesContent).toContain('} as const;');
+    it('should export operational schemas with type annotation pattern', () => {
+      // Models with ID fields use type annotation pattern (not type assertion)
+      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
+      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
+      expect(typesContent).toContain('const _UserSchemas = getSchemas(_User, UserIdSchema);');
+      expect(typesContent).toContain('export const User: SchemasWithId<');
+      expect(typesContent).toContain('typeof _User');
+      expect(typesContent).toContain('typeof UserIdSchema');
+      expect(typesContent).toContain('> = _UserSchemas;');
     });
 
     it('should generate branded ID schemas for models with @id field', () => {
@@ -366,10 +368,10 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
       // IdSchema is exported for TypeScript declaration emit
       expect(typesContent).toMatch(/export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
-      // Pattern: export const User = { _base: _User, Id: UserIdSchema, ... } as const;
-      expect(typesContent).toContain('export const User = {');
-      expect(typesContent).toContain('_base: _User,');
-      expect(typesContent).toContain('Id: UserIdSchema,');
+      // Pattern: const _UserSchemas = getSchemas(_User, UserIdSchema);
+      //          export const User: SchemasWithId<typeof _User, typeof UserIdSchema> = _UserSchemas;
+      expect(typesContent).toContain('const _UserSchemas = getSchemas(_User, UserIdSchema);');
+      expect(typesContent).toContain('export const User: SchemasWithId<');
       // No type aliases - consumers use type utilities: Selectable<typeof User>
     });
 

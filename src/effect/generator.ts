@@ -63,29 +63,30 @@ export type ${name}Id = typeof ${name}IdSchema.Type;`;
 
   /**
    * Generate operational schemas with branded Id
-   * Uses explicit object literal with `as const` to avoid TypeScript declaration emit issues
-   * (prevents SchemasWithId interface from receiving wrong number of type parameters)
+   * Uses type annotation (:) for verification instead of type assertion (as)
+   * Type annotations work correctly with TypeScript declaration emit
    */
   generateOperationalSchemas(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const baseSchemaName = `_${model.name}`;
     const name = toPascalCase(model.name);
     const idField = fields.find((f) => f.isId);
 
-    const baseProps = `  _base: ${baseSchemaName},
-  Selectable: Selectable(${baseSchemaName}),
-  Insertable: Insertable(${baseSchemaName}),
-  Updateable: Updateable(${baseSchemaName}),`;
-
     if (idField) {
-      return `export const ${name} = {
-${baseProps}
-  Id: ${name}IdSchema,
-} as const;`;
+      // Model with ID field - use type annotation (not assertion)
+      return `// Operational schemas for ${name}
+const _${name}Schemas = getSchemas(${baseSchemaName}, ${name}IdSchema);
+
+export const ${name}: SchemasWithId<
+  typeof ${baseSchemaName},
+  typeof ${name}IdSchema
+> = _${name}Schemas;`;
     }
 
-    return `export const ${name} = {
-${baseProps}
-} as const;`;
+    // Model without ID field - use type annotation (not assertion)
+    return `// Operational schemas for ${name}
+const _${name}Schemas = getSchemas(${baseSchemaName});
+
+export const ${name}: Schemas<typeof ${baseSchemaName}> = _${name}Schemas;`;
   }
 
   /**
@@ -118,11 +119,12 @@ ${baseProps}
   generateTypesHeader(hasEnums: boolean) {
     const header = generateFileHeader();
 
-    // No StrictType import - consumers use type utilities: Selectable<typeof User>
+    // Import getSchemas and type interfaces for type annotation pattern
     const imports = [
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
-      `import { columnType, generated, Selectable, Insertable, Updateable } from "prisma-effect-kysely";`,
+      `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
+      `import type { Schemas, SchemasWithId, Selectable, Insertable, Updateable } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {

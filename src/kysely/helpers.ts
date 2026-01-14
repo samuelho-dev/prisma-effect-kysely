@@ -103,26 +103,22 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
  * The insert/update schemas are stored in annotations and used at runtime
  * to determine which fields to include in Insertable/Updateable schemas.
  *
- * Returns a schema with our branded ColumnType<S,I,U> that extends S, ensuring:
- * 1. TypeScript correctly infers the return type across module boundaries
- * 2. Runtime decode returns S values (not wrapped structs)
- * 3. Type utilities can extract I and U from the brand
+ * Returns the base schema with annotations - branding happens at type level
+ * in generated code via type declarations, not via runtime type assertions.
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
   selectSchema: Schema.Schema<SType, SEncoded, SR>,
   insertSchema: Schema.Schema<IType, IEncoded, IR>,
   updateSchema: Schema.Schema<UType, UEncoded, UR>
-): Schema.Schema<ColumnType<SType, IType, UType>, SEncoded, SR> => {
+): Schema.Schema<SType, SEncoded, SR> => {
   const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
     {
       selectSchema,
       insertSchema,
       updateSchema,
     };
-  const annotated = selectSchema.annotations({ [ColumnTypeId]: schemas });
-  // ColumnType<S,I,U> extends S, so this type assertion is valid
-  // because the runtime value IS of type S
-  return Schema.make<ColumnType<SType, IType, UType>, SEncoded, SR>(annotated.ast);
+  // Return annotated schema - no type assertion, just metadata
+  return selectSchema.annotations({ [ColumnTypeId]: schemas });
 };
 
 /**
@@ -133,16 +129,14 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  * - Present in select and update schemas
  * - OMITTED from insert schema (not optional, completely absent)
  *
- * Returns a schema with our branded Generated<T> that extends T, ensuring:
- * 1. TypeScript correctly infers the return type across module boundaries
- * 2. Runtime decode returns T values (not wrapped structs)
+ * Returns the base schema with annotation - branding happens at type level
+ * in generated code via type declarations, not via runtime type assertions.
  */
 export const generated = <SType, SEncoded, R>(
   schema: Schema.Schema<SType, SEncoded, R>
-): Schema.Schema<Generated<SType>, SEncoded, R> => {
-  const annotated = schema.annotations({ [GeneratedId]: true });
-  // Generated<T> extends T, so this type assertion is valid
-  return Schema.make<Generated<SType>, SEncoded, R>(annotated.ast);
+): Schema.Schema<SType, SEncoded, R> => {
+  // Return annotated schema - no type assertion, just metadata marker
+  return schema.annotations({ [GeneratedId]: true });
 };
 
 // ============================================================================
@@ -324,111 +318,49 @@ type MutableInsert<Type> = CustomInsertable<Type>;
 type MutableUpdate<Type> = CustomUpdateable<Type>;
 
 // ============================================================================
-// Branding Utilities (for Schema functions)
-// ============================================================================
-// These utilities strip the ColumnType/Generated branding to get plain types.
-
-/**
- * Strip branding from a single field type.
- *
- * Extracts the base select type from ColumnType<S,I,U> by checking for __select__ property.
- * The branded types are defined as S & Brand, so S (the base type) extends the primitive.
- *
- * Note: Uses __select__ string literal key instead of unique symbol for reliable
- * cross-module type checking in TypeScript declaration emit.
- */
-type StripFieldBranding<T> =
-  // Check for our ColumnType/Generated brand with __insert__/__update__ structure
-  T extends { readonly __select__: infer S }
-    ? S // Direct extraction if __select__ exists
-    : T extends { readonly [ColumnTypeId]: { readonly __insert__: unknown } }
-      ? // Has ColumnType branding - extract base type by checking primitives
-        T extends string
-        ? string
-        : T extends number
-          ? number
-          : T extends boolean
-            ? boolean
-            : T extends Date
-              ? Date
-              : T extends readonly (infer E)[]
-                ? readonly E[]
-                : T extends (infer E)[]
-                  ? E[]
-                  : T
-      : T extends { readonly [GeneratedId]: true }
-        ? // Has Generated branding - same extraction
-          T extends string
-          ? string
-          : T extends number
-            ? number
-            : T extends boolean
-              ? boolean
-              : T extends Date
-                ? Date
-                : T extends readonly (infer E)[]
-                  ? readonly E[]
-                  : T extends (infer E)[]
-                    ? E[]
-                    : T
-        : // No branding - return as-is
-          T;
-
-/**
- * Strip branding from all properties in an object type.
- * Converts ColumnType<S,I,U> to S and Generated<T> to T.
- */
-type StripBrandingFromObject<T> = {
-  [K in keyof T]: StripFieldBranding<T[K]>;
-};
-
-/**
- * Selectable type with branding stripped - used for Schema function return types.
- * This ensures that `Schema.Type` returns plain types without ColumnType/Generated branding.
- *
- * Note: We apply StripBrandingFromObject directly instead of using KyselySelectable
- * because KyselySelectable adds unnecessary complexity and our branding is already
- * designed to extend the base type.
- */
-type SelectableType<T> = StripBrandingFromObject<T>;
-
-// ============================================================================
 // Schema Functions
 // ============================================================================
 
-export const Selectable = <Type, Encoded>(
+export function Selectable<Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<SelectableType<Encoded>, SelectableType<Encoded>, never> => {
+): Schema.Schema<Encoded, Encoded, never> {
   // Use Encoded for both Type and Encoded to produce clean unbranded types
   // This makes the schema an identity transformation (Type = Encoded)
   // which matches what Kysely returns from queries
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(
-      Schema.make<SelectableType<Encoded>, SelectableType<Encoded>, never>(ast)
-    );
+    // Non-struct schemas: use as identity
+    // Internal cast needed because Schema.make(ast) returns unknown types
+    // The return type annotation is what TypeScript uses for declaration emit
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<Encoded, Encoded, never>;
   }
+  // Extract select schemas from annotated fields
   return Schema.asSchema(
-    Schema.make<SelectableType<Encoded>, SelectableType<Encoded>, never>(
+    Schema.make(
       new AST.TypeLiteral(
         extractParametersFromTypeLiteral(ast, 'selectSchema'),
         ast.indexSignatures,
         ast.annotations
       )
     )
-  );
-};
+  ) as Schema.Schema<Encoded, Encoded, never>;
+}
 
 /**
  * Create Insertable schema from base schema
  * Filters out generated fields (@effect/sql Model.Generated pattern)
  */
-export const Insertable = <Type, Encoded>(
+export function Insertable<Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never> => {
+): Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never> {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make<MutableInsert<Type>, MutableInsert<Encoded>, never>(ast));
+    // Internal cast - return type annotation is what TypeScript uses for declaration emit
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      MutableInsert<Type>,
+      MutableInsert<Encoded>,
+      never
+    >;
   }
 
   // Extract and filter out generated fields entirely
@@ -452,21 +384,24 @@ export const Insertable = <Type, Encoded>(
   });
 
   return Schema.asSchema(
-    Schema.make<MutableInsert<Type>, MutableInsert<Encoded>, never>(
-      new AST.TypeLiteral(fields, ast.indexSignatures, ast.annotations)
-    )
-  );
-};
+    Schema.make(new AST.TypeLiteral(fields, ast.indexSignatures, ast.annotations))
+  ) as Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
+}
 
 /**
  * Create Updateable schema from base schema
  */
-export const Updateable = <Type, Encoded>(
+export function Updateable<Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never> => {
+): Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never> {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
-    return Schema.asSchema(Schema.make<MutableUpdate<Type>, MutableUpdate<Encoded>, never>(ast));
+    // Internal cast - return type annotation is what TypeScript uses for declaration emit
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      MutableUpdate<Type>,
+      MutableUpdate<Encoded>,
+      never
+    >;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
@@ -486,8 +421,12 @@ export const Updateable = <Type, Encoded>(
     ast.annotations
   );
 
-  return Schema.asSchema(Schema.make<MutableUpdate<Type>, MutableUpdate<Encoded>, never>(res));
-};
+  return Schema.asSchema(Schema.make(res)) as Schema.Schema<
+    MutableUpdate<Type>,
+    MutableUpdate<Encoded>,
+    never
+  >;
+}
 
 /**
  * Schemas interface returned by getSchemas().
@@ -501,8 +440,8 @@ export interface Schemas<BaseSchema extends Schema.Schema<unknown, unknown, unkn
   // Selectable uses Encoded for both Type and Encoded to produce clean unbranded types
   // This matches what Kysely returns from queries and enables type-safe repository implementations
   readonly Selectable: Schema.Schema<
-    SelectableType<Schema.Schema.Encoded<BaseSchema>>,
-    SelectableType<Schema.Schema.Encoded<BaseSchema>>,
+    Schema.Schema.Encoded<BaseSchema>,
+    Schema.Schema.Encoded<BaseSchema>,
     never
   >;
   readonly Insertable: Schema.Schema<
@@ -551,22 +490,23 @@ export function getSchemas<
   baseSchema: BaseSchema,
   idSchema?: IdSchema
 ): Schemas<BaseSchema> | SchemasWithId<BaseSchema, IdSchema> {
-  // Use type assertion via unknown to handle Schema.Any -> Schema<Type, Encoded> conversion
-  // This is safe because Schema.Any is a supertype of all Schema types
-  const schema = baseSchema as unknown as Schema.Schema<
+  // Cast to the expected schema type for the functions
+  // This is safe because BaseSchema extends Schema.Schema<unknown, unknown, unknown>
+  type SchemaForFunctions = Schema.Schema<
     Schema.Schema.Type<BaseSchema>,
     Schema.Schema.Encoded<BaseSchema>
   >;
+  const schemaForFunctions = baseSchema as unknown as SchemaForFunctions;
 
   const base: Schemas<BaseSchema> = {
     _base: baseSchema,
-    Selectable: Selectable(schema),
-    Insertable: Insertable(schema),
-    Updateable: Updateable(schema),
+    Selectable: Selectable(schemaForFunctions),
+    Insertable: Insertable(schemaForFunctions),
+    Updateable: Updateable(schemaForFunctions),
   };
 
   if (idSchema) {
-    return { ...base, Id: idSchema } as SchemasWithId<BaseSchema, IdSchema>;
+    return { ...base, Id: idSchema };
   }
 
   return base;
@@ -587,8 +527,8 @@ export function getSchemas<
  * This ensures: Selectable<typeof User> produces plain types { id: string, ... }
  *
  * Note: We use Encoded instead of Type because the Selectable function
- * already applies SelectableType to both Type and Encoded, and the Encoded
- * side gets the clean unbranded types that match what Kysely returns.
+ * returns Schema<Encoded, Encoded, never> - the Encoded type gets the clean
+ * unbranded types that match what Kysely returns from queries.
  *
  * @example type UserSelect = Selectable<typeof User>
  */
