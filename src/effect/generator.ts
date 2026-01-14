@@ -163,12 +163,11 @@ export const ${name} = {
   generateTypesHeader(hasEnums: boolean) {
     const header = generateFileHeader();
 
-    // Import getSchemas and type interfaces for type annotation pattern
+    // Import getSchemas (no type imports needed - explicit Insertable pattern)
     const imports = [
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
-      `import type { Schemas, SchemasWithId } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {
