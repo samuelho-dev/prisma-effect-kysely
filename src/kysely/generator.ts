@@ -1,6 +1,6 @@
 import type { DMMF } from '@prisma/generator-helper';
 import { buildFieldType } from '../effect/type.js';
-import type { JoinTableInfo } from '../prisma/relation.js';
+import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
 import { buildKyselyFieldType, generateDBInterface, generateKyselyTableInterface } from './type.js';
 
 /**
@@ -12,10 +12,13 @@ export class KyselyGenerator {
 
   /**
    * Generate field definition with Kysely helpers applied
+   *
+   * @param field - The field to generate
+   * @param fkMap - Optional FK field → target model mapping for branded FK types
    */
-  generateFieldWithKysely(field: DMMF.Field) {
-    // Get base Effect type
-    const baseFieldType = buildFieldType(field, this.dmmf);
+  generateFieldWithKysely(field: DMMF.Field, fkMap?: Map<string, string>) {
+    // Get base Effect type (pass FK map for branded FK types)
+    const baseFieldType = buildFieldType(field, this.dmmf, fkMap);
 
     // Apply Kysely helpers and @map
     const kyselyFieldType = buildKyselyFieldType(baseFieldType, field);
@@ -25,10 +28,16 @@ export class KyselyGenerator {
 
   /**
    * Generate all fields for a model with Kysely integration
+   *
+   * @param model - The full model (needed for FK detection)
+   * @param fields - The filtered/sorted fields to generate
    */
-  generateModelFields(fields: readonly DMMF.Field[]) {
+  generateModelFields(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    // Build FK map for this model to enable branded FK types
+    const fkMap = buildForeignKeyMap(model);
+
     return Array.from(fields)
-      .map((field) => this.generateFieldWithKysely(field))
+      .map((field) => this.generateFieldWithKysely(field, fkMap))
       .join(',\n');
   }
 

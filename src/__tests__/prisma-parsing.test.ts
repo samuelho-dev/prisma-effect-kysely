@@ -7,8 +7,13 @@ const { getDMMF } = prismaInternals;
 
 import * as PrismaEnum from '../prisma/enum.js';
 import { PrismaGenerator } from '../prisma/generator.js';
-import { detectImplicitManyToMany, getModelIdField } from '../prisma/relation.js';
+import {
+  buildForeignKeyMap,
+  detectImplicitManyToMany,
+  getModelIdField,
+} from '../prisma/relation.js';
 import { extractEffectTypeOverride } from '../utils/annotations.js';
+import { mapFieldToEffectType } from '../effect/type.js';
 
 /**
  * Prisma Parsing & Domain Logic - Functional Behavior Tests
@@ -522,6 +527,196 @@ describe('Prisma Parsing & Domain Logic', () => {
 
       expect(generator.getModels()).toHaveLength(0);
       expect(generator.getEnums()).toHaveLength(0);
+    });
+  });
+
+  describe('Foreign Key Detection & Branded ID Schemas', () => {
+    it('should detect FK field from relation field with relationFromFields', () => {
+      const model = createMockModel({
+        name: 'Seller',
+        fields: [
+          createMockField({ name: 'id', type: 'String', isId: true }),
+          createMockField({ name: 'user_id', type: 'String' }),
+          {
+            name: 'user',
+            kind: 'object',
+            type: 'User',
+            isList: false,
+            isRequired: true,
+            relationFromFields: ['user_id'],
+            relationToFields: ['id'],
+            relationName: 'SellerToUser',
+          } as unknown as DMMF.Field,
+        ],
+      });
+
+      const fkMap = buildForeignKeyMap(model);
+
+      expect(fkMap.size).toBe(1);
+      expect(fkMap.get('user_id')).toBe('User');
+    });
+
+    it('should detect multiple FK fields in a model', () => {
+      const model = createMockModel({
+        name: 'Post',
+        fields: [
+          createMockField({ name: 'id', type: 'String', isId: true }),
+          createMockField({ name: 'author_id', type: 'String' }),
+          createMockField({ name: 'category_id', type: 'String' }),
+          {
+            name: 'author',
+            kind: 'object',
+            type: 'User',
+            isList: false,
+            isRequired: true,
+            relationFromFields: ['author_id'],
+            relationToFields: ['id'],
+            relationName: 'PostToAuthor',
+          } as unknown as DMMF.Field,
+          {
+            name: 'category',
+            kind: 'object',
+            type: 'Category',
+            isList: false,
+            isRequired: true,
+            relationFromFields: ['category_id'],
+            relationToFields: ['id'],
+            relationName: 'PostToCategory',
+          } as unknown as DMMF.Field,
+        ],
+      });
+
+      const fkMap = buildForeignKeyMap(model);
+
+      expect(fkMap.size).toBe(2);
+      expect(fkMap.get('author_id')).toBe('User');
+      expect(fkMap.get('category_id')).toBe('Category');
+    });
+
+    it('should return empty map for model without relations', () => {
+      const model = createMockModel({
+        name: 'User',
+        fields: [
+          createMockField({ name: 'id', type: 'String', isId: true }),
+          createMockField({ name: 'email', type: 'String' }),
+          createMockField({ name: 'name', type: 'String' }),
+        ],
+      });
+
+      const fkMap = buildForeignKeyMap(model);
+
+      expect(fkMap.size).toBe(0);
+    });
+
+    it('should use branded ID schema for FK fields in type generation', () => {
+      const fkField = createMockField({
+        name: 'user_id',
+        type: 'String',
+      });
+
+      const fkMap = new Map([['user_id', 'User']]);
+      const dmmf = createMockDMMF();
+
+      const effectType = mapFieldToEffectType(fkField, dmmf, fkMap);
+
+      expect(effectType).toBe('UserIdSchema');
+    });
+
+    it('should use Schema.UUID for non-FK UUID fields', () => {
+      const idField = createMockField({
+        name: 'id',
+        type: 'String',
+        isId: true,
+        nativeType: ['Uuid', []],
+      });
+
+      const fkMap = new Map<string, string>(); // Empty - not a FK
+      const dmmf = createMockDMMF();
+
+      const effectType = mapFieldToEffectType(idField, dmmf, fkMap);
+
+      expect(effectType).toBe('Schema.UUID');
+    });
+
+    it('should prioritize @customType annotation over FK branded type', () => {
+      const fkField = createMockField({
+        name: 'user_id',
+        type: 'String',
+        documentation: '/// @customType(CustomUserRef)',
+      });
+
+      const fkMap = new Map([['user_id', 'User']]);
+      const dmmf = createMockDMMF();
+
+      const effectType = mapFieldToEffectType(fkField, dmmf, fkMap);
+
+      // @customType has priority over FK detection
+      expect(effectType).toBe('CustomUserRef');
+    });
+
+    it('should handle self-referential FK correctly', () => {
+      const model = createMockModel({
+        name: 'Category',
+        fields: [
+          createMockField({ name: 'id', type: 'String', isId: true }),
+          createMockField({ name: 'parent_id', type: 'String', isRequired: false }),
+          {
+            name: 'parent',
+            kind: 'object',
+            type: 'Category',
+            isList: false,
+            isRequired: false,
+            relationFromFields: ['parent_id'],
+            relationToFields: ['id'],
+            relationName: 'CategoryToParent',
+          } as unknown as DMMF.Field,
+        ],
+      });
+
+      const fkMap = buildForeignKeyMap(model);
+
+      expect(fkMap.get('parent_id')).toBe('Category');
+
+      const parentIdField = model.fields.find((f) => f.name === 'parent_id')!;
+      const effectType = mapFieldToEffectType(parentIdField, createMockDMMF(), fkMap);
+
+      expect(effectType).toBe('CategoryIdSchema');
+    });
+
+    it('should detect FK from real DMMF via getDMMF', async () => {
+      const schema = `
+        datasource db {
+          provider = "postgresql"
+        }
+
+        model User {
+          id      String   @id @db.Uuid
+          email   String
+          sellers Seller[]
+        }
+
+        model Seller {
+          id      String @id @db.Uuid
+          user_id String @db.Uuid
+          user    User   @relation(fields: [user_id], references: [id])
+        }
+      `;
+
+      const dmmf = await getDMMF({ datamodel: schema });
+      const sellerModel = dmmf.datamodel.models.find((m) => m.name === 'Seller');
+
+      if (!sellerModel) {
+        throw new Error('Seller model not found');
+      }
+
+      const fkMap = buildForeignKeyMap(sellerModel);
+
+      expect(fkMap.get('user_id')).toBe('User');
+
+      const userIdField = sellerModel.fields.find((f) => f.name === 'user_id')!;
+      const effectType = mapFieldToEffectType(userIdField, dmmf, fkMap);
+
+      expect(effectType).toBe('UserIdSchema');
     });
   });
 });

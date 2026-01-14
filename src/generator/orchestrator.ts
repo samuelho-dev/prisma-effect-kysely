@@ -119,7 +119,17 @@ export class GeneratorOrchestrator {
     // Generate header with imports
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
-    // Generate model schemas for this domain only
+    // PHASE 1: Generate ALL branded ID schemas first (before any model structs)
+    // This ensures FK references can find their target ID schemas
+    const allBrandedIdSchemas = domain.models
+      .map((model) => {
+        const fields = this.prismaGen.getModelFields(model);
+        return this.effectGen.generateBrandedIdSchema(model, fields);
+      })
+      .filter((schema): schema is string => schema !== null)
+      .join('\n\n');
+
+    // PHASE 2: Generate model schemas for this domain only
     const modelSchemas = domain.models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -129,24 +139,18 @@ export class GeneratorOrchestrator {
         const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
         // Generate base schema with Kysely fields (EXPORTED for TypeScript declaration emit)
-        const kyselyFields = this.kyselyGen.generateModelFields(fields);
+        // Pass full model for FK detection and branded type generation
+        const kyselyFields = this.kyselyGen.generateModelFields(model, fields);
         const baseSchema = `// ${model.name} Base Schema (exported for TypeScript declaration emit)
 export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
-        // Generate branded ID schema (if model has ID field)
-        const brandedIdSchema = this.effectGen.generateBrandedIdSchema(model, fields);
-
         // Generate operational schemas (no type exports - consumers use type utilities)
         const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
 
-        // Assemble model output
-        const parts = [kyselyTable, baseSchema];
-        if (brandedIdSchema) {
-          parts.push(brandedIdSchema);
-        }
-        parts.push(operationalSchema);
+        // Assemble model output (ID schemas already generated in Phase 1)
+        const parts = [kyselyTable, baseSchema, operationalSchema];
 
         return parts.join('\n\n');
       })
@@ -166,7 +170,12 @@ ${kyselyFields}
     const dbInterface = this.kyselyGen.generateDBInterface(domain.models, domainJoinTables);
 
     // Assemble content with proper spacing
-    let content = `${header}\n\n${modelSchemas}`;
+    // Order: header → branded ID schemas → model schemas → join tables → DB interface
+    let content = `${header}`;
+    if (allBrandedIdSchemas) {
+      content += `\n\n// ===== Branded ID Schemas =====\n${allBrandedIdSchemas}`;
+    }
+    content += `\n\n// ===== Model Schemas =====\n${modelSchemas}`;
     if (joinTableKyselyInterfaces) {
       content += `\n\n${joinTableKyselyInterfaces}`;
     }
@@ -202,7 +211,17 @@ ${kyselyFields}
     // Generate header with imports
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
-    // Generate all model schemas (Kysely tables + Effect schemas)
+    // PHASE 1: Generate ALL branded ID schemas first (before any model structs)
+    // This ensures FK references can find their target ID schemas
+    const allBrandedIdSchemas = models
+      .map((model) => {
+        const fields = this.prismaGen.getModelFields(model);
+        return this.effectGen.generateBrandedIdSchema(model, fields);
+      })
+      .filter((schema): schema is string => schema !== null)
+      .join('\n\n');
+
+    // PHASE 2: Generate all model schemas (Kysely tables + Effect structs + operational schemas)
     const modelSchemas = models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -212,24 +231,18 @@ ${kyselyFields}
         const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
 
         // Generate base schema with Kysely fields (EXPORTED for TypeScript declaration emit)
-        const kyselyFields = this.kyselyGen.generateModelFields(fields);
+        // Pass full model for FK detection and branded type generation
+        const kyselyFields = this.kyselyGen.generateModelFields(model, fields);
         const baseSchema = `// ${model.name} Base Schema (exported for TypeScript declaration emit)
 export const ${baseSchemaName} = Schema.Struct({
 ${kyselyFields}
 });`;
 
-        // Generate branded ID schema (if model has ID field)
-        const brandedIdSchema = this.effectGen.generateBrandedIdSchema(model, fields);
-
         // Generate operational schemas (no type exports - consumers use type utilities)
         const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
 
-        // Assemble model output
-        const parts = [kyselyTable, baseSchema];
-        if (brandedIdSchema) {
-          parts.push(brandedIdSchema);
-        }
-        parts.push(operationalSchema);
+        // Assemble model output (ID schemas already generated in Phase 1)
+        const parts = [kyselyTable, baseSchema, operationalSchema];
 
         return parts.join('\n\n');
       })
@@ -247,7 +260,12 @@ ${kyselyFields}
     const dbInterface = this.kyselyGen.generateDBInterface(models, joinTables);
 
     // Assemble content with proper spacing
-    let content = `${header}\n\n${modelSchemas}`;
+    // Order: header → branded ID schemas → model schemas → join tables → DB interface
+    let content = `${header}`;
+    if (allBrandedIdSchemas) {
+      content += `\n\n// ===== Branded ID Schemas =====\n${allBrandedIdSchemas}`;
+    }
+    content += `\n\n// ===== Model Schemas =====\n${modelSchemas}`;
     if (joinTableKyselyInterfaces) {
       content += `\n\n${joinTableKyselyInterfaces}`;
     }

@@ -66,6 +66,39 @@ export function getModelIdField(model: DMMF.Model): DMMF.Field {
 }
 
 /**
+ * Build FK field → target model mapping for a model
+ * Returns map from FK field name to target model name
+ *
+ * Detection logic: A scalar field is a FK if any relation field
+ * in the same model has this field in its `relationFromFields` array.
+ *
+ * @example
+ * // For Seller model with user_id FK:
+ * // fields = [
+ * //   { name: "user_id", kind: "scalar", type: "String" },
+ * //   { name: "user", kind: "object", type: "User", relationFromFields: ["user_id"] }
+ * // ]
+ * // Returns: Map { "user_id" => "User" }
+ */
+export function buildForeignKeyMap(model: DMMF.Model): Map<string, string> {
+  const fkMap = new Map<string, string>();
+
+  // Find all relation fields (kind === "object")
+  const relationFields = model.fields.filter((f) => f.kind === 'object');
+
+  for (const relation of relationFields) {
+    if (relation.relationFromFields && relation.relationFromFields.length > 0) {
+      // Map each FK field to the target model
+      for (const fkFieldName of relation.relationFromFields) {
+        fkMap.set(fkFieldName, relation.type); // relation.type is the target model name
+      }
+    }
+  }
+
+  return fkMap;
+}
+
+/**
  * Detect all implicit many-to-many relations from DMMF models
  * Returns metadata for generating join table schemas
  */
