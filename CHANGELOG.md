@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.5.3
+
+### Patch Changes
+
+- Fix FK branding to only apply when FK references target's ID field
+
+  Foreign key fields are now only given branded ID schemas (e.g., `UserIdSchema`) when the FK actually references the target model's ID field. FKs that reference other unique fields (like enum fields) will use the appropriate field type instead of an incorrect branded ID schema.
+
+  This fixes the issue where `product.market` (which references `market.code`, an enum field) was incorrectly typed as `MarketIdSchema` (a branded UUID) instead of `MarketTypeSchema` (the enum type).
+
 ## 4.4.1
 
 ### Patch Changes
