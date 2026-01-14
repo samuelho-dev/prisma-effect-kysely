@@ -122,8 +122,8 @@ describe('Code Generation - E2E and Validation', () => {
       // Should generate internal base schemas (not exported)
       expect(typesContent).toMatch(/const _\w+ = Schema\.Struct/);
 
-      // Should generate operational schemas (exported, using explicit object literal)
-      expect(typesContent).toMatch(/export const \w+ = \{/);
+      // Should generate operational schemas (exported, using getSchemas())
+      expect(typesContent).toMatch(/export const \w+\s*[=:]\s*/);
     });
   });
 
@@ -239,10 +239,8 @@ describe('Code Generation - E2E and Validation', () => {
     it('should use proper columnType and generated helpers', () => {
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
-      // Uses Selectable/Insertable/Updateable functions instead of getSchemas
-      expect(typesContent).toContain('Selectable(');
-      expect(typesContent).toContain('Insertable(');
-      expect(typesContent).toContain('Updateable(');
+      // Uses getSchemas() for all models including join tables
+      expect(typesContent).toContain('getSchemas(');
     });
 
     it('should generate consistent naming conventions', () => {
@@ -252,9 +250,9 @@ describe('Code Generation - E2E and Validation', () => {
       // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
       expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = { ... } as const; (exported)
-      expect(typesContent).toMatch(/export const \w+ = \{/);
-      expect(typesContent).toContain('} as const;');
+      // Operational schemas: ModelName = getSchemas() (exported)
+      expect(typesContent).toMatch(/export const \w+\s*[=:]/);
+      expect(typesContent).toContain('getSchemas(');
     });
   });
 

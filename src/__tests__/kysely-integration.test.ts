@@ -292,10 +292,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should generate schemas compatible with Effect runtime', () => {
       // Schemas should be usable with Effect's decoder/encoder functions
-      // Uses explicit object literals with Selectable/Insertable/Updateable functions
-      expect(typesContent).toMatch(/Selectable\(_\w+\)/);
-      expect(typesContent).toMatch(/Insertable\(_\w+\)/);
-      expect(typesContent).toMatch(/Updateable\(_\w+\)/);
+      // Uses getSchemas() for all models including join tables
+      expect(typesContent).toMatch(/getSchemas\(_\w+\)/);
     });
   });
 });

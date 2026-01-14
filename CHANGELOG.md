@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.4.1
+
+### Patch Changes
+
+- Fix: use getSchemas() for join tables instead of individual Selectable/Insertable/Updateable function calls
+
+  Join tables were generating code that called Selectable(), Insertable(), Updateable() as functions but these were imported as types only, causing TypeScript compilation errors. Now join tables use getSchemas() like regular models.
+
 ## 4.4.0
 
 ### Minor Changes

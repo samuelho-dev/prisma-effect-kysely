@@ -86,14 +86,8 @@ ${columnAField},
 ${columnBField},
 });`;
 
-  // Generate operational schemas using explicit object literal (no Id for join tables - they use composite keys)
-  // Uses `as const` to avoid TypeScript declaration emit issues with SchemasWithId
-  const operationalSchema = `export const ${relationName} = {
-  _base: _${relationName},
-  Selectable: Selectable(_${relationName}),
-  Insertable: Insertable(_${relationName}),
-  Updateable: Updateable(_${relationName}),
-} as const;`;
+  // Generate operational schemas using getSchemas() (no Id for join tables - they use composite keys)
+  const operationalSchema = `export const ${relationName} = getSchemas(_${relationName});`;
 
   // No type exports - consumers use: Selectable<typeof JoinTable>
   return `${baseSchema}\n\n${operationalSchema}`;

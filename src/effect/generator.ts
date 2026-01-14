@@ -124,7 +124,7 @@ export const ${name}: Schemas<typeof ${baseSchemaName}> = _${name}Schemas;`;
       `import { Schema } from "effect";`,
       `import type { ColumnType } from "kysely";`,
       `import { columnType, generated, getSchemas } from "prisma-effect-kysely";`,
-      `import type { Schemas, SchemasWithId, Selectable, Insertable, Updateable } from "prisma-effect-kysely";`,
+      `import type { Schemas, SchemasWithId } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {
