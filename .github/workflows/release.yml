@@ -23,29 +23,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24.x
-          cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          registry-url: 'https://registry.npmjs.org'
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Create Release PR
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm run changeset:version
+          version: bun run changeset:version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -58,7 +54,7 @@ jobs:
 
           if [ "$PUBLISHED_VERSION" != "$PACKAGE_VERSION" ]; then
             echo "Publishing prisma-effect-kysely@${PACKAGE_VERSION}"
-            pnpm run prepublishOnly
+            bun run prepublishOnly
             npm publish --access public --provenance
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
@@ -66,6 +62,8 @@ jobs:
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
         id: publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create Git Tags and GitHub Releases
         if: steps.publish.outputs.published == 'true'
