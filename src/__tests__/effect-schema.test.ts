@@ -1,48 +1,27 @@
 import { Schema } from 'effect';
 import * as AST from 'effect/SchemaAST';
 import { describe, expect, it } from 'vitest';
-import {
-  columnType,
-  generated,
-  getSchemas,
-  Insertable,
-  Selectable,
-  Updateable,
-} from '../kysely/helpers.js';
+import { columnType, generated, Insertable, Selectable, Updateable } from '../kysely/helpers';
 
 /**
  * Effect Schema Runtime Behavior - Comprehensive Tests
  *
- * Unified test suite for all Effect Schema runtime behavior.
- * Tests verify BEHAVIOR not IMPLEMENTATION.
- *
- * Domains covered:
- * - Schema helpers (getSchemas, generated, columnType)
- * - Insert operations (without generated fields)
- * - Update operations (partial updates)
- * - Select operations (full objects)
- * - Schema validation and encoding/decoding
- *
- * NO type coercions (as any, as unknown).
+ * Tests verify runtime behavior of Selectable, Insertable, Updateable functions.
+ * Uses direct pattern: Selectable(schema), Insertable(schema), Updateable(schema)
  */
 
 describe('Effect Schema - Runtime Behavior', () => {
   describe('Schema Helpers', () => {
-    describe('getSchemas()', () => {
-      it('should return Selectable, Insertable, and Updateable schemas', () => {
+    describe('Runtime Schema Functions', () => {
+      it('should return valid schemas from Selectable, Insertable, Updateable', () => {
         const baseSchema = Schema.Struct({
           id: Schema.Number,
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
-        expect(schemas).toHaveProperty('Selectable');
-        expect(schemas).toHaveProperty('Insertable');
-        expect(schemas).toHaveProperty('Updateable');
-        expect(Schema.isSchema(schemas.Selectable)).toBe(true);
-        expect(Schema.isSchema(schemas.Insertable)).toBe(true);
-        expect(Schema.isSchema(schemas.Updateable)).toBe(true);
+        expect(Schema.isSchema(Selectable(baseSchema))).toBe(true);
+        expect(Schema.isSchema(Insertable(baseSchema))).toBe(true);
+        expect(Schema.isSchema(Updateable(baseSchema))).toBe(true);
       });
 
       it('should handle generated fields correctly', () => {
@@ -51,23 +30,21 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
         // Insert should work WITHOUT generated field
-        const insertResult = Schema.decodeUnknownSync(schemas.Insertable)({
+        const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))({
           name: 'test',
         });
         expect(insertResult).toEqual({ name: 'test' });
 
         // Select should include generated field
-        const selectResult = Schema.decodeUnknownSync(schemas.Selectable)({
+        const selectResult = Schema.decodeUnknownSync(Selectable(baseSchema))({
           id: 123,
           name: 'test',
         });
         expect(selectResult).toEqual({ id: 123, name: 'test' });
 
         // Update should allow updating generated field
-        const updateResult = Schema.decodeUnknownSync(schemas.Updateable)({
+        const updateResult = Schema.decodeUnknownSync(Updateable(baseSchema))({
           id: 456,
         });
         expect(updateResult).toEqual({ id: 456 });
@@ -83,29 +60,27 @@ describe('Effect Schema - Runtime Behavior', () => {
         expect(result).toBe(42);
       });
 
-      it('should support different types in getSchemas', () => {
+      it('should support different types in schema functions', () => {
         const baseSchema = Schema.Struct({
           id: columnType(Schema.Number, Schema.Never, Schema.Never),
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
         // Select includes id
-        const selectResult = Schema.decodeUnknownSync(schemas.Selectable)({
+        const selectResult = Schema.decodeUnknownSync(Selectable(baseSchema))({
           id: 1,
           name: 'test',
         });
         expect(selectResult).toEqual({ id: 1, name: 'test' });
 
         // Insert excludes id (Never type)
-        const insertResult = Schema.decodeUnknownSync(schemas.Insertable)({
+        const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))({
           name: 'test',
         });
         expect(insertResult).toEqual({ name: 'test' });
 
         // Update excludes id
-        const updateResult = Schema.decodeUnknownSync(schemas.Updateable)({
+        const updateResult = Schema.decodeUnknownSync(Updateable(baseSchema))({
           name: 'updated',
         });
         expect(updateResult).toEqual({ name: 'updated' });
@@ -119,9 +94,7 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
-        const result = Schema.decodeUnknownSync(schemas.Insertable)({
+        const result = Schema.decodeUnknownSync(Insertable(baseSchema))({
           name: 'test',
         });
         expect(result).toEqual({ name: 'test' });
@@ -133,9 +106,7 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
-        const result = Schema.decodeUnknownSync(schemas.Selectable)({
+        const result = Schema.decodeUnknownSync(Selectable(baseSchema))({
           id: 123,
           name: 'test',
         });
@@ -148,10 +119,8 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
         // Effect Schema silently ignores extra fields
-        const result = Schema.decodeUnknownSync(schemas.Insertable)({
+        const result = Schema.decodeUnknownSync(Insertable(baseSchema))({
           id: 999, // This should be ignored
           name: 'test',
         });
@@ -167,9 +136,7 @@ describe('Effect Schema - Runtime Behavior', () => {
           name: Schema.String,
         });
 
-        const schemas = getSchemas(baseSchema);
-
-        const result = Schema.decodeUnknownSync(schemas.Insertable)({
+        const result = Schema.decodeUnknownSync(Insertable(baseSchema))({
           name: 'test',
         });
 
@@ -236,21 +203,19 @@ describe('Effect Schema - Runtime Behavior', () => {
 
   describe('Insert Operations', () => {
     it('should allow insert without @default fields', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         id: generated(Schema.UUID),
         createdAt: generated(Schema.DateFromSelf),
         name: Schema.String,
         email: Schema.String,
       });
 
-      const User = getSchemas(_User);
-
       const insertData = {
         name: 'John Doe',
         email: 'john@example.com',
       };
 
-      const result = Schema.decodeUnknownSync(User.Insertable)(insertData);
+      const result = Schema.decodeUnknownSync(Insertable(UserSchema))(insertData);
 
       expect(result).toEqual(insertData);
       expect(result).not.toHaveProperty('id');
@@ -258,14 +223,12 @@ describe('Effect Schema - Runtime Behavior', () => {
     });
 
     it('should require nullable fields to be present (with null or value)', () => {
-      const _Product = Schema.Struct({
+      const ProductSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
         description: Schema.NullOr(Schema.String),
         price: Schema.NullOr(Schema.Number),
       });
-
-      const Product = getSchemas(_Product);
 
       // With null values (SQL semantics - null must be explicit)
       const insertWithNulls = {
@@ -274,7 +237,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         price: null,
       };
 
-      const result1 = Schema.decodeUnknownSync(Product.Insertable)(insertWithNulls);
+      const result1 = Schema.decodeUnknownSync(Insertable(ProductSchema))(insertWithNulls);
       expect(result1).toEqual(insertWithNulls);
 
       // With actual values
@@ -284,89 +247,80 @@ describe('Effect Schema - Runtime Behavior', () => {
         price: 19.99,
       };
 
-      const result2 = Schema.decodeUnknownSync(Product.Insertable)(fullInsert);
+      const result2 = Schema.decodeUnknownSync(Insertable(ProductSchema))(fullInsert);
       expect(result2).toEqual(fullInsert);
     });
 
     it('should handle models with only generated fields', () => {
-      const _Metadata = Schema.Struct({
+      const MetadataSchema = Schema.Struct({
         id: generated(Schema.UUID),
         createdAt: generated(Schema.DateFromSelf),
         updatedAt: generated(Schema.DateFromSelf),
       });
 
-      const Metadata = getSchemas(_Metadata);
-
       const emptyInsert = {};
 
-      const result = Schema.decodeUnknownSync(Metadata.Insertable)(emptyInsert);
+      const result = Schema.decodeUnknownSync(Insertable(MetadataSchema))(emptyInsert);
       expect(result).toEqual({});
     });
   });
 
   describe('Update Operations', () => {
     it('should make all fields optional for update', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
         email: Schema.String,
         updatedAt: generated(Schema.DateFromSelf),
       });
 
-      const User = getSchemas(_User);
-
       const partialUpdate = {
         name: 'New Name',
       };
 
-      const result = Schema.decodeUnknownSync(User.Updateable)(partialUpdate);
+      const result = Schema.decodeUnknownSync(Updateable(UserSchema))(partialUpdate);
       expect(result).toEqual({ name: 'New Name' });
     });
 
     it('should allow updating multiple fields', () => {
-      const _Profile = Schema.Struct({
+      const ProfileSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         bio: Schema.NullOr(Schema.String),
         avatar: Schema.NullOr(Schema.String),
         website: Schema.NullOr(Schema.String),
       });
 
-      const Profile = getSchemas(_Profile);
-
       const update = {
         bio: 'Software developer',
         website: 'https://example.com',
       };
 
-      const result = Schema.decodeUnknownSync(Profile.Updateable)(update);
+      const result = Schema.decodeUnknownSync(Updateable(ProfileSchema))(update);
       expect(result).toEqual(update);
     });
 
     it('should allow setting fields to null', () => {
-      const _Model = Schema.Struct({
+      const ModelSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         optionalField: Schema.NullOr(Schema.String),
       });
-
-      const Model = getSchemas(_Model);
 
       const clearUpdate = {
         optionalField: null,
       };
 
-      const result = Schema.decodeUnknownSync(Model.Updateable)(clearUpdate);
+      const result = Schema.decodeUnknownSync(Updateable(ModelSchema))(clearUpdate);
       expect(result).toEqual({ optionalField: null });
     });
 
     it('should exclude Never-typed fields from Updateable schema structure', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
       });
-      const User = getSchemas(_User);
 
       // Verify 'id' is NOT in the Updateable schema's property signatures
-      const updateableAst = User.Updateable.ast;
+      const updateableAst = Updateable(UserSchema).ast;
       expect(AST.isTypeLiteral(updateableAst)).toBe(true);
       const fieldNames = (updateableAst as AST.TypeLiteral).propertySignatures.map((p) => p.name);
       expect(fieldNames).not.toContain('id');
@@ -374,14 +328,13 @@ describe('Effect Schema - Runtime Behavior', () => {
     });
 
     it('should exclude Never-typed fields from Insertable schema structure', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
       });
-      const User = getSchemas(_User);
 
       // Verify 'id' is NOT in the Insertable schema's property signatures
-      const insertableAst = User.Insertable.ast;
+      const insertableAst = Insertable(UserSchema).ast;
       expect(AST.isTypeLiteral(insertableAst)).toBe(true);
       const fieldNames = (insertableAst as AST.TypeLiteral).propertySignatures.map((p) => p.name);
       expect(fieldNames).not.toContain('id');
@@ -391,14 +344,12 @@ describe('Effect Schema - Runtime Behavior', () => {
 
   describe('Select Operations', () => {
     it('should include all fields for select', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         id: generated(Schema.UUID),
         name: Schema.String,
         email: Schema.String,
         createdAt: generated(Schema.DateFromSelf),
       });
-
-      const User = getSchemas(_User);
 
       const fullObject = {
         id: '123e4567-e89b-12d3-a456-426614174000',
@@ -407,7 +358,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         createdAt: new Date('2024-01-01'),
       };
 
-      const result = Schema.decodeUnknownSync(User.Selectable)(fullObject);
+      const result = Schema.decodeUnknownSync(Selectable(UserSchema))(fullObject);
       expect(result.id).toBe(fullObject.id);
       expect(result.name).toBe(fullObject.name);
       expect(result.email).toBe(fullObject.email);
@@ -415,16 +366,14 @@ describe('Effect Schema - Runtime Behavior', () => {
     });
 
     it('should validate field types on select', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         id: Schema.UUID,
         age: Schema.Number,
       });
 
-      const User = getSchemas(_User);
-
       // Invalid UUID should fail
       expect(() =>
-        Schema.decodeUnknownSync(User.Selectable)({
+        Schema.decodeUnknownSync(Selectable(UserSchema))({
           id: 'not-a-uuid',
           age: 25,
         })
@@ -432,7 +381,7 @@ describe('Effect Schema - Runtime Behavior', () => {
 
       // Valid UUID should pass
       expect(() =>
-        Schema.decodeUnknownSync(User.Selectable)({
+        Schema.decodeUnknownSync(Selectable(UserSchema))({
           id: '123e4567-e89b-12d3-a456-426614174000',
           age: 25,
         })
@@ -440,12 +389,10 @@ describe('Effect Schema - Runtime Behavior', () => {
     });
 
     it('should handle optional fields in select', () => {
-      const _Profile = Schema.Struct({
+      const ProfileSchema = Schema.Struct({
         id: Schema.UUID,
         bio: Schema.NullOr(Schema.String),
       });
-
-      const Profile = getSchemas(_Profile);
 
       // With null
       const withNull = {
@@ -453,7 +400,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         bio: null,
       };
 
-      const result1 = Schema.decodeUnknownSync(Profile.Selectable)(withNull);
+      const result1 = Schema.decodeUnknownSync(Selectable(ProfileSchema))(withNull);
       expect(result1).toEqual(withNull);
 
       // With value
@@ -462,7 +409,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         bio: 'Developer',
       };
 
-      const result2 = Schema.decodeUnknownSync(Profile.Selectable)(withValue);
+      const result2 = Schema.decodeUnknownSync(Selectable(ProfileSchema))(withValue);
       expect(result2).toEqual(withValue);
     });
   });
@@ -477,7 +424,7 @@ describe('Effect Schema - Runtime Behavior', () => {
     });
 
     it('should validate nested structures', () => {
-      const _Post = Schema.Struct({
+      const PostSchema = Schema.Struct({
         id: Schema.UUID,
         title: Schema.String,
         metadata: Schema.Struct({
@@ -485,8 +432,6 @@ describe('Effect Schema - Runtime Behavior', () => {
           likes: Schema.Number,
         }),
       });
-
-      const Post = getSchemas(_Post);
 
       const validPost = {
         id: '123e4567-e89b-12d3-a456-426614174000',
@@ -497,7 +442,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(Post.Selectable)(validPost);
+      const result = Schema.decodeUnknownSync(Selectable(PostSchema))(validPost);
       expect(result).toEqual(validPost);
 
       // Invalid nested structure
@@ -510,23 +455,21 @@ describe('Effect Schema - Runtime Behavior', () => {
         },
       };
 
-      expect(() => Schema.decodeUnknownSync(Post.Selectable)(invalidPost)).toThrow();
+      expect(() => Schema.decodeUnknownSync(Selectable(PostSchema))(invalidPost)).toThrow();
     });
 
     it('should validate array fields', () => {
-      const _Tag = Schema.Struct({
+      const TagSchema = Schema.Struct({
         id: Schema.UUID,
         names: Schema.Array(Schema.String),
       });
-
-      const Tag = getSchemas(_Tag);
 
       const validTag = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         names: ['typescript', 'effect', 'kysely'],
       };
 
-      const result = Schema.decodeUnknownSync(Tag.Selectable)(validTag);
+      const result = Schema.decodeUnknownSync(Selectable(TagSchema))(validTag);
       expect(result).toEqual(validTag);
 
       // Invalid array elements
@@ -535,18 +478,16 @@ describe('Effect Schema - Runtime Behavior', () => {
         names: ['typescript', 123, 'kysely'],
       };
 
-      expect(() => Schema.decodeUnknownSync(Tag.Selectable)(invalidTag)).toThrow();
+      expect(() => Schema.decodeUnknownSync(Selectable(TagSchema))(invalidTag)).toThrow();
     });
   });
 
   describe('Encoding and Decoding', () => {
     it('should correctly encode Date fields to ISO strings', () => {
-      const _Event = Schema.Struct({
+      const EventSchema = Schema.Struct({
         id: Schema.UUID,
         occurredAt: Schema.DateFromSelf,
       });
-
-      const Event = getSchemas(_Event);
 
       const testDate = new Date('2024-01-01T12:00:00Z');
       const event = {
@@ -555,24 +496,22 @@ describe('Effect Schema - Runtime Behavior', () => {
       };
 
       // Encode to wire format
-      const encoded = Schema.encodeUnknownSync(Event.Selectable)(event);
+      const encoded = Schema.encodeUnknownSync(Selectable(EventSchema))(event);
       expect(encoded).toEqual({
         id: '123e4567-e89b-12d3-a456-426614174000',
         occurredAt: testDate,
       });
 
       // Decode back from wire format
-      const decoded = Schema.decodeUnknownSync(Event.Selectable)(encoded);
+      const decoded = Schema.decodeUnknownSync(Selectable(EventSchema))(encoded);
       expect(decoded).toEqual(event);
     });
 
     it('should handle bigint encoding/decoding', () => {
-      const _Counter = Schema.Struct({
+      const CounterSchema = Schema.Struct({
         id: Schema.UUID,
         count: Schema.BigInt,
       });
-
-      const Counter = getSchemas(_Counter);
 
       const counter = {
         id: '123e4567-e89b-12d3-a456-426614174000',
@@ -580,11 +519,11 @@ describe('Effect Schema - Runtime Behavior', () => {
       };
 
       // Encode to string
-      const encoded = Schema.encodeUnknownSync(Counter.Selectable)(counter);
+      const encoded = Schema.encodeUnknownSync(Selectable(CounterSchema))(counter);
       expect(typeof encoded.count).toBe('string');
 
       // Decode back to bigint
-      const decoded = Schema.decodeUnknownSync(Counter.Selectable)(encoded);
+      const decoded = Schema.decodeUnknownSync(Selectable(CounterSchema))(encoded);
       expect(decoded.count).toBe(counter.count);
       expect(typeof decoded.count).toBe('bigint');
     });
@@ -604,10 +543,8 @@ describe('Effect Schema - Runtime Behavior', () => {
         bio: Schema.NullOr(Schema.String),
       });
 
-      const schemas = getSchemas(baseSchema);
-
       // Insertable: no id, no created_at, but bio must be present (null or value)
-      const insertResult = Schema.decodeUnknownSync(schemas.Insertable)({
+      const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))({
         email: 'test@example.com',
         username: 'testuser',
         bio: null,
@@ -619,13 +556,13 @@ describe('Effect Schema - Runtime Behavior', () => {
       });
 
       // Updateable: partial update
-      const updateResult = Schema.decodeUnknownSync(schemas.Updateable)({
+      const updateResult = Schema.decodeUnknownSync(Updateable(baseSchema))({
         bio: 'New bio',
       });
       expect(updateResult).toEqual({ bio: 'New bio' });
 
       // Selectable: all fields
-      const selectResult = Schema.decodeUnknownSync(schemas.Selectable)({
+      const selectResult = Schema.decodeUnknownSync(Selectable(baseSchema))({
         id: '123e4567-e89b-12d3-a456-426614174000',
         created_at: new Date(),
         email: 'test@example.com',
@@ -639,7 +576,7 @@ describe('Effect Schema - Runtime Behavior', () => {
     });
 
     it('should handle typical user model with all field types', () => {
-      const _User = Schema.Struct({
+      const UserSchema = Schema.Struct({
         // Read-only generated ID
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         // Required fields
@@ -655,8 +592,6 @@ describe('Effect Schema - Runtime Behavior', () => {
         roles: Schema.Array(Schema.String),
       });
 
-      const User = getSchemas(_User);
-
       // Insert: Required fields, arrays, and nullable fields (must be explicit)
       const insertData = {
         email: 'test@example.com',
@@ -666,7 +601,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         roles: ['USER'],
       };
 
-      const insertResult = Schema.decodeUnknownSync(User.Insertable)(insertData);
+      const insertResult = Schema.decodeUnknownSync(Insertable(UserSchema))(insertData);
       expect(insertResult).toEqual(insertData);
 
       // Update: Partial update
@@ -675,7 +610,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         avatar: 'https://example.com/avatar.jpg',
       };
 
-      const updateResult = Schema.decodeUnknownSync(User.Updateable)(updateData);
+      const updateResult = Schema.decodeUnknownSync(Updateable(UserSchema))(updateData);
       expect(updateResult).toEqual(updateData);
 
       // Select: Full object
@@ -690,7 +625,7 @@ describe('Effect Schema - Runtime Behavior', () => {
         roles: ['USER'],
       };
 
-      const selectResult = Schema.decodeUnknownSync(User.Selectable)(selectData);
+      const selectResult = Schema.decodeUnknownSync(Selectable(UserSchema))(selectData);
       expect(selectResult.id).toBe(selectData.id);
       expect(selectResult.email).toBe(selectData.email);
       expect(selectResult.username).toBe(selectData.username);
@@ -735,34 +670,25 @@ describe('Effect Schema - Runtime Behavior', () => {
       expect(Schema.isSchema(dateSchema)).toBe(true);
     });
 
-    it('should return schemas with preserved TypeScript types from getSchemas()', () => {
+    it('should return schemas with preserved TypeScript types from schema functions', () => {
       const baseSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         createdAt: generated(Schema.DateFromSelf),
         name: Schema.String,
       });
 
-      const schemas = getSchemas(baseSchema);
-
-      // Type-level validation - these will fail at compile-time if broken
-
       // Runtime validation - verify all schemas are valid Schema instances
-      expect(Schema.isSchema(schemas.Selectable)).toBe(true);
-      expect(Schema.isSchema(schemas.Insertable)).toBe(true);
-      expect(Schema.isSchema(schemas.Updateable)).toBe(true);
+      expect(Schema.isSchema(Selectable(baseSchema))).toBe(true);
+      expect(Schema.isSchema(Insertable(baseSchema))).toBe(true);
+      expect(Schema.isSchema(Updateable(baseSchema))).toBe(true);
     });
 
     it('should make arrays mutable in Insertable schema for Kysely compatibility', () => {
-      // This test ensures that Schema.Array(...) which produces readonly T[]
-      // is transformed to mutable T[] for Insertable operations
-      // Kysely expects mutable string[] for INSERT operations, not readonly string[]
       const baseSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         names: Schema.Array(Schema.String),
         tags: Schema.Array(Schema.String),
       });
-
-      const { Insertable } = getSchemas(baseSchema);
 
       // Runtime validation - arrays should be mutable
       const insertData = {
@@ -770,49 +696,40 @@ describe('Effect Schema - Runtime Behavior', () => {
         tags: ['kysely', 'prisma'],
       };
 
-      const result = Schema.decodeUnknownSync(Insertable)(insertData);
+      const result = Schema.decodeUnknownSync(Insertable(baseSchema))(insertData);
       expect(result).toEqual(insertData);
 
       // Verify the decoded arrays are mutable (have push method)
-      // Using (result.names as any) to bypass readonly type check for runtime verification
       expect(Array.isArray(result.names)).toBe(true);
-      (result.names as any).push('new-item');
+      (result.names as string[]).push('new-item');
       expect(result.names).toContain('new-item');
     });
 
     it('should make arrays mutable in Updateable schema for Kysely compatibility', () => {
-      // This test ensures that array types are mutable in Updateable schema
-      // Kysely expects mutable string[] for UPDATE operations
       const baseSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         roles: Schema.Array(Schema.String),
       });
-
-      const { Updateable } = getSchemas(baseSchema);
 
       // Runtime validation - arrays should be mutable
       const updateData = {
         roles: ['admin', 'user'],
       };
 
-      const result = Schema.decodeUnknownSync(Updateable)(updateData);
+      const result = Schema.decodeUnknownSync(Updateable(baseSchema))(updateData);
       expect(result).toEqual(updateData);
 
       // Verify the decoded arrays are mutable
       expect(Array.isArray(result.roles)).toBe(true);
-      (result.roles as any).push('moderator');
+      (result.roles as string[]).push('moderator');
       expect(result.roles).toContain('moderator');
     });
 
     it('should preserve readonly arrays in Selectable schema', () => {
-      // This test ensures that arrays remain readonly in Selectable schema
-      // Select operations should return readonly arrays (immutable)
       const baseSchema = Schema.Struct({
         id: Schema.UUID,
         items: Schema.Array(Schema.String),
       });
-
-      const { Selectable } = getSchemas(baseSchema);
 
       // Runtime validation - decode should work
       const selectData = {
@@ -820,19 +737,16 @@ describe('Effect Schema - Runtime Behavior', () => {
         items: ['a', 'b', 'c'],
       };
 
-      const result = Schema.decodeUnknownSync(Selectable)(selectData);
+      const result = Schema.decodeUnknownSync(Selectable(baseSchema))(selectData);
       expect(result).toEqual(selectData);
       expect(result.items).toEqual(['a', 'b', 'c']);
     });
 
     it('should handle nested array types correctly', () => {
-      // Test nested arrays (e.g., coordinates: number[][])
       const baseSchema = Schema.Struct({
-        id: columnType(Schema.UUID, Schema.Never, Schema.Never), // Read-only ID
+        id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         coordinates: Schema.Array(Schema.Array(Schema.Number)),
       });
-
-      const { Insertable, Selectable } = getSchemas(baseSchema);
 
       // Insertable: nested arrays should be mutable (no id field in insert)
       const insertData = {
@@ -843,11 +757,11 @@ describe('Effect Schema - Runtime Behavior', () => {
         ],
       };
 
-      const insertResult = Schema.decodeUnknownSync(Insertable)(insertData);
+      const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))(insertData);
       expect(insertResult).toEqual(insertData);
 
       // Verify nested arrays are mutable
-      (insertResult.coordinates as any)[0].push(3);
+      (insertResult.coordinates as number[][])[0].push(3);
       expect(insertResult.coordinates[0]).toEqual([1, 2, 3]);
 
       // Selectable: nested arrays should be readonly (id field required)
@@ -859,28 +773,22 @@ describe('Effect Schema - Runtime Behavior', () => {
         ],
       };
 
-      const selectResult = Schema.decodeUnknownSync(Selectable)(selectData);
+      const selectResult = Schema.decodeUnknownSync(Selectable(baseSchema))(selectData);
       expect(selectResult).toEqual(selectData);
     });
 
     it('should handle array types with columnType() wrapper correctly', () => {
-      // Test that columnType with array types works correctly
-      // The insert/update schemas should still be mutable
       const baseSchema = Schema.Struct({
-        // Read-only ID with columnType
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-        // Regular string array
         names: Schema.Array(Schema.String),
       });
-
-      const { Insertable, Updateable } = getSchemas(baseSchema);
 
       // Insertable should accept mutable arrays
       const insertData = {
         names: ['test1', 'test2'],
       };
 
-      const insertResult = Schema.decodeUnknownSync(Insertable)(insertData);
+      const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))(insertData);
       expect(insertResult).toEqual(insertData);
 
       // Updateable should accept mutable arrays
@@ -888,22 +796,16 @@ describe('Effect Schema - Runtime Behavior', () => {
         names: ['updated1', 'updated2'],
       };
 
-      const updateResult = Schema.decodeUnknownSync(Updateable)(updateData);
+      const updateResult = Schema.decodeUnknownSync(Updateable(baseSchema))(updateData);
       expect(updateResult).toEqual(updateData);
     });
 
     it('should handle generated array fields (user use case: verification_fields_needed)', () => {
-      // This is the specific use case from the user:
-      // verification_fields_needed: generated(Schema.Array(Schema.String))
-      // The generated array should be omitted from Insertable but present in Selectable
       const baseSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-        // This is the user's use case - generated array field
         verification_fields_needed: generated(Schema.Array(Schema.String)),
         name: Schema.String,
       });
-
-      const { Selectable, Insertable, Updateable } = getSchemas(baseSchema);
 
       // Selectable should include the generated array field
       const selectData = {
@@ -911,14 +813,14 @@ describe('Effect Schema - Runtime Behavior', () => {
         verification_fields_needed: ['email', 'phone'],
         name: 'Test',
       };
-      const selectResult = Schema.decodeUnknownSync(Selectable)(selectData);
+      const selectResult = Schema.decodeUnknownSync(Selectable(baseSchema))(selectData);
       expect(selectResult.verification_fields_needed).toEqual(['email', 'phone']);
 
       // Insertable should NOT include the generated field (omitted entirely)
       const insertData = {
         name: 'Test',
       };
-      const insertResult = Schema.decodeUnknownSync(Insertable)(insertData);
+      const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))(insertData);
       expect(insertResult).toEqual(insertData);
       expect(insertResult).not.toHaveProperty('verification_fields_needed');
 
@@ -926,11 +828,11 @@ describe('Effect Schema - Runtime Behavior', () => {
       const updateData = {
         verification_fields_needed: ['email', 'phone', 'address'],
       };
-      const updateResult = Schema.decodeUnknownSync(Updateable)(updateData);
+      const updateResult = Schema.decodeUnknownSync(Updateable(baseSchema))(updateData);
       expect(updateResult.verification_fields_needed).toEqual(['email', 'phone', 'address']);
 
       // Verify the array is mutable for update operations
-      (updateResult.verification_fields_needed as any).push('ssn');
+      (updateResult.verification_fields_needed as string[]).push('ssn');
       expect(updateResult.verification_fields_needed).toContain('ssn');
     });
   });

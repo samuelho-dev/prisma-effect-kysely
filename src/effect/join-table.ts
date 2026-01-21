@@ -1,94 +1,62 @@
 import type { DMMF } from '@prisma/generator-helper';
 import type { JoinTableInfo } from '../prisma/relation.js';
-import { toSnakeCase } from '../utils/naming.js';
-
-/**
- * Generate Kysely table interface for a join table
- */
-export function generateJoinTableKyselyInterface(joinTable: JoinTableInfo) {
-  const { relationName, modelA, modelB, columnAIsUuid, columnBIsUuid } = joinTable;
-
-  const modelAField = toSnakeCase(modelA);
-  const modelBField = toSnakeCase(modelB);
-
-  const aType = columnAIsUuid ? 'string' : 'number';
-  const bType = columnBIsUuid ? 'string' : 'number';
-
-  return `// Kysely table interface for ${relationName} (internal)
-interface ${relationName}Table {
-  ${modelAField}: ColumnType<${aType}, never, never>;
-  ${modelBField}: ColumnType<${bType}, never, never>;
-}`;
-}
-
-/**
- * Map join table column type to Effect Schema type
- * Uses same mapping as regular fields
- */
-function mapColumnType(columnType: string, isUuid: boolean) {
-  if (columnType === 'String' && isUuid) {
-    return 'Schema.UUID';
-  }
-
-  const scalarMap: Record<string, string> = {
-    String: 'Schema.String',
-    Int: 'Schema.Number',
-    BigInt: 'Schema.BigInt',
-  };
-
-  return scalarMap[columnType] || 'Schema.Unknown';
-}
+import { isUuidField } from '../prisma/type.js';
+import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 /**
  * Generate Effect Schema for an implicit many-to-many join table
  *
  * Structure:
- * - Base schema with semantic snake_case field names mapped to A/B via fromKey
- * - Operational schemas via getSchemas()
- * - No type exports - consumers use type utilities: Selectable<typeof JoinTable>
+ * - Direct export with semantic snake_case field names
+ * - Maps TypeScript names to database A/B columns using Schema.fromKey
+ * - Uses columnType for read-only foreign keys (can't insert/update join table rows directly)
+ * - No type exports - consumers use type utilities: Selectable<JoinTable>
  *
  * Example:
- * - Database columns: A, B (Prisma requirement)
- * - TypeScript fields: product_id, product_tag_id (semantic snake_case)
- * - Mapping: product_id → A, product_tag_id → B (via Schema.fromKey)
+ * - Database columns: A, B (Prisma requirement for implicit many-to-many)
+ * - TypeScript fields: product_id, product_tag_id (semantic names)
+ * - Types: columnType(Schema.UUID, Schema.Never, Schema.Never) (read-only)
  */
-export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document) {
-  const {
-    tableName,
-    relationName,
-    modelA,
-    modelB,
-    columnAType,
-    columnBType,
-    columnAIsUuid,
-    columnBIsUuid,
-  } = joinTable;
-
-  // Map column types to Effect Schema types
-  const columnASchema = mapColumnType(columnAType, columnAIsUuid);
-  const columnBSchema = mapColumnType(columnBType, columnBIsUuid);
+export function generateJoinTableSchema(joinTable: JoinTableInfo, dmmf: DMMF.Document) {
+  const { tableName, relationName, modelA, modelB } = joinTable;
 
   // Generate semantic snake_case field names from model names
-  const columnAName = `${toSnakeCase(modelA)}_id`;
-  const columnBName = `${toSnakeCase(modelB)}_id`;
+  // e.g., "Product" -> "product_id", "ProductTag" -> "product_tag_id"
+  const columnAFieldName = `${toSnakeCase(modelA)}_id`;
+  const columnBFieldName = `${toSnakeCase(modelB)}_id`;
 
-  // Both columns are foreign keys, so use columnType for read-only behavior
-  // Use propertySignature with fromKey to map semantic names to actual A/B database columns
-  const columnAField = `  ${columnAName}: Schema.propertySignature(columnType(${columnASchema}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A"))`;
-  const columnBField = `  ${columnBName}: Schema.propertySignature(columnType(${columnBSchema}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B"))`;
+  // Get ID field types for each model
+  const modelADef = dmmf.datamodel.models.find((m) => m.name === modelA);
+  const modelBDef = dmmf.datamodel.models.find((m) => m.name === modelB);
 
-  // Generate base schema (internal)
-  const baseSchema = `// ${tableName} Join Table Schema (internal)
+  const modelAIdField = modelADef?.fields.find((f) => f.isId);
+  const modelBIdField = modelBDef?.fields.find((f) => f.isId);
+
+  // Determine base schema type for each ID field
+  const modelABaseType =
+    modelAIdField && isUuidField(modelAIdField) ? 'Schema.UUID' : 'Schema.String';
+  const modelBBaseType =
+    modelBIdField && isUuidField(modelBIdField) ? 'Schema.UUID' : 'Schema.String';
+
+  // Handle Int ID fields
+  const modelASchemaType = modelAIdField?.type === 'Int' ? 'Schema.Number' : modelABaseType;
+  const modelBSchemaType = modelBIdField?.type === 'Int' ? 'Schema.Number' : modelBBaseType;
+
+  // Use columnType for read-only FK fields (can't insert/update join table rows directly)
+  // Schema.propertySignature + Schema.fromKey maps TypeScript name to database column
+  const columnAField = `  ${columnAFieldName}: Schema.propertySignature(columnType(${modelASchemaType}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A"))`;
+  const columnBField = `  ${columnBFieldName}: Schema.propertySignature(columnType(${modelBSchemaType}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B"))`;
+
+  // Use PascalCase for exported name (consistent with regular models)
+  const pascalName = toPascalCase(relationName);
+
+  // Generate schema with semantic names mapped to A/B
+  return `// ${tableName} Join Table Schema (Prisma implicit many-to-many)
 // Database columns: A (${modelA}), B (${modelB})
-// TypeScript fields: ${columnAName}, ${columnBName}
-const _${relationName} = Schema.Struct({
+// TypeScript fields: ${columnAFieldName}, ${columnBFieldName}
+export const ${pascalName} = Schema.Struct({
 ${columnAField},
 ${columnBField},
-});`;
-
-  // Generate operational schemas using getSchemas() (no Id for join tables - they use composite keys)
-  const operationalSchema = `export const ${relationName} = getSchemas(_${relationName});`;
-
-  // No type exports - consumers use: Selectable<typeof JoinTable>
-  return `${baseSchema}\n\n${operationalSchema}`;
+});
+export type ${pascalName} = typeof ${pascalName};`;
 }

@@ -46,7 +46,7 @@ function isImplicitManyToManyField(field: DMMF.Field) {
  * Get the ID field from a model
  * Handles both single @id and composite @@id
  */
-export function getModelIdField(model: DMMF.Model): DMMF.Field {
+export function getModelIdField(model: DMMF.Model) {
   // Try to find single @id field
   const idField = model.fields.find((f) => f.isId === true);
   if (idField) {
@@ -94,10 +94,7 @@ export function getModelIdField(model: DMMF.Model): DMMF.Field {
  * // ]
  * // Returns: Map {} (empty - code is not the ID field)
  */
-export function buildForeignKeyMap(
-  model: DMMF.Model,
-  models?: readonly DMMF.Model[]
-): Map<string, string> {
+export function buildForeignKeyMap(model: DMMF.Model, models?: readonly DMMF.Model[]) {
   const fkMap = new Map<string, string>();
 
   // Find all relation fields (kind === "object")
@@ -150,7 +147,7 @@ export function buildForeignKeyMap(
  * Detect all implicit many-to-many relations from DMMF models
  * Returns metadata for generating join table schemas
  */
-export function detectImplicitManyToMany(models: readonly DMMF.Model[]): JoinTableInfo[] {
+export function detectImplicitManyToMany(models: readonly DMMF.Model[]) {
   const joinTables = new Map<string, JoinTableInfo>();
 
   for (const model of models) {
@@ -176,11 +173,7 @@ export function detectImplicitManyToMany(models: readonly DMMF.Model[]): JoinTab
   return Array.from(joinTables.values());
 }
 
-function shouldProcessField(
-  field: DMMF.Field,
-  model: DMMF.Model,
-  models: readonly DMMF.Model[]
-): boolean {
+function shouldProcessField(field: DMMF.Field, model: DMMF.Model, models: readonly DMMF.Model[]) {
   if (!isImplicitManyToManyField(field)) {
     return false;
   }
@@ -194,7 +187,7 @@ function createJoinTableInfo(
   model: DMMF.Model,
   relatedModel: DMMF.Model,
   models: readonly DMMF.Model[]
-): JoinTableInfo | null {
+) {
   const modelNames = [model.name, relatedModel.name].sort();
   const modelA = models.find((m) => m.name === modelNames[0]);
   const modelB = models.find((m) => m.name === modelNames[1]);
@@ -223,7 +216,7 @@ function createJoinTableInfo(
   };
 }
 
-function isValidImplicitRelation(field: DMMF.Field, relatedModel: DMMF.Model): boolean {
+function isValidImplicitRelation(field: DMMF.Field, relatedModel: DMMF.Model) {
   const relatedField = relatedModel.fields.find(
     (f) => f.relationName === field.relationName && f.isList === true
   );

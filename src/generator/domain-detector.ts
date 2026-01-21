@@ -45,7 +45,7 @@ export interface DomainInfo {
  * @param schemaPath - Path to prisma schema directory
  * @returns Array of detected domains with their models
  */
-export function detectDomains(dmmf: DMMF.Document, schemaPath?: string): DomainInfo[] {
+export function detectDomains(dmmf: DMMF.Document, schemaPath?: string) {
   // Strategy 1: Use DMMF schema locations if available (Prisma 5.15.0+)
   const domainsByDmmf = detectDomainsFromDMMF(dmmf);
   if (domainsByDmmf.length > 0) {
@@ -72,7 +72,7 @@ export function detectDomains(dmmf: DMMF.Document, schemaPath?: string): DomainI
 /**
  * Detect domains from DMMF schema metadata (Prisma 5.15.0+)
  */
-function detectDomainsFromDMMF(dmmf: DMMF.Document): DomainInfo[] {
+function detectDomainsFromDMMF(dmmf: DMMF.Document) {
   const domains = new Map<string, DMMF.Model[]>();
 
   // Check if models have schema location metadata
@@ -98,7 +98,7 @@ function detectDomainsFromDMMF(dmmf: DMMF.Document): DomainInfo[] {
 /**
  * Detect domains by scanning prisma/schemas/ directory
  */
-function detectDomainsFromFiles(dmmf: DMMF.Document, schemaPath: string): DomainInfo[] {
+function detectDomainsFromFiles(dmmf: DMMF.Document, schemaPath: string) {
   const schemasDir = path.join(path.dirname(schemaPath), 'schemas');
 
   // Check if schemas directory exists
@@ -155,7 +155,7 @@ function detectDomainsFromFiles(dmmf: DMMF.Document, schemaPath: string): Domain
  * extractDomainFromPath("prisma/schemas/user.prisma") // "user"
  * extractDomainFromPath("schemas/product.prisma") // "product"
  */
-function extractDomainFromPath(filePath: string): string {
+function extractDomainFromPath(filePath: string) {
   const fileName = path.basename(filePath, '.prisma');
   return fileName.toLowerCase();
 }
@@ -168,7 +168,7 @@ function extractDomainFromPath(filePath: string): string {
  * 2. Check for common prefixes (User, Product, Order, etc.)
  * 3. Fall back to "shared" domain
  */
-function inferDomainFromModel(model: DMMF.Model, domainModels: Map<string, DMMF.Model[]>): string {
+function inferDomainFromModel(model: DMMF.Model, domainModels: Map<string, DMMF.Model[]>) {
   const modelName = model.name.toLowerCase();
 
   // Try exact domain prefix match
@@ -185,17 +185,14 @@ function inferDomainFromModel(model: DMMF.Model, domainModels: Map<string, DMMF.
 /**
  * Get all unique domain names from detected domains
  */
-export function getDomainNames(domains: DomainInfo[]): string[] {
+export function getDomainNames(domains: DomainInfo[]) {
   return domains.map((d) => d.name);
 }
 
 /**
  * Get models for a specific domain
  */
-export function getModelsForDomain(
-  domains: DomainInfo[],
-  domainName: string
-): readonly DMMF.Model[] {
+export function getModelsForDomain(domains: DomainInfo[], domainName: string) {
   const domain = domains.find((d) => d.name === domainName);
   return domain?.models || [];
 }

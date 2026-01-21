@@ -1,6 +1,6 @@
 import type { DMMF } from '@prisma/generator-helper';
 import * as PrismaEnum from './enum.js';
-import { detectImplicitManyToMany, type JoinTableInfo } from './relation.js';
+import { detectImplicitManyToMany } from './relation.js';
 import * as PrismaType from './type.js';
 
 /**
@@ -13,14 +13,14 @@ export class PrismaGenerator {
   /**
    * Get all enums from DMMF
    */
-  getEnums(): readonly DMMF.DatamodelEnum[] {
+  getEnums() {
     return PrismaEnum.extractEnums(this.dmmf);
   }
 
   /**
    * Get all models from DMMF (filtered and sorted)
    */
-  getModels(): readonly DMMF.Model[] {
+  getModels() {
     const filtered = PrismaType.filterInternalModels(this.dmmf.datamodel.models);
     return PrismaType.sortModels(filtered);
   }
@@ -28,7 +28,7 @@ export class PrismaGenerator {
   /**
    * Get schema fields for a model (filtered and sorted)
    */
-  getModelFields(model: DMMF.Model): readonly DMMF.Field[] {
+  getModelFields(model: DMMF.Model) {
     const filtered = PrismaType.filterSchemaFields(model.fields);
     return PrismaType.sortFields(filtered);
   }
@@ -36,7 +36,7 @@ export class PrismaGenerator {
   /**
    * Get implicit many-to-many join tables
    */
-  getManyToManyJoinTables(): JoinTableInfo[] {
+  getManyToManyJoinTables() {
     return detectImplicitManyToMany(this.dmmf.datamodel.models);
   }
 }

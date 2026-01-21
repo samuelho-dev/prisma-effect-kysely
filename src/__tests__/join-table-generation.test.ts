@@ -1,7 +1,7 @@
 import prismaInternals from '@prisma/internals';
 import { describe, expect, it } from 'vitest';
-import { generateJoinTableSchema } from '../effect/join-table.js';
-import { detectImplicitManyToMany } from '../prisma/relation.js';
+import { generateJoinTableSchema } from '../effect/join-table';
+import { detectImplicitManyToMany } from '../prisma/relation';
 
 const { getDMMF } = prismaInternals;
 
@@ -87,7 +87,7 @@ describe('Join Table Generation - Functional Tests', () => {
   });
 
   describe('Schema Structure Generation', () => {
-    it('should generate base schema with underscore prefix', async () => {
+    it('should generate schema directly with PascalCase export', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -108,13 +108,12 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      // Base schema is internal (not exported)
-      expect(generated).toContain('const _CategoryToPost');
-      expect(generated).not.toContain('export const _CategoryToPost');
-      expect(generated).toContain('Schema.Struct({');
+      // Schema is exported directly (not internal with underscore)
+      expect(generated).toContain('export const CategoryToPost = Schema.Struct({');
+      expect(generated).toContain('export type CategoryToPost = typeof CategoryToPost;');
     });
 
-    it('should generate operational schemas with PascalCase', async () => {
+    it('should generate type alias for schema', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -135,7 +134,7 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('export const CategoryToPost = getSchemas(_CategoryToPost);');
+      expect(generated).toContain('export type CategoryToPost = typeof CategoryToPost;');
     });
 
     it('should include descriptive comment header', async () => {
@@ -166,7 +165,7 @@ describe('Join Table Generation - Functional Tests', () => {
   });
 
   describe('Schema Exports', () => {
-    it('should export getSchemas for operational access', async () => {
+    it('should export schema directly with type alias', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -187,8 +186,9 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      // Should export operational schemas via getSchemas()
-      expect(generated).toContain('export const CategoryToPost = getSchemas(_CategoryToPost);');
+      // Should export schema directly with type alias
+      expect(generated).toContain('export const CategoryToPost = Schema.Struct({');
+      expect(generated).toContain('export type CategoryToPost = typeof CategoryToPost;');
     });
 
     it('should not export individual type aliases', async () => {

@@ -15,9 +15,9 @@ import {
   isMultiDomainEnabled,
   isScaffoldingEnabled,
   parseGeneratorConfig,
-} from '../generator/config.js';
-import { detectDomains } from '../generator/domain-detector.js';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
+} from '../generator/config';
+import { detectDomains } from '../generator/domain-detector';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
 
 describe('Multi-Domain Generation', () => {
   const testOutputDir = path.join(import.meta.dirname, 'test-output-multi-domain');
@@ -228,8 +228,8 @@ describe('Multi-Domain Generation', () => {
 
       // Verify types.ts contains both models
       const typesContent = fs.readFileSync(path.join(testOutputDir, 'types.ts'), 'utf-8');
-      expect(typesContent).toContain('UserTable');
-      expect(typesContent).toContain('ProductTable');
+      expect(typesContent).toContain('Selectable<User>');
+      expect(typesContent).toContain('Selectable<Product>');
     });
   });
 
@@ -296,16 +296,16 @@ describe('Multi-Domain Generation', () => {
         path.join(testOutputDir, 'user/src/generated/types.ts'),
         'utf-8'
       );
-      expect(userTypesContent).toContain('UserTable');
-      expect(userTypesContent).not.toContain('ProductTable');
+      expect(userTypesContent).toContain('Selectable<User>');
+      expect(userTypesContent).not.toContain('Selectable<Product>');
 
       // Verify product domain only has Product model
       const productTypesContent = fs.readFileSync(
         path.join(testOutputDir, 'product/src/generated/types.ts'),
         'utf-8'
       );
-      expect(productTypesContent).toContain('ProductTable');
-      expect(productTypesContent).not.toContain('UserTable');
+      expect(productTypesContent).toContain('Selectable<Product>');
+      expect(productTypesContent).not.toContain('Selectable<User>');
     });
   });
 });
@@ -314,7 +314,7 @@ describe('Multi-Domain Generation', () => {
 // Helper Functions
 // ============================================================================
 
-function createMockDMMF(models: DMMF.Model[]): DMMF.Document {
+function createMockDMMF(models: DMMF.Model[]) {
   return {
     datamodel: {
       models,
@@ -357,7 +357,7 @@ interface MockField {
   isList?: boolean;
 }
 
-function createMockModel(name: string, mockFields: MockField[]): DMMF.Model {
+function createMockModel(name: string, mockFields: MockField[]) {
   const fields: DMMF.Field[] = mockFields.map((f) => ({
     name: f.name,
     kind: 'scalar' as const,

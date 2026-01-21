@@ -4,10 +4,12 @@ import type { DMMF } from '@prisma/generator-helper';
  * Create a properly typed mock DMMF.Document for testing
  * Avoids type coercions by providing complete structure
  */
-export function createMockDMMF(overrides: {
-  enums?: readonly DMMF.DatamodelEnum[];
-  models?: readonly DMMF.Model[];
-}): DMMF.Document {
+export function createMockDMMF(
+  overrides: {
+    enums?: readonly DMMF.DatamodelEnum[];
+    models?: readonly DMMF.Model[];
+  } = {}
+): DMMF.Document {
   const defaultSchema: DMMF.Schema = {
     inputObjectTypes: {
       model: [],
@@ -62,15 +64,29 @@ export function createMockEnum(
 }
 
 /**
- * Create a mock Field for testing
+ * Create a mock Model for testing
  */
-export function createMockField(
-  overrides: Partial<DMMF.Field> & { name: string; kind: DMMF.FieldKind; type: string }
-): DMMF.Field {
+export function createMockModel(overrides: Partial<DMMF.Model> & { name: string }): DMMF.Model {
   return {
     name: overrides.name,
-    kind: overrides.kind,
-    type: overrides.type,
+    dbName: overrides.dbName ?? null,
+    schema: overrides.schema ?? null,
+    fields: overrides.fields ?? [],
+    primaryKey: overrides.primaryKey ?? null,
+    uniqueFields: overrides.uniqueFields ?? [],
+    uniqueIndexes: overrides.uniqueIndexes ?? [],
+    isGenerated: overrides.isGenerated ?? false,
+  };
+}
+
+/**
+ * Create a mock Field for testing
+ */
+export function createMockField(overrides: Partial<DMMF.Field> & { name: string }): DMMF.Field {
+  return {
+    name: overrides.name,
+    kind: overrides.kind ?? 'scalar',
+    type: overrides.type ?? 'String',
     isList: overrides.isList ?? false,
     isRequired: overrides.isRequired ?? true,
     isUnique: overrides.isUnique ?? false,
@@ -79,6 +95,8 @@ export function createMockField(
     hasDefaultValue: overrides.hasDefaultValue ?? false,
     relationName: overrides.relationName,
     documentation: overrides.documentation,
+    nativeType: overrides.nativeType,
+    dbName: overrides.dbName ?? null,
     isGenerated: overrides.isGenerated ?? false,
     isUpdatedAt: overrides.isUpdatedAt ?? false,
   };

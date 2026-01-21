@@ -71,17 +71,3 @@ export function toSnakeCase(str: string) {
       .toLowerCase()
   );
 }
-
-/**
- * Convert an enum name to its Schema wrapper name
- * Used for generating type references in Kysely interfaces
- *
- * @param enumName - The original enum name (e.g., MATCH_TYPE, AD_STATUS)
- *
- * @example
- * toEnumSchemaName('MATCH_TYPE') // 'MatchTypeSchema'
- * toEnumSchemaName('AD_STATUS') // 'AdStatusSchema'
- */
-export function toEnumSchemaName(enumName: string) {
-  return toPascalCase(enumName, 'Schema');
-}

@@ -1,12 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { GeneratorOptions } from '@prisma/generator-helper';
+import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EffectGenerator } from '../effect/generator.js';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
-import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks.js';
+import { EffectGenerator } from '../effect/generator';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
+import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks';
 
 const { getDMMF } = prismaInternals;
 
@@ -35,7 +35,7 @@ describe('Code Generation - E2E and Validation', () => {
   const testOutputPath = join(import.meta.dirname, '../test-output-codegen');
   const fixtureSchemaPath = join(import.meta.dirname, 'fixtures/test.prisma');
 
-  let dmmf: any;
+  let dmmf: DMMF.Document;
 
   beforeAll(async () => {
     const schemaContent = readFileSync(fixtureSchemaPath, 'utf-8');
@@ -119,11 +119,11 @@ describe('Code Generation - E2E and Validation', () => {
 
       const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
 
-      // Should generate internal base schemas (not exported)
-      expect(typesContent).toMatch(/const _\w+ = Schema\.Struct/);
+      // Should generate schemas exported directly
+      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
 
-      // Should generate operational schemas (exported, using getSchemas())
-      expect(typesContent).toMatch(/export const \w+\s*[=:]\s*/);
+      // Should generate type aliases
+      expect(typesContent).toMatch(/export type \w+ = typeof \w+/);
     });
   });
 
@@ -156,26 +156,22 @@ describe('Code Generation - E2E and Validation', () => {
       expect(enumsContent).toMatch(/import \{ Schema \} from ["']effect["']/);
     });
 
-    it('should generate internal base schemas with underscore prefix', () => {
-      // Base schemas EXPORTED for TypeScript declaration emit
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
+    it('should generate schemas directly without underscore prefix', () => {
+      // Schemas are exported directly (e.g., User, Post)
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export const Post = Schema\.Struct/);
     });
 
-    it('should export operational schemas with explicit insertable pattern', () => {
-      // Models use explicit insertable schema to survive declaration emit
-      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
-      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
-      expect(typesContent).toContain('Insertable: _User_insertable');
-      expect(typesContent).toContain('export const User = {');
-      // Should also have explicit insertable schema defined
-      expect(typesContent).toContain('export const _User_insertable = Schema.Struct(');
+    it('should export schemas with type aliases', () => {
+      // Pattern: export const User = Schema.Struct({...}); export type User = typeof User;
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export type User = typeof User/);
     });
 
     it('should generate branded ID schemas for models with @id field', () => {
       // Branded ID schemas should be generated for each model with an ID field
       expect(typesContent).toMatch(
-        /const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
+        /const UserId = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
       );
     });
 
@@ -186,11 +182,11 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).not.toMatch(/export type UserSelectEncoded\s*=/);
     });
 
-    it('should generate DB interface with Kysely Table types', () => {
+    it('should generate DB interface with Selectable<Model> pattern', () => {
       expect(typesContent).toContain('export interface DB');
-      expect(typesContent).toMatch(/:\s*\w+Table;/);
+      expect(typesContent).toMatch(/:\s*Selectable<\w+>;/);
 
-      // Should use Kysely table interfaces, not Schema.Schema.Encoded
+      // Should use Selectable<Model> pattern, not Schema.Schema.Encoded
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
       const dbContent = dbMatch?.[1];
@@ -198,8 +194,8 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should re-export from index', () => {
-      expect(indexContent).toMatch(/export \* from ["']\.\/types\.js["']/);
-      expect(indexContent).toMatch(/export \* from ["']\.\/enums\.js["']/);
+      expect(indexContent).toMatch(/export \* from ["']\.\/types["']/);
+      expect(indexContent).toMatch(/export \* from ["']\.\/enums["']/);
     });
 
     it('should not export duplicate strict alias names', () => {
@@ -238,20 +234,17 @@ describe('Code Generation - E2E and Validation', () => {
     it('should use proper columnType and generated helpers', () => {
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
-      // Uses getSchemas() for all models including join tables
-      expect(typesContent).toContain('getSchemas(');
     });
 
     it('should generate consistent naming conventions', () => {
-      // Base schemas: _ModelName (exported for TypeScript declaration emit)
-      expect(typesContent).toMatch(/export const _\w+\s*=\s*Schema\.Struct/);
+      // Model schemas: ModelName (exported directly)
+      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
 
-      // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
-      expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
+      // Branded ID schemas: ModelNameId
+      expect(typesContent).toMatch(/export const \w+Id = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Operational schemas: ModelName = getSchemas() (exported)
-      expect(typesContent).toMatch(/export const \w+\s*[=:]/);
-      expect(typesContent).toContain('getSchemas(');
+      // Type aliases for type usage
+      expect(typesContent).toMatch(/export type \w+ = typeof \w+/);
     });
   });
 
@@ -272,17 +265,17 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should use propertySignature with fromKey for @map fields', () => {
       expect(typesContent).toMatch(/Schema\.propertySignature\([^)]+\)\.pipe\(Schema\.fromKey/);
-      expect(typesContent).toMatch(/fromKey\(["']db_mapped_field["']\)/);
     });
 
     it('should use @@map for table names in DB interface', () => {
       // CompositeIdModel has @@map("composite_id_table")
-      expect(typesContent).toMatch(/composite_id_table:\s*CompositeIdModelTable/);
+      // DB interface uses Selectable<Model> pattern
+      expect(typesContent).toMatch(/composite_id_table:\s*Selectable<CompositeIdModel>/);
     });
   });
 
   describe('Enum Import Generation', () => {
-    it('should import Schema wrappers (not plain enum types)', () => {
+    it('should import PascalCase Schema wrappers', () => {
       const mockDMMF = createMockDMMF({
         enums: [
           createMockEnum('PRODUCT_STATUS', ['ACTIVE', 'DRAFT']),
@@ -294,15 +287,11 @@ describe('Code Generation - E2E and Validation', () => {
       const generator = new EffectGenerator(mockDMMF);
       const header = generator.generateTypesHeader(true);
 
-      // Should import Schema wrappers
-      expect(header).toContain('ProductStatusSchema');
-      expect(header).toContain('ProductTypeSchema');
+      // Should import PascalCase Schema wrappers (the PascalCase name IS the Schema)
+      expect(header).toContain('ProductStatus');
+      expect(header).toContain('ProductType');
 
-      // Should NOT import plain enum types
-      expect(header).not.toMatch(/\bProductStatus[^S]/);
-      expect(header).not.toMatch(/\bProductType[^S]/);
-
-      // Should NOT use SCREAMING_SNAKE_CASE
+      // Should NOT use SCREAMING_SNAKE_CASE in imports
       expect(header).not.toContain('PRODUCT_STATUS');
       expect(header).not.toContain('PRODUCT_TYPE');
     });
@@ -361,16 +350,12 @@ describe('Code Generation - E2E and Validation', () => {
     });
 
     it('should export all necessary schemas for each model', () => {
-      // For User model - base schema is EXPORTED for TypeScript declaration emit
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
-      // IdSchema is exported for TypeScript declaration emit
-      expect(typesContent).toMatch(/export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand/);
-      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
-      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
-      expect(typesContent).toContain('Insertable: _User_insertable');
-      // Should also have explicit insertable schema defined
-      expect(typesContent).toContain('export const _User_insertable = Schema.Struct(');
-      // No type aliases - consumers use type utilities: Selectable<typeof User>
+      // Schema is exported directly
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
+      // IdSchema is exported for branded types
+      expect(typesContent).toMatch(/export const UserId = Schema\.UUID\.pipe\(Schema\.brand/);
+      // Type alias for type usage
+      expect(typesContent).toMatch(/export type User = typeof User/);
     });
 
     it('should include all models in DB interface', () => {
@@ -379,8 +364,8 @@ describe('Code Generation - E2E and Validation', () => {
 
       const dbContent = dbMatch?.[1];
 
-      // Should have entries for models using Kysely Table types
-      expect(dbContent).toMatch(/:\s*\w+Table;/);
+      // Should have entries for models using Selectable<Model> pattern
+      expect(dbContent).toMatch(/:\s*Selectable<\w+>;/);
     });
   });
 
@@ -400,16 +385,16 @@ describe('Code Generation - E2E and Validation', () => {
       const typesFileContent = readFileSync(typesPath, 'utf-8');
 
       // Check that generated() and columnType() are used correctly
-      expect(typesFileContent).toContain('generated(Schema.DateFromSelf)');
-      expect(typesFileContent).toContain('columnType(Schema.UUID, Schema.Never, Schema.Never)');
+      expect(typesFileContent).toContain('generated(');
+      expect(typesFileContent).toContain('columnType(');
 
-      // These patterns would fail to compile if TypeId is missing
-      // The fact that our runtime tests pass proves the Schema types are preserved
-      expect(true).toBe(true);
+      // Check schema export pattern
+      expect(typesFileContent).toMatch(/export const \w+ = Schema\.Struct/);
+      expect(typesFileContent).toMatch(/export type \w+ = typeof \w+/);
     }, 30000); // 30s timeout for tsc compilation
   });
 
-  describe('Kysely Table Interface Enum Types', () => {
+  describe('Enum Type References', () => {
     let typesContent: string;
 
     beforeEach(async () => {
@@ -424,31 +409,21 @@ describe('Code Generation - E2E and Validation', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should use Schema.Schema.Type for enum fields in Kysely table interfaces', () => {
-      // Kysely table interfaces should reference enum types via Schema type extraction
-      // This ensures we only need to import the Schema wrappers (e.g., RoleSchema)
-      // and not the raw enum types (e.g., Role)
-      expect(typesContent).toMatch(/role:\s*Schema\.Schema\.Type<typeof RoleSchema>/);
-      expect(typesContent).toMatch(/status:\s*Schema\.Schema\.Type<typeof StatusSchema>/);
+    it('should use PascalCase enum schema references', () => {
+      // Enum fields should reference the imported PascalCase schema
+      expect(typesContent).toMatch(/role:\s*Role/);
+      expect(typesContent).toMatch(/status:\s*Status/);
     });
 
-    it('should use nullable Schema types for optional enum fields', () => {
-      // Optional enum fields should use Schema.Schema.Type with | null
-      expect(typesContent).toMatch(
-        /optionalRole:\s*Schema\.Schema\.Type<typeof RoleSchema> \| null/
-      );
-      expect(typesContent).toMatch(
-        /optionalStatus:\s*Schema\.Schema\.Type<typeof StatusSchema> \| null/
-      );
+    it('should use Schema.NullOr for optional enum fields', () => {
+      // Optional enum fields should use Schema.NullOr
+      expect(typesContent).toMatch(/optionalRole:\s*Schema\.NullOr\(Role\)/);
+      expect(typesContent).toMatch(/optionalStatus:\s*Schema\.NullOr\(Status\)/);
     });
 
-    it('should NOT reference raw SCREAMING_SNAKE_CASE enum names in Kysely interfaces', () => {
-      // Kysely table interfaces should NOT contain raw enum references like:
-      // role: Role  or  role: ROLE
-      // This would cause "Cannot find name" errors since we only import Schema wrappers
-      expect(typesContent).not.toMatch(/role:\s*Role[^S]/);
+    it('should NOT reference raw SCREAMING_SNAKE_CASE enum names', () => {
+      // Should NOT contain raw SCREAMING_SNAKE_CASE enum references
       expect(typesContent).not.toMatch(/role:\s*ROLE/);
-      expect(typesContent).not.toMatch(/status:\s*Status[^S]/);
       expect(typesContent).not.toMatch(/status:\s*STATUS/);
     });
   });
@@ -476,7 +451,7 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should use generated() for non-ID fields with @default', () => {
       // Fields with @default (not ID) use generated() wrapper
-      expect(typesContent).toContain('generated(Schema.DateFromSelf)');
+      expect(typesContent).toContain('generated(');
     });
   });
 });

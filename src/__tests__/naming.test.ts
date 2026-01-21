@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toPascalCase, toSnakeCase } from '../utils/naming.js';
+import { toPascalCase, toSnakeCase } from '../utils/naming';
 
 /**
  * Naming Utilities - Essential Behavior Tests

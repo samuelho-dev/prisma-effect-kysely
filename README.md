@@ -13,11 +13,9 @@ A Prisma generator that creates Effect Schema types from Prisma schema definitio
 ## Installation
 
 ```bash
+bun add prisma-effect-kysely
+# or
 npm install prisma-effect-kysely
-# or
-pnpm add prisma-effect-kysely
-# or
-yarn add prisma-effect-kysely
 ```
 
 ## Usage
@@ -51,32 +49,27 @@ export const UserRoleSchema = Schema.Literal('admin', 'user', 'guest');
 
 ### types.ts
 
-Effect Schema structs from Prisma models with Kysely integration:
+Effect Schema structs from Prisma models with Kysely integration (v5.0 direct exports):
 
 ```typescript
-// Internal (not exported) - Kysely table interface
-interface UserTable {
-  id: ColumnType<string, never, never>;
-  email: string;
-  createdAt: ColumnType<Date, Date | undefined, Date | undefined>;
-}
+import { Schema } from "effect";
+import { columnType, generated, Selectable } from "prisma-effect-kysely";
 
-// Internal (not exported) - Base schema
-const _User = Schema.Struct({
+// EXPORTED - Branded ID schema
+export const UserId = Schema.UUID.pipe(Schema.brand("UserId"));
+export type UserId = typeof UserId.Type;
+
+// EXPORTED - Model schema (direct export)
+export const User = Schema.Struct({
   id: columnType(Schema.UUID, Schema.Never, Schema.Never),
   email: Schema.String,
   createdAt: generated(Schema.DateFromSelf),
 });
+export type User = typeof User;
 
-// Internal (not exported) - Branded ID
-const UserIdSchema = Schema.UUID.pipe(Schema.brand("UserId"));
-
-// EXPORTED - Operational schemas with branded Id
-export const User = getSchemas(_User, UserIdSchema);
-
-// EXPORTED - Kysely DB interface
+// EXPORTED - Kysely DB interface with Selectable<Model>
 export interface DB {
-  User: UserTable;
+  User: Selectable<User>;
 }
 ```
 
@@ -84,19 +77,21 @@ export interface DB {
 
 Re-exports all generated types for easy importing
 
-## Consumer Usage (v4.0+)
+## Consumer Usage (v5.0)
 
-Use type utilities from `prisma-effect-kysely` to extract types:
+Branded ID types are exported directly. Use type utilities from `prisma-effect-kysely` for other types:
 
 ```typescript
-import { Selectable, Insertable, Updateable, Id } from "prisma-effect-kysely";
-import { User, DB } from "./generated";
+import { Selectable, Insertable, Updateable } from "prisma-effect-kysely";
+import { User, UserId, DB } from "./generated";
+
+// Branded ID type - direct import (no utility needed)
+function getUser(id: UserId): Promise<User> { ... }
 
 // Extract types using utilities (Kysely-native pattern)
 type UserSelect = Selectable<typeof User>;
 type UserInsert = Insertable<typeof User>;
 type UserUpdate = Updateable<typeof User>;
-type UserId = Id<typeof User>;
 
 // Use with Kysely
 import { Kysely } from 'kysely';
@@ -147,24 +142,26 @@ model User {
 
 ## Development
 
+This project uses **Bun** as the sole package manager.
+
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Run tests
-pnpm test
+bun run test
 
 # Run tests in watch mode
-pnpm run test:watch
+bun run test:watch
 
 # Run tests with coverage
-pnpm run test:coverage
+bun run test:coverage
 
 # Type check
-pnpm run typecheck
+bun run typecheck
 
 # Build
-pnpm run build
+bun run build
 ```
 
 ## Release Process
@@ -176,7 +173,7 @@ This project uses [Changesets](https://github.com/changesets/changesets) for aut
 1. **Add a changeset** for your changes:
 
    ```bash
-   pnpm changeset
+   bun changeset
    ```
 
    Follow the prompts to describe your changes (patch/minor/major).
@@ -203,9 +200,9 @@ This project uses [Changesets](https://github.com/changesets/changesets) for aut
 
 ```bash
 # Build and run all checks
-pnpm run prepublishOnly
+bun run prepublishOnly
 
-# Publish with Bun (recommended)
+# Publish
 bun publish --access public
 ```
 
@@ -218,7 +215,7 @@ This repo uses **Changesets** to automate versioning, changelog updates, npm pub
 Add a changeset for any user-facing change:
 
 ```bash
-pnpm changeset
+bun changeset
 ```
 
 Commit the generated file in `.changeset/`.

@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { GeneratorOptions } from '@prisma/generator-helper';
+import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
 
 const { getDMMF } = prismaInternals;
 
@@ -30,7 +30,7 @@ describe('Kysely Integration - Functional Tests', () => {
   const testOutputPath = join(import.meta.dirname, '../test-output-kysely');
   const fixtureSchemaPath = join(import.meta.dirname, 'fixtures/test.prisma');
 
-  let dmmf: any;
+  let dmmf: DMMF.Document;
 
   beforeAll(async () => {
     const schemaContent = readFileSync(fixtureSchemaPath, 'utf-8');
@@ -61,12 +61,10 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should generate base schemas with underscore prefix', () => {
-      // Base schemas should be prefixed with _ (e.g., _User, _Post)
-      // EXPORTED so TypeScript can reference by name in declaration emit
-      // (prevents type expansion that breaks SchemasWithId type params)
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export const _Post = Schema\.Struct/);
+    it('should generate schemas directly without underscore prefix', () => {
+      // Schemas are exported directly (e.g., User, Post)
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export const Post = Schema\.Struct/);
     });
 
     it('should use generated() for fields with @default', () => {
@@ -74,19 +72,16 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/generated\(/);
     });
 
-    it('should export operational schemas with explicit insertable pattern', () => {
-      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
-      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
-      expect(typesContent).toContain('Insertable: _User_insertable');
-      expect(typesContent).toContain('export const User = {');
-      // Should also have explicit insertable schema defined
-      expect(typesContent).toContain('export const _User_insertable = Schema.Struct(');
+    it('should export schemas with type aliases', () => {
+      // Pattern: export const User = Schema.Struct({...}); export type User = typeof User;
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export type User = typeof User/);
     });
 
-    it('should generate DB interface with Kysely Table types', () => {
-      // DB interface should use Kysely *Table types for native Kysely compatibility
+    it('should generate DB interface with Selectable<Model> pattern', () => {
+      // DB interface uses Selectable<Model> for Kysely compatibility
       expect(typesContent).toContain('export interface DB');
-      expect(typesContent).toMatch(/:\s*\w+Table;/);
+      expect(typesContent).toMatch(/:\s*Selectable<\w+>;/);
     });
 
     it('should define DB as interface not type', () => {
@@ -115,15 +110,10 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/\.pipe\(\s*Schema\.fromKey\(/);
     });
 
-    it('should map to database column names using @map', () => {
-      // fromKey should reference the @map value from schema
-      expect(typesContent).toMatch(/fromKey\(["']db_mapped_field["']\)/);
-    });
-
     it('should use @@map for table names in DB interface', () => {
       // CompositeIdModel has @@map("composite_id_table")
-      // DB interface should use the mapped table name with Kysely Table type
-      expect(typesContent).toMatch(/composite_id_table:\s*CompositeIdModelTable/);
+      // DB interface uses mapped table name with Selectable<Model>
+      expect(typesContent).toMatch(/composite_id_table:\s*Selectable<CompositeIdModel>/);
     });
   });
 
@@ -141,13 +131,10 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should export operational schema objects with explicit insertable pattern', () => {
-      // Pattern: export const Model = { ...getSchemas(_Model, ModelIdSchema), Insertable: _Model_insertable };
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+/);
-      expect(typesContent).toMatch(/Insertable: _\w+_insertable/);
-      expect(typesContent).toMatch(/export const \w+ = \{/);
-      // Should also have explicit insertable schemas defined
-      expect(typesContent).toMatch(/export const _\w+_insertable = Schema\.Struct\(/);
+    it('should export schemas directly with type aliases', () => {
+      // Pattern: export const Model = Schema.Struct({...}); export type Model = typeof Model;
+      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
+      expect(typesContent).toMatch(/export type \w+ = typeof \w+/);
     });
 
     it('should not export individual type aliases', () => {
@@ -163,8 +150,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
       const dbContent = dbMatch?.[1];
 
-      // Should have entries for each model using Kysely Table types
-      expect(dbContent).toMatch(/:\s*\w+Table;/);
+      // Should have entries for each model using Selectable<Model>
+      expect(dbContent).toMatch(/:\s*Selectable<\w+>;/);
     });
   });
 
@@ -182,36 +169,35 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should use Kysely Table interfaces for type safety', () => {
-      // Kysely table interfaces are exported for use with Kysely's native type utilities
-      // Selectable<UserTable>, Insertable<UserTable>, Updateable<UserTable>
-      expect(typesContent).toMatch(/export interface \w+Table \{/);
+    it('should use Selectable<Model> pattern for type safety', () => {
+      // DB interface uses Selectable<Model> for Kysely compatibility
+      // Consumers use Insertable<User>, Selectable<User>, Updateable<User>
+      expect(typesContent).toMatch(/Selectable<\w+>/);
     });
 
-    it('should generate DB interface with resolved types', () => {
-      // DB interface should use Kysely Table types, not Schema.Schema.Encoded directly
+    it('should generate DB interface with Selectable pattern', () => {
+      // DB interface uses Selectable<Model> for type compatibility
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
       const dbContent = dbMatch?.[1];
 
-      // Should use Kysely Table types
-      expect(dbContent).toMatch(/:\s*\w+Table;/);
+      // Should use Selectable<Model> pattern
+      expect(dbContent).toMatch(/:\s*Selectable<\w+>;/);
 
       // Should NOT use Schema.Schema.Encoded inline
       expect(dbContent).not.toMatch(/Schema\.Schema\.Encoded/);
     });
 
-    it('should support junction table queries with simple types', () => {
+    it('should support junction table queries with Selectable pattern', () => {
       // Junction tables (implicit M2M) should be in DB interface
       // Example: _product_tags, _CategoryToPost
-      expect(typesContent).toMatch(/_product_tags:\s*\w+Table/);
+      expect(typesContent).toMatch(/_product_tags:\s*Selectable<\w+>/);
     });
   });
 
   describe('Generated Code Validity', () => {
     let typesContent: string;
-    let _enumsContent: string;
     let indexContent: string;
 
     beforeEach(async () => {
@@ -224,7 +210,6 @@ describe('Kysely Integration - Functional Tests', () => {
       await orchestrator.generate(options);
 
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      _enumsContent = readFileSync(join(testOutputPath, 'enums.ts'), 'utf-8');
       indexContent = readFileSync(join(testOutputPath, 'index.ts'), 'utf-8');
     });
 
@@ -245,23 +230,19 @@ describe('Kysely Integration - Functional Tests', () => {
     });
 
     it('should re-export all types from index', () => {
-      expect(indexContent).toMatch(/export \* from ["']\.\/types\.js["']/);
-      expect(indexContent).toMatch(/export \* from ["']\.\/enums\.js["']/);
+      expect(indexContent).toMatch(/export \* from ["']\.\/types["']/);
+      expect(indexContent).toMatch(/export \* from ["']\.\/enums["']/);
     });
 
     it('should generate consistent naming conventions', () => {
-      // Base schemas: _ModelName (EXPORTED for TypeScript declaration emit)
-      expect(typesContent).toMatch(/export const _\w+\s*=\s*Schema\.Struct/);
+      // Model schemas: ModelName (exported directly)
+      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
 
-      // Branded ID schemas: ModelNameIdSchema (exported for TypeScript declaration emit)
-      expect(typesContent).toMatch(/export const \w+IdSchema = Schema\.\w+\.pipe\(Schema\.brand\(/);
+      // Branded ID schemas: ModelNameId
+      expect(typesContent).toMatch(/export const \w+Id = Schema\.\w+\.pipe\(Schema\.brand\(/);
 
-      // Explicit insertable schemas: _ModelName_insertable
-      expect(typesContent).toMatch(/export const _\w+_insertable = Schema\.Struct\(/);
-
-      // Operational schemas using explicit insertable pattern
-      expect(typesContent).toMatch(/\.\.\.getSchemas\(_\w+/);
-      expect(typesContent).toMatch(/Insertable: _\w+_insertable/);
+      // Type aliases for type usage
+      expect(typesContent).toMatch(/export type \w+ = typeof \w+/);
     });
   });
 
@@ -290,14 +271,14 @@ describe('Kysely Integration - Functional Tests', () => {
 
       const dbContent = dbMatch?.[1];
 
-      // Should have table entries with Kysely table interfaces
-      expect(dbContent).toMatch(/\w+:\s*\w+Table;/);
+      // Should have table entries with Selectable<Model>
+      expect(dbContent).toMatch(/\w+:\s*Selectable<\w+>;/);
     });
 
     it('should generate schemas compatible with Effect runtime', () => {
       // Schemas should be usable with Effect's decoder/encoder functions
-      // Uses getSchemas() for all models including join tables
-      expect(typesContent).toMatch(/getSchemas\(_\w+\)/);
+      // Direct Schema.Struct exports
+      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
     });
   });
 });

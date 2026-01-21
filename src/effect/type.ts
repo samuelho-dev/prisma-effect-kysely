@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { hasDefaultValue, isListField, isRequiredField, isUuidField } from '../prisma/type.js';
+import { isListField, isRequiredField, isUuidField } from '../prisma/type.js';
 import { extractEffectTypeOverride } from '../utils/annotations.js';
 import { toPascalCase } from '../utils/naming.js';
 
@@ -45,10 +45,10 @@ export function mapFieldToEffectType(
   }
 
   // PRIORITY 2: Check if this is a FK field with branded target
-  // FK fields use the referenced model's branded ID schema (e.g., UserIdSchema for user_id)
+  // FK fields use the referenced model's branded ID (e.g., UserId for user_id)
   if (fkMap && fkMap.has(field.name)) {
     const targetModel = fkMap.get(field.name)!;
-    return `${toPascalCase(targetModel)}IdSchema`;
+    return `${toPascalCase(targetModel)}Id`;
   }
 
   // PRIORITY 3: Handle String type with UUID detection (non-FK UUIDs)
@@ -63,12 +63,10 @@ export function mapFieldToEffectType(
   }
 
   // PRIORITY 5: Check if it's an enum
-  // TDD: Satisfies tests 11-12 in field-type-generation.test.ts
   const enumDef = dmmf.datamodel.enums.find((e) => e.name === field.type);
   if (enumDef) {
-    // Return Schema wrapper, not raw enum (Test 11)
-    // Use PascalCase + Schema suffix (Test 12)
-    return toPascalCase(field.type, 'Schema');
+    // PascalCase name IS the Schema now (not raw enum)
+    return toPascalCase(field.type);
   }
 
   // PRIORITY 6: Fallback to Unknown
@@ -94,36 +92,8 @@ export function buildFieldType(
     baseType = `Schema.Array(${baseType})`;
   }
 
-  // Handle optional fields (only if NOT already has @default)
-  if (!(isRequiredField(field) || hasDefaultValue(field))) {
-    baseType = `Schema.NullOr(${baseType})`;
-  }
-
-  return baseType;
-}
-
-/**
- * Build field type for explicit Insertable schema
- * This is used for fields that SHOULD be included in insert operations
- * Does NOT apply generated() or columnType() wrappers
- *
- * @param field - The Prisma field to build type for
- * @param dmmf - The full DMMF document for enum lookups
- * @param fkMap - Optional FK field → target model mapping for branded FK types
- */
-export function buildInsertableFieldType(
-  field: DMMF.Field,
-  dmmf: DMMF.Document,
-  fkMap?: Map<string, string>
-) {
-  let baseType = mapFieldToEffectType(field, dmmf, fkMap);
-
-  // Handle arrays - use Schema.mutable for insert compatibility
-  if (isListField(field)) {
-    baseType = `Schema.mutable(Schema.Array(${baseType}))`;
-  }
-
-  // Handle optional fields
+  // Handle nullable fields - wrap with NullOr regardless of default value
+  // This ensures SELECT type correctly allows null values (e.g., Boolean? @default(false))
   if (!isRequiredField(field)) {
     baseType = `Schema.NullOr(${baseType})`;
   }

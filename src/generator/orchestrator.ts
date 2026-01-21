@@ -120,7 +120,6 @@ export class GeneratorOrchestrator {
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
     // PHASE 1: Generate ALL branded ID schemas first (before any model structs)
-    // This ensures FK references can find their target ID schemas
     const allBrandedIdSchemas = domain.models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -129,59 +128,27 @@ export class GeneratorOrchestrator {
       .filter((schema): schema is string => schema !== null)
       .join('\n\n');
 
-    // PHASE 2: Generate model schemas for this domain only (with insertable schemas)
+    // PHASE 2: Generate model schemas (just User = Schema.Struct({...}))
     const modelSchemas = domain.models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
-        const baseSchemaName = `_${model.name}`;
-
-        // Generate Kysely table interface
-        const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
-
-        // Generate base schema with Kysely fields (EXPORTED for TypeScript declaration emit)
-        // Pass full model for FK detection and branded type generation
-        const kyselyFields = this.kyselyGen.generateModelFields(model, fields);
-        const baseSchema = `// ${model.name} Base Schema (exported for TypeScript declaration emit)
-export const ${baseSchemaName} = Schema.Struct({
-${kyselyFields}
-});`;
-
-        // Generate explicit insertable schema (avoids declaration emit issues)
-        const insertableSchema = this.effectGen.generateInsertableSchema(model, fields);
-
-        // Generate operational schemas (no type exports - consumers use type utilities)
-        const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
-
-        // Assemble model output (ID schemas already generated in Phase 1)
-        const parts = [kyselyTable, baseSchema, insertableSchema, operationalSchema];
-
-        return parts.join('\n\n');
+        return this.effectGen.generateModelSchema(model, fields);
       })
       .join('\n\n');
-
-    // Generate join table Kysely interfaces for this domain
-    const joinTableKyselyInterfaces =
-      domainJoinTables.length > 0
-        ? this.effectGen.generateJoinTableKyselyInterfaces(domainJoinTables)
-        : '';
 
     // Generate join table schemas for this domain
     const joinTableSchemas =
       domainJoinTables.length > 0 ? this.effectGen.generateJoinTableSchemas(domainJoinTables) : '';
 
-    // Generate DB interface for this domain
+    // Generate DB interface for this domain (uses Selectable<Model> pattern)
     const dbInterface = this.kyselyGen.generateDBInterface(domain.models, domainJoinTables);
 
     // Assemble content with proper spacing
-    // Order: header → branded ID schemas → model schemas → join tables → DB interface
     let content = `${header}`;
     if (allBrandedIdSchemas) {
       content += `\n\n// ===== Branded ID Schemas =====\n${allBrandedIdSchemas}`;
     }
     content += `\n\n// ===== Model Schemas =====\n${modelSchemas}`;
-    if (joinTableKyselyInterfaces) {
-      content += `\n\n${joinTableKyselyInterfaces}`;
-    }
     if (joinTableSchemas) {
       content += `\n\n${joinTableSchemas}`;
     }
@@ -224,45 +191,20 @@ ${kyselyFields}
       .filter((schema): schema is string => schema !== null)
       .join('\n\n');
 
-    // PHASE 2: Generate all model schemas (Kysely tables + Effect structs + insertable + operational schemas)
+    // PHASE 2: Generate model schemas (just User = Schema.Struct({...}))
+    // Package's type utilities derive Insertable<User>, Selectable<User>
     const modelSchemas = models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
-        const baseSchemaName = `_${model.name}`;
-
-        // Generate Kysely table interface
-        const kyselyTable = this.kyselyGen.generateTableInterface(model, fields);
-
-        // Generate base schema with Kysely fields (EXPORTED for TypeScript declaration emit)
-        // Pass full model for FK detection and branded type generation
-        const kyselyFields = this.kyselyGen.generateModelFields(model, fields);
-        const baseSchema = `// ${model.name} Base Schema (exported for TypeScript declaration emit)
-export const ${baseSchemaName} = Schema.Struct({
-${kyselyFields}
-});`;
-
-        // Generate explicit insertable schema (avoids declaration emit issues)
-        const insertableSchema = this.effectGen.generateInsertableSchema(model, fields);
-
-        // Generate operational schemas (no type exports - consumers use type utilities)
-        const operationalSchema = this.effectGen.generateOperationalSchemas(model, fields);
-
-        // Assemble model output (ID schemas already generated in Phase 1)
-        const parts = [kyselyTable, baseSchema, insertableSchema, operationalSchema];
-
-        return parts.join('\n\n');
+        return this.effectGen.generateModelSchema(model, fields);
       })
       .join('\n\n');
-
-    // Generate join table Kysely interfaces
-    const joinTableKyselyInterfaces =
-      joinTables.length > 0 ? this.effectGen.generateJoinTableKyselyInterfaces(joinTables) : '';
 
     // Generate join table schemas
     const joinTableSchemas =
       joinTables.length > 0 ? this.effectGen.generateJoinTableSchemas(joinTables) : '';
 
-    // Generate DB interface with join tables
+    // Generate DB interface with join tables (uses Selectable<Model> pattern)
     const dbInterface = this.kyselyGen.generateDBInterface(models, joinTables);
 
     // Assemble content with proper spacing
@@ -272,9 +214,6 @@ ${kyselyFields}
       content += `\n\n// ===== Branded ID Schemas =====\n${allBrandedIdSchemas}`;
     }
     content += `\n\n// ===== Model Schemas =====\n${modelSchemas}`;
-    if (joinTableKyselyInterfaces) {
-      content += `\n\n${joinTableKyselyInterfaces}`;
-    }
     if (joinTableSchemas) {
       content += `\n\n${joinTableSchemas}`;
     }

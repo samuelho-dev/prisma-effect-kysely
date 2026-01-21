@@ -1,19 +1,16 @@
 import type { DMMF } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import { describe, expect, it } from 'vitest';
-import * as PrismaType from '../prisma/type.js';
+import * as PrismaType from '../prisma/type';
+import { createMockDMMF, createMockField, createMockModel } from './helpers/dmmf-mocks';
 
 const { getDMMF } = prismaInternals;
 
-import * as PrismaEnum from '../prisma/enum.js';
-import { PrismaGenerator } from '../prisma/generator.js';
-import {
-  buildForeignKeyMap,
-  detectImplicitManyToMany,
-  getModelIdField,
-} from '../prisma/relation.js';
-import { extractEffectTypeOverride } from '../utils/annotations.js';
-import { mapFieldToEffectType } from '../effect/type.js';
+import * as PrismaEnum from '../prisma/enum';
+import { PrismaGenerator } from '../prisma/generator';
+import { buildForeignKeyMap, detectImplicitManyToMany, getModelIdField } from '../prisma/relation';
+import { extractEffectTypeOverride } from '../utils/annotations';
+import { mapFieldToEffectType } from '../effect/type';
 
 /**
  * Prisma Parsing & Domain Logic - Functional Behavior Tests
@@ -27,52 +24,6 @@ import { mapFieldToEffectType } from '../effect/type.js';
  * Unified test suite covering all Prisma domain parsing logic.
  * NO type coercions (as any, as unknown).
  */
-
-// Helper to create mock DMMF fields with sensible defaults
-function createMockField(overrides: Partial<DMMF.Field>) {
-  return {
-    name: 'mockField',
-    type: 'String',
-    kind: 'scalar',
-    isRequired: true,
-    isList: false,
-    isId: false,
-    isUnique: false,
-    hasDefaultValue: false,
-    isReadOnly: false,
-    isGenerated: false,
-    isUpdatedAt: false,
-    ...overrides,
-  } as DMMF.Field;
-}
-
-// Helper to create mock DMMF models
-function createMockModel(overrides: Partial<DMMF.Model>) {
-  return {
-    name: 'MockModel',
-    dbName: null,
-    schema: null,
-    fields: [],
-    primaryKey: null,
-    uniqueFields: [],
-    uniqueIndexes: [],
-    ...overrides,
-  } as DMMF.Model;
-}
-
-// Helper to create mock DMMF document
-function createMockDMMF(overrides?: { models?: DMMF.Model[]; enums?: DMMF.DatamodelEnum[] }) {
-  return {
-    datamodel: {
-      models: overrides?.models || [],
-      enums: overrides?.enums || [],
-      types: [],
-      indexes: [],
-    },
-    schema: {},
-    mappings: {},
-  } as unknown as DMMF.Document;
-}
 
 describe('Prisma Parsing & Domain Logic', () => {
   describe('UUID Detection (3-Tier Strategy)', () => {
@@ -635,7 +586,7 @@ describe('Prisma Parsing & Domain Logic', () => {
 
       const effectType = mapFieldToEffectType(fkField, dmmf, fkMap);
 
-      expect(effectType).toBe('UserIdSchema');
+      expect(effectType).toBe('UserId');
     });
 
     it('should use Schema.UUID for non-FK UUID fields', () => {
@@ -697,7 +648,7 @@ describe('Prisma Parsing & Domain Logic', () => {
       const parentIdField = model.fields.find((f) => f.name === 'parent_id')!;
       const effectType = mapFieldToEffectType(parentIdField, createMockDMMF(), fkMap);
 
-      expect(effectType).toBe('CategoryIdSchema');
+      expect(effectType).toBe('CategoryId');
     });
 
     it('should detect FK from real DMMF via getDMMF', async () => {
@@ -734,7 +685,7 @@ describe('Prisma Parsing & Domain Logic', () => {
       const userIdField = sellerModel.fields.find((f) => f.name === 'user_id')!;
       const effectType = mapFieldToEffectType(userIdField, dmmf, fkMap);
 
-      expect(effectType).toBe('UserIdSchema');
+      expect(effectType).toBe('UserId');
     });
   });
 });

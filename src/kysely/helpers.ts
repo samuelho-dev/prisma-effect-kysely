@@ -17,12 +17,12 @@ import type { DeepMutable } from 'effect/Types';
  *
  * For Effect Schemas (recommended - full type safety):
  * ```typescript
- * import { Selectable, Insertable, Updateable, ColumnType, Generated } from 'prisma-effect-kysely/kysely';
+ * import { Selectable, Insertable, Updateable } from 'prisma-effect-kysely';
  * import { User } from './generated/types';
  *
- * type UserSelect = Selectable<typeof User>;
- * type UserInsert = Insertable<typeof User>;
- * type UserUpdate = Updateable<typeof User>;
+ * type UserSelect = Selectable<User>;
+ * type UserInsert = Insertable<User>;
+ * type UserUpdate = Updateable<User>;
  * ```
  *
  * Note: This package exports branded versions of ColumnType and Generated that
@@ -85,6 +85,10 @@ export interface VariantMarker<in out I, in out U> {
  * 2. Schema.make<KyselyColumnType<...>>(ast) doesn't work because AST represents S, not the struct
  * 3. Our ColumnType<S,I,U> = S & Brand IS a subtype of S, so Schema.make works correctly
  *
+ * Includes Kysely's phantom properties (__select__, __insert__, __update__) so that:
+ * 1. Kysely recognizes this as a ColumnType for INSERT/UPDATE operations
+ * 2. WHERE clauses work with plain S values (not branded)
+ *
  * Uses VariantMarker with mapped types to survive TypeScript declaration emit.
  *
  * Usage is identical to Kysely's ColumnType:
@@ -93,27 +97,50 @@ export interface VariantMarker<in out I, in out U> {
  * type CreatedAt = ColumnType<Date, Date | undefined, Date>;  // Optional on insert
  * ```
  */
-export type ColumnType<S, I = S, U = S> = S & VariantMarker<I, U>;
+export type ColumnType<S, I = S, U = S> = S &
+  VariantMarker<I, U> & {
+    /** Kysely extracts this type for SELECT and WHERE */
+    readonly __select__: S;
+    /** Kysely uses this for INSERT */
+    readonly __insert__: I;
+    /** Kysely uses this for UPDATE */
+    readonly __update__: U;
+  };
+
+/**
+ * Base Generated brand without Kysely phantom properties.
+ * Used as the __select__ return type to preserve branding on SELECT.
+ */
+type GeneratedBrand<T> = T &
+  VariantMarker<never, T> & {
+    readonly [GeneratedId]: true;
+  };
 
 /**
  * Branded Generated type for database-generated fields.
  *
  * Follows @effect/sql Model.Generated pattern - the field is:
- * - Required on select (T)
- * - EXCLUDED from insert (never) - database generates the value
+ * - Required on select (T) - Kysely returns the base type
+ * - Optional on insert (T | undefined) - Kysely recognizes this
  * - Allowed on update (T)
  *
- * This matches the runtime behavior of Insertable() which filters out
- * generated fields entirely (not optional, completely absent).
+ * Includes Kysely's phantom properties (__select__, __insert__, __update__) so that:
+ * 1. Kysely recognizes this as a ColumnType and makes it optional on INSERT
+ * 2. WHERE clauses work with plain T values (not branded)
+ *
+ * The Selectable<T> type utility preserves the full Generated<T> type for schema alignment.
+ * Kysely operations work with the underlying T type.
  *
  * Uses VariantMarker with mapped types to survive TypeScript declaration emit.
- * The mapped type pattern `[_ in "insert"]: I` cannot be simplified by TypeScript,
- * ensuring the brand is preserved in .d.ts files.
  */
-export type Generated<T> = T &
-  VariantMarker<never, T> & {
-    readonly [GeneratedId]: true;
-  };
+export type Generated<T> = GeneratedBrand<T> & {
+  /** Kysely extracts this type for SELECT and WHERE - base type for compatibility */
+  readonly __select__: T;
+  /** Kysely uses this for INSERT - optional */
+  readonly __insert__: T | undefined;
+  /** Kysely uses this for UPDATE */
+  readonly __update__: T;
+};
 
 // ============================================================================
 // Runtime Annotation Schemas
@@ -126,28 +153,56 @@ interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEn
 }
 
 /**
+ * Interface for ColumnType schema - preserves type parameters in declaration emit.
+ *
+ * Named interfaces with type parameters are preserved by TypeScript in declaration files,
+ * unlike anonymous intersection types which may be simplified.
+ *
+ * This follows the Schema.brand pattern from Effect which returns a named interface.
+ */
+export interface ColumnTypeSchema<S extends Schema.Schema.All, IType, UType> extends Schema.Schema<
+  ColumnType<Schema.Schema.Type<S>, IType, UType>,
+  ColumnType<Schema.Schema.Encoded<S>, IType, UType>,
+  Schema.Schema.Context<S>
+> {
+  /** The original select schema */
+  readonly selectSchema: S;
+}
+
+/**
  * Mark a field as having different types for select/insert/update
  * Used for ID fields with @default (read-only)
  *
  * The insert/update schemas are stored in annotations and used at runtime
  * to determine which fields to include in Insertable/Updateable schemas.
  *
- * Returns the base schema with annotations - branding happens at type level
- * in generated code via type declarations, not via runtime type assertions.
+ * Returns a ColumnTypeSchema which:
+ * 1. Is a named interface (preserved in declaration emit)
+ * 2. Contains the ColumnType<S, I, U> brand with Kysely phantom properties
+ * 3. Includes the original schema via `selectSchema` property
+ *
+ * This enables Kysely to recognize fields with `__insert__: never` and omit them from INSERT.
  */
 export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
   selectSchema: Schema.Schema<SType, SEncoded, SR>,
   insertSchema: Schema.Schema<IType, IEncoded, IR>,
   updateSchema: Schema.Schema<UType, UEncoded, UR>
-): Schema.Schema<SType, SEncoded, SR> => {
+) => {
   const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
     {
       selectSchema,
       insertSchema,
       updateSchema,
     };
-  // Return annotated schema - no type assertion, just metadata
-  return selectSchema.annotations({ [ColumnTypeId]: schemas });
+  // Return annotated schema with ColumnType brand at type level
+  // The runtime annotation enables filtering in Insertable() function
+  // The type-level brand enables Kysely to recognize INSERT/UPDATE constraints
+  const annotated = selectSchema.annotations({ [ColumnTypeId]: schemas });
+  return Object.assign(annotated, { selectSchema }) as ColumnTypeSchema<
+    Schema.Schema<SType, SEncoded, SR>,
+    IType,
+    UType
+  >;
 };
 
 /**
@@ -182,7 +237,7 @@ export interface GeneratedSchema<S extends Schema.Schema.All> extends Schema.Sch
  *
  * This enables CustomInsertable to filter out generated fields at compile time.
  */
-export const generated = <S extends Schema.Schema.All>(schema: S): GeneratedSchema<S> => {
+export const generated = <S extends Schema.Schema.All>(schema: S) => {
   // Return annotated schema with Generated brand at type level
   // The runtime annotation enables filtering in Insertable() function
   // The type-level brand enables filtering in CustomInsertable type utility
@@ -219,7 +274,7 @@ const ColumnTypeSchemasValidator = Schema.Struct({
  * Extract and validate column type schemas from AST annotations
  * Returns null if not a column type or validation fails
  */
-function getColumnTypeSchemas(ast: AST.AST): AnyColumnTypeSchemas | null {
+function getColumnTypeSchemas(ast: AST.AST) {
   if (!(ColumnTypeId in ast.annotations)) {
     return null;
   }
@@ -236,9 +291,9 @@ function getColumnTypeSchemas(ast: AST.AST): AnyColumnTypeSchemas | null {
   return annotation as AnyColumnTypeSchemas;
 }
 
-const isGeneratedType = (ast: AST.AST): boolean => GeneratedId in ast.annotations;
+const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
 
-const isOptionalType = (ast: AST.AST): boolean => {
+const isOptionalType = (ast: AST.AST) => {
   // Check for Union(T, Undefined) pattern
   if (!AST.isUnion(ast)) {
     return false;
@@ -255,6 +310,33 @@ const isNullType = (ast: AST.AST) =>
   Object.entries(ast.annotations).find(
     ([sym, value]) => sym === AST.IdentifierAnnotationId.toString() && value === 'null'
   );
+
+/**
+ * Strip null from a union type for Insertable fields.
+ * For INSERT operations, omitting a field = null in DB, so we don't need explicit null.
+ * Returns the non-null type if it's a union with null, otherwise returns the original type.
+ */
+const stripNullFromUnion = (ast: AST.AST): AST.AST => {
+  if (!AST.isUnion(ast)) {
+    return ast;
+  }
+
+  // Filter out null types from the union
+  const nonNullTypes = ast.types.filter((t: AST.AST) => !isNullType(t));
+
+  // If only one type remains, return it directly (unwrap single-element union)
+  if (nonNullTypes.length === 1) {
+    return nonNullTypes[0];
+  }
+
+  // If multiple types remain, create a new union without null
+  if (nonNullTypes.length > 1) {
+    return AST.Union.make(nonNullTypes);
+  }
+
+  // Edge case: all types were null (shouldn't happen in practice)
+  return ast;
+};
 
 const extractParametersFromTypeLiteral = (
   ast: AST.TypeLiteral,
@@ -370,23 +452,68 @@ type MutableInsert<Type> = CustomInsertable<Type>;
 type MutableUpdate<Type> = CustomUpdateable<Type>;
 
 // ============================================================================
+// Stripping Type Utilities (needed for Selectable function return type)
+// ============================================================================
+
+/**
+ * Strip Generated<T> wrapper, returning the underlying type T.
+ * For non-Generated types, returns as-is.
+ * Preserves branded foreign keys (UserId, ProductId, etc.).
+ */
+type StripGeneratedWrapper<T> = T extends GeneratedBrand<infer U> ? U : T;
+
+/**
+ * Strip ColumnType wrapper, extracting the select type S.
+ * Must check AFTER Generated because Generated<T> also has __select__.
+ * Uses __insert__ existence to differentiate ColumnType from other types.
+ */
+type StripColumnTypeWrapper<T> = T extends {
+  readonly __select__: infer S;
+  readonly __insert__: unknown;
+}
+  ? S
+  : T;
+
+/**
+ * Strip all Kysely wrappers (Generated, ColumnType) from a field type.
+ * Order matters: check Generated first, then ColumnType.
+ * Preserves branded foreign keys (UserId, ProductId, etc.).
+ */
+type StripKyselyWrapper<T> = StripColumnTypeWrapper<StripGeneratedWrapper<T>>;
+
+/**
+ * Strip Kysely wrappers from all fields in a type.
+ * Preserves branded foreign keys (UserId, ProductId, etc.).
+ */
+type StripKyselyWrappersFromObject<T> = {
+  readonly [K in keyof T]: StripKyselyWrapper<T[K]>;
+};
+
+// ============================================================================
 // Schema Functions
 // ============================================================================
 
 export function Selectable<Type, Encoded>(
   schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<Encoded, Encoded, never> {
-  // Use Encoded for both Type and Encoded to produce clean unbranded types
-  // This makes the schema an identity transformation (Type = Encoded)
-  // which matches what Kysely returns from queries
+): Schema.Schema<
+  StripKyselyWrappersFromObject<Type>,
+  StripKyselyWrappersFromObject<Encoded>,
+  never
+> {
+  // Strip Generated/ColumnType wrappers to match what Kysely returns from queries
+  // Branded foreign keys (UserId, ProductId) are preserved
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
     // Non-struct schemas: use as identity
     // Internal cast needed because Schema.make(ast) returns unknown types
     // The return type annotation is what TypeScript uses for declaration emit
-    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<Encoded, Encoded, never>;
+    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+      StripKyselyWrappersFromObject<Type>,
+      StripKyselyWrappersFromObject<Encoded>,
+      never
+    >;
   }
-  // Extract select schemas from annotated fields
+  // Extract select schemas from annotated fields (strips wrappers at runtime)
   return Schema.asSchema(
     Schema.make(
       new AST.TypeLiteral(
@@ -395,16 +522,18 @@ export function Selectable<Type, Encoded>(
         ast.annotations
       )
     )
-  ) as Schema.Schema<Encoded, Encoded, never>;
+  ) as Schema.Schema<
+    StripKyselyWrappersFromObject<Type>,
+    StripKyselyWrappersFromObject<Encoded>,
+    never
+  >;
 }
 
 /**
  * Create Insertable schema from base schema
  * Filters out generated fields (@effect/sql Model.Generated pattern)
  */
-export function Insertable<Type, Encoded>(
-  schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never> {
+export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
     // Internal cast - return type annotation is what TypeScript uses for declaration emit
@@ -423,12 +552,14 @@ export function Insertable<Type, Encoded>(
   const extracted = extractParametersFromTypeLiteral(filteredAst, 'insertSchema');
 
   const fields = extracted.map((prop) => {
-    // Make Union(T, Undefined) fields optional
+    // Make Union(T, null) fields optional and strip null from the type
+    // For INSERT, omitting a field = null in DB, so explicit null is unnecessary
     const isOptional = isOptionalType(prop.type);
+    const fieldType = isOptional ? stripNullFromUnion(prop.type) : prop.type;
 
     return new AST.PropertySignature(
       prop.name,
-      prop.type,
+      fieldType,
       isOptional,
       prop.isReadonly,
       prop.annotations
@@ -443,9 +574,7 @@ export function Insertable<Type, Encoded>(
 /**
  * Create Updateable schema from base schema
  */
-export function Updateable<Type, Encoded>(
-  schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<MutableUpdate<Type>, MutableUpdate<Encoded>, never> {
+export function Updateable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
   const { ast } = schema;
   if (!AST.isTypeLiteral(ast)) {
     // Internal cast - return type annotation is what TypeScript uses for declaration emit
@@ -480,166 +609,37 @@ export function Updateable<Type, Encoded>(
   >;
 }
 
-/**
- * Schemas interface returned by getSchemas().
- * Includes a _base property to preserve the original schema for type-level computations.
- *
- * Uses Schema.Schema.All constraint which handles both covariant and contravariant positions.
- * This avoids variance issues with `unknown` constraints while still preserving type safety.
- */
-export interface Schemas<BaseSchema extends Schema.Schema.All> {
-  readonly _base: BaseSchema;
-  // Selectable uses Encoded for both Type and Encoded to produce clean unbranded types
-  // This matches what Kysely returns from queries and enables type-safe repository implementations
-  readonly Selectable: Schema.Schema<
-    Schema.Schema.Encoded<BaseSchema>,
-    Schema.Schema.Encoded<BaseSchema>,
-    never
-  >;
-  readonly Insertable: Schema.Schema<
-    MutableInsert<Schema.Schema.Type<BaseSchema>>,
-    MutableInsert<Schema.Schema.Encoded<BaseSchema>>,
-    never
-  >;
-  readonly Updateable: Schema.Schema<
-    MutableUpdate<Schema.Schema.Type<BaseSchema>>,
-    MutableUpdate<Schema.Schema.Encoded<BaseSchema>>,
-    never
-  >;
-}
-
-/**
- * Extended Schemas interface with branded Id type.
- * Returned when getSchemas() is called with an idSchema parameter.
- */
-export interface SchemasWithId<
-  BaseSchema extends Schema.Schema.All,
-  IdSchema extends Schema.Schema.All,
-> extends Schemas<BaseSchema> {
-  readonly Id: IdSchema;
-}
-
-/**
- * Generate all operational schemas (Selectable/Insertable/Updateable) from base schema
- * Used in generated code
- *
- * @param baseSchema - The base Effect Schema struct
- * @param idSchema - Optional branded ID schema for models with @id fields
- */
-export function getSchemas<
-  BaseSchema extends Schema.Schema.All,
-  IdSchema extends Schema.Schema.All,
->(baseSchema: BaseSchema, idSchema: IdSchema): SchemasWithId<BaseSchema, IdSchema>;
-
-export function getSchemas<BaseSchema extends Schema.Schema.All>(
-  baseSchema: BaseSchema
-): Schemas<BaseSchema>;
-
-export function getSchemas<
-  BaseSchema extends Schema.Schema.All,
-  IdSchema extends Schema.Schema.All,
->(
-  baseSchema: BaseSchema,
-  idSchema?: IdSchema
-): Schemas<BaseSchema> | SchemasWithId<BaseSchema, IdSchema> {
-  // Cast to the expected schema type for the functions
-  // This is safe because BaseSchema extends Schema.Schema.All
-  type SchemaForFunctions = Schema.Schema<
-    Schema.Schema.Type<BaseSchema>,
-    Schema.Schema.Encoded<BaseSchema>
-  >;
-  const schemaForFunctions = baseSchema as unknown as SchemaForFunctions;
-
-  const base: Schemas<BaseSchema> = {
-    _base: baseSchema,
-    Selectable: Selectable(schemaForFunctions),
-    Insertable: Insertable(schemaForFunctions),
-    Updateable: Updateable(schemaForFunctions),
-  };
-
-  if (idSchema) {
-    return { ...base, Id: idSchema };
-  }
-
-  return base;
-}
-
 // ============================================================================
-// Type Utilities (Kysely-compatible pattern)
-// Usage: Selectable<typeof User>, Insertable<typeof User>
+// Type Utilities (Work directly with Schema types)
+// Usage: Selectable<User>, Insertable<User>, Updateable<User>
+// Note: Stripping types are defined earlier in the file (before schema functions)
 // ============================================================================
 
 /**
- * Strip Generated<T> wrapper from a type, returning the underlying type T.
- * For non-Generated types, returns the type as-is.
+ * Extract SELECT type from schema.
+ * - Preserves branded foreign keys (UserId, ProductId, etc.)
+ * - Strips Generated<T> and ColumnType<S,I,U> wrappers to match what Kysely returns
  *
- * This is needed because GeneratedSchema has Generated<T> in both Type and Encoded,
- * but Kysely queries return plain types (Date, not Generated<Date>).
+ * Kysely extracts __select__ for SELECT results.
+ * Generated<T>/ColumnType remain in the DB interface for INSERT recognition,
+ * but Selectable<T> gives you the clean type matching query results.
+ *
+ * @example type UserSelect = Selectable<User>;
  */
-type StripGenerated<T> = T extends Generated<infer U> ? U : T;
+export type Selectable<T extends Schema.Schema.All> = StripKyselyWrappersFromObject<
+  Schema.Schema.Type<T>
+>;
 
 /**
- * Recursively strip Generated<T> wrappers from all fields in an object type.
- * Handles nested objects and preserves readonly/optional modifiers.
+ * Extract INSERT type from schema.
+ * Omits fields with `never` insert type (read-only IDs, generated fields).
+ * @example type UserInsert = Insertable<User>;
  */
-type StripGeneratedFields<T> = {
-  readonly [K in keyof T]: StripGenerated<T[K]>;
-};
+export type Insertable<T extends Schema.Schema.All> = CustomInsertable<Schema.Schema.Type<T>>;
 
 /**
- * Extract SELECT type from schema (matches Kysely's Selectable<T> pattern)
- *
- * Uses Schema.Encoded to get the unbranded type directly, then strips
- * any Generated<T> wrappers to produce clean types that match Kysely query results.
- *
- * This ensures: Selectable<typeof User> produces plain types { id: string, created_at: Date, ... }
- *
- * Note: We strip Generated<T> because:
- * 1. GeneratedSchema has Generated<T> in both Type and Encoded
- * 2. But Kysely queries return plain types (Date, not Generated<Date>)
- * 3. The runtime Selectable() function correctly strips annotations
- * 4. The type-level utility must match the runtime behavior
- *
- * @example type UserSelect = Selectable<typeof User>
+ * Extract UPDATE type from schema.
+ * Omits fields with `never` update type, makes all fields optional.
+ * @example type UserUpdate = Updateable<User>;
  */
-export type Selectable<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  T extends { readonly Selectable: Schema.Schema<any, any, any> },
-> = StripGeneratedFields<Schema.Schema.Encoded<T['Selectable']>>;
-
-/**
- * Extract INSERT type from schema (matches Kysely's Insertable<T> pattern)
- *
- * Simply extracts Schema.Type - the schema function already handles
- * field filtering and type transformations.
- *
- * This ensures: Insertable<typeof User> === typeof User.Insertable.Type
- *
- * @example type UserInsert = Insertable<typeof User>
- */
-export type Insertable<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  T extends { readonly Insertable: Schema.Schema<any, any, any> },
-> = Schema.Schema.Type<T['Insertable']>;
-
-/**
- * Extract UPDATE type from schema (matches Kysely's Updateable<T> pattern)
- *
- * Simply extracts Schema.Type - the schema function already handles
- * field filtering and optional transformations.
- *
- * This ensures: Updateable<typeof User> === typeof User.Updateable.Type
- *
- * @example type UserUpdate = Updateable<typeof User>
- */
-export type Updateable<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  T extends { readonly Updateable: Schema.Schema<any, any, any> },
-> = Schema.Schema.Type<T['Updateable']>;
-
-/**
- * Extract branded ID type from schema
- * @example type UserId = Id<typeof User>
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Id<T extends { Id: Schema.Schema<any, any, any> }> = Schema.Schema.Type<T['Id']>;
+export type Updateable<T extends Schema.Schema.All> = CustomUpdateable<Schema.Schema.Type<T>>;

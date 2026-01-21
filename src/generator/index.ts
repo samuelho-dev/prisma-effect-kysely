@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pkg from '@prisma/generator-helper';
 
 import { GeneratorOrchestrator } from './orchestrator.js';
 
 const { generatorHandler } = pkg;
 
-const require = createRequire(import.meta.url);
-const packageJson = require('../../package.json') as { version: string };
-
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
 // Re-export kysely helpers and type utilities for generated code
-// Selectable, Insertable, Updateable are exported as both values AND types (same name pattern)
-export type { Schemas, SchemasWithId, Id } from '../kysely/helpers.js';
+export type { Generated, ColumnType, VariantMarker } from '../kysely/helpers.js';
 export {
   columnType,
   generated,
-  getSchemas,
+  GeneratedId,
+  ColumnTypeId,
+  VariantTypeId,
+  // Schema functions - also export types via value exports
   Selectable,
   Insertable,
   Updateable,

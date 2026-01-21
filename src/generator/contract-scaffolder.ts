@@ -189,7 +189,7 @@ function manualScaffold(domain: DomainInfo, config: GeneratorConfig) {
  * This file re-exports generated schemas from the generated/ directory.
  */
 
-export * from './generated.js';
+export * from './generated';
 `;
 
   fs.writeFileSync(path.join(outputPath, 'src', 'index.ts'), indexContent);

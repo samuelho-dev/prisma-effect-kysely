@@ -6,22 +6,18 @@ import { toPascalCase } from '../utils/naming.js';
 /**
  * Generate TypeScript enum + Effect Schema.Enums wrapper
  *
- * TDD: Satisfies tests 1-6 in enum-generation.test.ts
- *
  * Output pattern:
- * - Native TS enum with property accessors
- * - Effect Schema.Enums() wrapper for validation
- * - Type alias for convenience
+ * - Native TS enum with SCREAMING_SNAKE_CASE (internal, for Schema.Enums)
+ * - PascalCase export IS the Schema (so it works in Schema.Struct)
+ * - Type alias with same name (value + type pattern)
  */
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
-  // Preserve original enum name for the enum itself
+  // Raw enum keeps original name (usually SCREAMING_SNAKE_CASE)
   const enumName = enumDef.name;
-  // Use PascalCase for Schema and Type exports
+  // PascalCase name is exported as BOTH the Schema value AND the type
   const pascalName = toPascalCase(enumDef.name);
-  const schemaName = `${pascalName}Schema`;
-  const typeName = `${pascalName}Type`;
 
-  // Generate native TypeScript enum members (Tests 1-2)
+  // Generate native TypeScript enum members
   const enumMembers = enumDef.values
     .map((v) => {
       const value = getEnumValueDbName(v);
@@ -29,26 +25,15 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
     })
     .join(',\n');
 
-  // Generate: enum + Schema.Enums() wrapper + type (Tests 3-4)
-  // Explicitly NOT using Schema.Literal (Test 6)
-  //
-  // Also generate PascalCase aliases for better ergonomics if name is different
-  const aliases =
-    pascalName !== enumName
-      ? `
-
-// PascalCase aliases for better ergonomics
-export const ${pascalName} = ${enumName};
-export type ${pascalName} = ${typeName};`
-      : '';
-
+  // Export PascalCase as the Schema (not raw enum)
+  // This allows PayoutStatus to be used directly in Schema.Struct fields
+  // Also export type with same name for Insertable<User> pattern
   return `export enum ${enumName} {
 ${enumMembers}
 }
 
-export const ${schemaName} = Schema.Enums(${enumName});
-
-export type ${typeName} = Schema.Schema.Type<typeof ${schemaName}>;${aliases}`;
+export const ${pascalName} = Schema.Enums(${enumName});
+export type ${pascalName} = Schema.Schema.Type<typeof ${pascalName}>;`;
 }
 
 /**

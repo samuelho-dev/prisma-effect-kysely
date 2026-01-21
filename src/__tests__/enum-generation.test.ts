@@ -1,9 +1,9 @@
 import type { DMMF } from '@prisma/generator-helper';
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { generateEnumSchema, generateEnumsFile } from '../effect/enum.js';
-import { buildFieldType } from '../effect/type.js';
-import { createMockDMMF, createMockEnum, createMockField } from './helpers/dmmf-mocks.js';
+import { generateEnumSchema, generateEnumsFile } from '../effect/enum';
+import { buildFieldType } from '../effect/type';
+import { createMockDMMF, createMockEnum, createMockField } from './helpers/dmmf-mocks';
 
 /**
  * Enum Generation - Functional Behavior Tests
@@ -210,8 +210,8 @@ describe('Enum Generation - Functional Tests', () => {
 
       const result = buildFieldType(mockEnumField, mockDMMF);
 
-      // Should return PascalCase Schema wrapper
-      expect(result).toBe('ProductStatusSchema');
+      // Should return PascalCase (which IS the Schema now)
+      expect(result).toBe('ProductStatus');
     });
 
     it('should map array enum field to Array wrapper', () => {
@@ -232,7 +232,7 @@ describe('Enum Generation - Functional Tests', () => {
       const result = buildFieldType(mockArrayEnumField, mockDMMF);
 
       // Should wrap in Array
-      expect(result).toBe('Schema.Array(ProductStatusSchema)');
+      expect(result).toBe('Schema.Array(ProductStatus)');
     });
 
     it('should map optional enum field to NullOr wrapper', () => {
@@ -253,7 +253,7 @@ describe('Enum Generation - Functional Tests', () => {
       const result = buildFieldType(mockOptionalEnumField, mockDMMF);
 
       // Should wrap in NullOr
-      expect(result).toBe('Schema.NullOr(ProductStatusSchema)');
+      expect(result).toBe('Schema.NullOr(ProductStatus)');
     });
   });
 
@@ -274,8 +274,8 @@ describe('Enum Generation - Functional Tests', () => {
       // Verify generated code contains expected structures (minimal checks)
       expect(generatedCode).toContain('export enum USER_ROLE');
       expect(generatedCode).toContain('Schema.Enums');
-      expect(generatedCode).toContain('UserRoleSchema');
-      expect(generatedCode).toContain('UserRoleType');
+      expect(generatedCode).toContain('export const UserRole = Schema.Enums(USER_ROLE)');
+      expect(generatedCode).toContain('export type UserRole = Schema.Schema.Type<typeof UserRole>');
     });
 
     it('should generate valid TypeScript that can be executed', () => {
@@ -301,12 +301,12 @@ describe('Enum Generation - Functional Tests', () => {
     it('should preserve enum name but use PascalCase for Schema/Type', () => {
       const generatedCode = generateEnumSchema(mockEnum);
 
-      // Original SCREAMING_SNAKE_CASE preserved
+      // Original SCREAMING_SNAKE_CASE preserved for raw enum
       expect(generatedCode).toContain('enum USER_ROLE');
 
-      // PascalCase for Schema wrapper and Type
-      expect(generatedCode).toContain('UserRoleSchema');
-      expect(generatedCode).toContain('UserRoleType');
+      // PascalCase for Schema wrapper (no Schema suffix - the PascalCase name IS the Schema)
+      expect(generatedCode).toContain('export const UserRole = Schema.Enums(USER_ROLE)');
+      expect(generatedCode).toContain('export type UserRole = Schema.Schema.Type<typeof UserRole>');
 
       // Should NOT use snake_case for schema/type
       expect(generatedCode).not.toContain('user_role_schema');
@@ -326,7 +326,7 @@ describe('Enum Generation - Functional Tests', () => {
       // Verify file structure
       expect(generatedFile).toContain('import { Schema } from "effect"');
       expect(generatedFile).toContain('export enum STATUS');
-      expect(generatedFile).toContain('STATUSSchema');
+      expect(generatedFile).toContain('export const STATUS = Schema.Enums(STATUS)');
     });
   });
 
@@ -367,11 +367,12 @@ describe('Enum Generation - Functional Tests', () => {
 
       const generatedFile = generateEnumsFile(mockEnums);
 
-      // Both enums should be present
+      // Both enums should be present (raw enum + toPascalCase Schema)
+      // Note: toPascalCase('ROLE') = 'ROLE' (all-caps single words stay as-is)
       expect(generatedFile).toContain('export enum ROLE');
       expect(generatedFile).toContain('export enum STATUS');
-      expect(generatedFile).toContain('ROLESchema');
-      expect(generatedFile).toContain('STATUSSchema');
+      expect(generatedFile).toContain('export const ROLE = Schema.Enums(ROLE)');
+      expect(generatedFile).toContain('export const STATUS = Schema.Enums(STATUS)');
     });
   });
 });

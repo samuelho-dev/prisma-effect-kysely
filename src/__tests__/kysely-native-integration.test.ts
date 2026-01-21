@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import type { GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { GeneratorOrchestrator } from '../generator/orchestrator.js';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
 
 const { getDMMF } = prismaInternals;
 
@@ -58,56 +58,45 @@ describe('Kysely Native Integration', () => {
     await fs.rm(outputDir, { recursive: true, force: true });
   });
 
-  describe('Kysely Table Interfaces', () => {
-    it('should generate Kysely table interfaces with ColumnType wrappers', async () => {
+  describe('Effect Schema Generation', () => {
+    it('should generate Effect schemas with columnType and generated helpers', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should import ColumnType from kysely
-      expect(typesContent).toMatch(/import type \{ ColumnType \} from ["']kysely["']/);
+      // Should import from prisma-effect-kysely (includes columnType, generated, Selectable)
+      expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
 
-      // Should generate exported UserTable interface for Kysely type utilities
-      expect(typesContent).toMatch(/export interface UserTable \{/);
+      // Should generate schemas directly (no underscore prefix)
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
 
-      // Should use ColumnType for read-only fields (id with @default)
-      expect(typesContent).toMatch(/id:\s*ColumnType<string,\s*never,\s*never>/);
+      // Should use columnType for read-only ID fields
+      expect(typesContent).toContain('columnType(');
 
-      // Should use plain types for regular required fields
-      expect(typesContent).toMatch(/name:\s*string/);
-      expect(typesContent).toMatch(/email:\s*string/);
-
-      // Should use ColumnType for generated fields (created_at, updated_at)
-      expect(typesContent).toMatch(
-        /created_at:\s*ColumnType<Date,\s*Date \| undefined,\s*Date \| undefined>/
-      );
-      expect(typesContent).toMatch(
-        /updated_at:\s*ColumnType<Date,\s*Date \| undefined,\s*Date \| undefined>/
-      );
+      // Should use generated() for fields with @default
+      expect(typesContent).toContain('generated(');
     });
 
-    it('should generate PostTable with optional fields', async () => {
+    it('should generate schemas for Post model', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should generate exported PostTable interface for Kysely type utilities
-      expect(typesContent).toMatch(/export interface PostTable \{/);
+      // Should generate schema for Post directly
+      expect(typesContent).toMatch(/export const Post = Schema\.Struct/);
 
-      // Optional content field should be nullable
-      expect(typesContent).toMatch(/content:\s*string \| null/);
+      // Optional content field should use Schema.NullOr
+      expect(typesContent).toMatch(/content:\s*Schema\.NullOr/);
 
-      // Boolean with @default should use ColumnType
-      expect(typesContent).toMatch(
-        /published:\s*ColumnType<boolean,\s*boolean \| undefined,\s*boolean \| undefined>/
-      );
+      // Boolean with @default should use generated()
+      expect(typesContent).toContain('generated(Schema.Boolean)');
     });
   });
 
-  describe('DB Interface with Kysely Tables', () => {
-    it('should use *Table types in DB interface', async () => {
+  describe('DB Interface with Selectable Pattern', () => {
+    it('should use Selectable<Model> in DB interface', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // DB interface should use Table types
+      // DB interface should use Selectable<Model> pattern
       expect(typesContent).toMatch(/export interface DB \{/);
-      expect(typesContent).toMatch(/User:\s*UserTable/);
-      expect(typesContent).toMatch(/Post:\s*PostTable/);
+      expect(typesContent).toMatch(/User:\s*Selectable<User>/);
+      expect(typesContent).toMatch(/Post:\s*Selectable<Post>/);
 
       // Should NOT use SelectEncoded in DB interface
       expect(typesContent).not.toMatch(/User:\s*UserSelectEncoded/);
@@ -115,57 +104,19 @@ describe('Kysely Native Integration', () => {
     });
   });
 
-  describe('Kysely Utility Types Compatibility', () => {
-    it('should generate types that work with Kysely Insertable', async () => {
+  describe('Package Type Utilities Compatibility', () => {
+    it('should generate types that work with package Insertable/Selectable', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Create a test TypeScript file to verify type compatibility
-      const testTypeScript = `
-import type { Insertable, Updateable, Selectable } from 'kysely';
-${typesContent}
+      // Package provides Insertable, Selectable, Updateable utilities
+      // DB interface uses Selectable<Model> pattern
+      expect(typesContent).toMatch(/Selectable<User>/);
 
-// Test Insertable<UserTable>
-type UserInsert = Insertable<UserTable>;
+      // Effect schemas use columnType for read-only ID fields
+      expect(typesContent).toContain('columnType(');
 
-// Verify id is NOT in insert type (it's ColumnType<string, never, never>)
-const testInsert: UserInsert = {
-  name: 'John',
-  email: 'john@example.com',
-  // id should not be allowed
-  // created_at and updated_at are optional
-};
-
-// Test Updateable<UserTable>
-type UserUpdate = Updateable<UserTable>;
-
-// All fields should be optional in update
-const testUpdate: UserUpdate = {
-  name: 'Jane',
-  // All other fields are optional
-};
-
-// Test Selectable<UserTable>
-type UserSelect = Selectable<UserTable>;
-
-// All fields should be present in select
-const testSelect: UserSelect = {
-  id: 'uuid',
-  name: 'John',
-  email: 'john@example.com',
-  created_at: new Date(),
-  updated_at: new Date(),
-};
-`;
-
-      // Write test file
-      const testFilePath = path.join(outputDir, 'kysely-types-test.ts');
-      await fs.writeFile(testFilePath, testTypeScript);
-
-      // The fact that we can write this file structure proves the types are correct
-      // In a real test, you'd use TypeScript compiler API to verify, but for now
-      // we verify the structure is generated correctly
-      expect(typesContent).toMatch(/interface UserTable/); // internal, not exported
-      expect(typesContent).toContain('ColumnType<string, never, never>'); // id field
+      // Schema exports type alias for type usage
+      expect(typesContent).toMatch(/export type User = typeof User/);
     });
   });
 
@@ -173,74 +124,63 @@ const testSelect: UserSelect = {
     it('should still generate Effect schemas with runtime helpers', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should still generate base schemas (EXPORTED for TypeScript declaration emit)
-      expect(typesContent).toMatch(/export const _User = Schema\.Struct/);
+      // Should generate schemas directly (no underscore prefix)
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
 
       // Should still use columnType and generated helpers
       expect(typesContent).toContain('columnType(');
       expect(typesContent).toContain('generated(');
 
       // Should generate branded ID schemas
-      // IdSchema is exported for TypeScript declaration emit
       expect(typesContent).toMatch(
-        /export const UserIdSchema = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
+        /export const UserId = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
       );
 
-      // Should generate explicit insertable schemas
-      expect(typesContent).toMatch(/export const _User_insertable = Schema\.Struct\(/);
+      // Should export type alias
+      expect(typesContent).toMatch(/export type User = typeof User/);
 
-      // Should generate operational schemas with explicit insertable pattern
-      // Pattern: export const User = { ...getSchemas(_User, UserIdSchema), Insertable: _User_insertable };
-      expect(typesContent).toContain('...getSchemas(_User, UserIdSchema)');
-      expect(typesContent).toContain('Insertable: _User_insertable');
-      expect(typesContent).toContain('export const User = {');
-
-      // No type aliases - consumers use type utilities: Selectable<typeof User>
+      // No type aliases for Select/Insert - consumers use type utilities
       expect(typesContent).not.toMatch(/export type UserSelect\s*=/);
       expect(typesContent).not.toMatch(/export type UserSelectEncoded\s*=/);
     });
   });
 
-  describe('Type Mapping Correctness', () => {
-    it('should map UUID to string for Kysely', async () => {
+  describe('Effect Schema Type Mapping', () => {
+    it('should map UUID to Schema.UUID for Effect schemas', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // UUID fields should be mapped to string in Kysely tables
-      expect(typesContent).toMatch(/id:\s*ColumnType<string/);
-      expect(typesContent).toMatch(/author_id:\s*string/);
+      // UUID fields use Schema.UUID with branding for IDs
+      expect(typesContent).toMatch(/Schema\.UUID\.pipe\(Schema\.brand/);
+      // FK fields use Schema.UUID (not branded since no FK relation in this schema)
+      expect(typesContent).toMatch(/author_id:\s*Schema\.UUID/);
     });
 
-    it('should map DateTime to Date for Kysely', async () => {
+    it('should map DateTime to Schema.DateFromSelf for Effect schemas', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // DateTime fields should be mapped to Date
-      expect(typesContent).toMatch(/created_at:\s*ColumnType<Date/);
-      expect(typesContent).toMatch(/updated_at:\s*ColumnType<Date/);
+      // DateTime fields use Schema.DateFromSelf with generated() wrapper
+      expect(typesContent).toContain('generated(Schema.DateFromSelf)');
     });
 
-    it('should map Boolean correctly', async () => {
+    it('should map Boolean correctly for Effect schemas', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Boolean field with @default should use ColumnType
-      expect(typesContent).toMatch(/published:\s*ColumnType<boolean/);
+      // Boolean field with @default uses generated() wrapper
+      expect(typesContent).toContain('generated(Schema.Boolean)');
     });
   });
 
-  describe('Generated vs Kysely Type Alignment', () => {
-    it('should demonstrate Kysely Insertable excludes generated fields', async () => {
+  describe('Schema Export Pattern', () => {
+    it('should export schema with type alias', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Document the expected behavior:
-      // For UserTable with:
-      //   id: ColumnType<string, never, never>
-      //   created_at: ColumnType<Date, Date | undefined, Date | undefined>
-      //
-      // Kysely's Insertable<UserTable> will:
-      //   - Exclude id (insert type is 'never')
-      //   - Make created_at optional (insert type is 'Date | undefined')
+      // Schemas are exported directly
+      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
+      expect(typesContent).toMatch(/export const Post = Schema\.Struct/);
 
-      expect(typesContent).toContain('ColumnType<string, never, never>');
-      expect(typesContent).toContain('ColumnType<Date, Date | undefined, Date | undefined>');
+      // Type aliases for type usage
+      expect(typesContent).toMatch(/export type User = typeof User/);
+      expect(typesContent).toMatch(/export type Post = typeof Post/);
     });
   });
 });
