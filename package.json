@@ -27,12 +27,7 @@
       "import": "./dist/kysely/helpers.js"
     }
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
+  "files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
   "sideEffects": false,
   "keywords": [
     "prisma",
@@ -74,13 +69,9 @@
     "prepublishOnly": "bun run lint && bun run typecheck && bun run test && bun run build"
   },
   "lint-staged": {
-    "*.ts": [
-      "eslint --fix",
-      "prettier --write"
-    ]
+    "*.ts": ["eslint --fix", "prettier --write"]
   },
   "dependencies": {
-    "@prisma/generator-helper": "^7.2.0",
     "prettier": "^3.7.4"
   },
   "peerDependencies": {
@@ -93,6 +84,7 @@
     }
   },
   "devDependencies": {
+    "@prisma/generator-helper": "^7.2.0",
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2.29.8",
     "@effect/vitest": "^0.27.0",
