@@ -34,16 +34,16 @@ describe('Selectable<User>', () => {
 });
 
 describe('Insertable<User>', () => {
-  it('should exclude id and generated fields', () => {
+  it('should exclude id but include generated fields as optional', () => {
     const fields = getPropertyNames(Insertable(User));
-    expect(fields).not.toContain('id');
-    expect(fields).not.toContain('createdAt');
+    expect(fields).not.toContain('id'); // ColumnType<string, never, never> is excluded
+    expect(fields).toContain('createdAt'); // Generated fields are now optional, not excluded
     expect(fields).toContain('name');
     expect(fields).toContain('email');
 
     type UserInsert = Insertable<User>;
-    expectTypeOf<UserInsert>().not.toHaveProperty('id');
-    expectTypeOf<UserInsert>().not.toHaveProperty('createdAt');
+    expectTypeOf<UserInsert>().not.toHaveProperty('id'); // Excluded (never insert type)
+    expectTypeOf<UserInsert>().toHaveProperty('createdAt'); // Optional (generated)
     expectTypeOf<UserInsert>().toHaveProperty('name');
     expectTypeOf<UserInsert>().toHaveProperty('email');
   });

@@ -113,19 +113,19 @@ describe('Effect Schema - Runtime Behavior', () => {
         expect(result).toEqual({ id: 123, name: 'test' });
       });
 
-      it('should ignore provided values for generated fields in insert', () => {
+      it('should allow providing values for generated fields in insert (optional)', () => {
         const baseSchema = Schema.Struct({
           id: generated(Schema.Number),
           name: Schema.String,
         });
 
-        // Effect Schema silently ignores extra fields
+        // Generated fields are optional - can be provided or omitted
         const result = Schema.decodeUnknownSync(Insertable(baseSchema))({
-          id: 999, // This should be ignored
+          id: 999, // This is now allowed (optional field)
           name: 'test',
         });
 
-        expect(result).toEqual({ name: 'test' });
+        expect(result).toEqual({ id: 999, name: 'test' });
       });
 
       it('should handle multiple generated fields', () => {
