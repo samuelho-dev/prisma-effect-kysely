@@ -110,9 +110,16 @@ export type ColumnType<S, I = S, U = S> = S &
 /**
  * Base Generated brand without Kysely phantom properties.
  * Used as the __select__ return type to preserve branding on SELECT.
+ *
+ * Uses VariantMarker<T | undefined, T> so that Generated fields are:
+ * - Optional on insert (T | undefined) - can be provided or omitted
+ * - Required on update (T) - must provide value if updating
+ *
+ * This differs from ColumnType<S, never, never> which completely excludes
+ * the field from insert (used for auto-generated IDs).
  */
 type GeneratedBrand<T> = T &
-  VariantMarker<never, T> & {
+  VariantMarker<T | undefined, T> & {
     readonly [GeneratedId]: true;
   };
 
@@ -294,7 +301,8 @@ function getColumnTypeSchemas(ast: AST.AST) {
 const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
 
 const isOptionalType = (ast: AST.AST) => {
-  // Check for Union(T, Undefined) pattern
+  // Check for Union(T, Undefined) or Union(T, null) patterns
+  // These are optional on insert because omitting = NULL in DB
   if (!AST.isUnion(ast)) {
     return false;
   }
@@ -414,13 +422,30 @@ const extractParametersFromTypeLiteral = (
 /**
  * Extract the insert type from a field using VariantMarker:
  * - ColumnType<S, I, U> -> I (via VariantMarker)
- * - Generated<T> -> never (via VariantMarker)
+ * - Generated<T> -> T | undefined (via VariantMarker)
  * - Other types -> as-is
  *
  * Uses the mapped type in VariantMarker which survives declaration emit.
  * TypeScript cannot simplify `[_ in "insert"]: I` so the type information is preserved.
  */
 type ExtractInsertType<T> = T extends VariantMarker<infer I, unknown> ? I : T;
+
+/**
+ * Check if a type is nullable (includes null or undefined).
+ * Matches Kysely's IfNullable behavior:
+ *   type IfNullable<T, K> = undefined extends T ? K : null extends T ? K : never;
+ *
+ * A field is optional for insert if its InsertType can be null or undefined.
+ */
+type IsOptionalInsert<T> =
+  undefined extends ExtractInsertType<T> ? true : null extends ExtractInsertType<T> ? true : false;
+
+/**
+ * Extract the base type without null/undefined for optional fields.
+ * Keeps the type as-is (including null) for the property type,
+ * since the optionality is expressed via `?` not the type itself.
+ */
+type ExtractInsertBaseType<T> = ExtractInsertType<T>;
 
 /**
  * Extract the update type from a field using VariantMarker:
@@ -433,12 +458,28 @@ type ExtractInsertType<T> = T extends VariantMarker<infer I, unknown> ? I : T;
 type ExtractUpdateType<T> = T extends VariantMarker<unknown, infer U> ? U : T;
 
 /**
- * Custom Insertable type that properly omits fields with `never` insert types.
- * This handles ColumnType<S, never, U> fields (read-only ID fields).
+ * Custom Insertable type that:
+ * - Omits fields with `never` insert type (read-only IDs)
+ * - Makes fields with `T | undefined` insert type optional with type T
+ * - Keeps other fields required
  */
-type CustomInsertable<T> = DeepMutable<{
-  [K in keyof T as ExtractInsertType<T[K]> extends never ? never : K]: ExtractInsertType<T[K]>;
-}>;
+type CustomInsertable<T> = DeepMutable<
+  // Required fields (insert type doesn't include undefined)
+  {
+    [K in keyof T as ExtractInsertType<T[K]> extends never
+      ? never
+      : IsOptionalInsert<T[K]> extends true
+        ? never
+        : K]: ExtractInsertType<T[K]>;
+  } & {
+    // Optional fields (insert type includes undefined)
+    [K in keyof T as ExtractInsertType<T[K]> extends never
+      ? never
+      : IsOptionalInsert<T[K]> extends true
+        ? K
+        : never]?: ExtractInsertBaseType<T[K]>;
+  }
+>;
 
 /**
  * Custom Updateable type that properly omits fields with `never` update types.
@@ -531,7 +572,7 @@ export function Selectable<Type, Encoded>(
 
 /**
  * Create Insertable schema from base schema
- * Filters out generated fields (@effect/sql Model.Generated pattern)
+ * Generated fields (@default) are made optional, not excluded
  */
 export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
   const { ast } = schema;
@@ -544,18 +585,27 @@ export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
     >;
   }
 
-  // Extract and filter out generated fields entirely
-  const nonGeneratedProps = ast.propertySignatures.filter((prop) => !isGeneratedType(prop.type));
-
-  const filteredAst = new AST.TypeLiteral(nonGeneratedProps, ast.indexSignatures, ast.annotations);
-
-  const extracted = extractParametersFromTypeLiteral(filteredAst, 'insertSchema');
+  const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
 
   const fields = extracted.map((prop) => {
+    // Check if this is a Generated field - make it optional
+    const isGenerated = isGeneratedType(prop.type);
+
     // Make Union(T, null) fields optional and strip null from the type
     // For INSERT, omitting a field = null in DB, so explicit null is unnecessary
-    const isOptional = isOptionalType(prop.type);
-    const fieldType = isOptional ? stripNullFromUnion(prop.type) : prop.type;
+    const isOptional = isOptionalType(prop.type) || isGenerated;
+
+    // For generated fields, unwrap the base type from the Generated annotation
+    let fieldType = prop.type;
+    if (isGenerated) {
+      // Strip the Generated annotation to get the base type
+      fieldType = AST.annotations(prop.type, {
+        ...prop.type.annotations,
+        [GeneratedId]: undefined,
+      });
+    } else if (isOptionalType(prop.type)) {
+      fieldType = stripNullFromUnion(prop.type);
+    }
 
     return new AST.PropertySignature(
       prop.name,

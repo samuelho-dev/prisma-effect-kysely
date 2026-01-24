@@ -1,16 +1,20 @@
 {
   "name": "prisma-effect-kysely",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "description": "Prisma generator that creates Effect Schema types from Prisma schema compatible with Kysely",
   "license": "MIT",
   "author": "Samuel Ho",
-  "main": "dist/generator/index.js",
+  "main": "dist/kysely/helpers.js",
   "bin": {
     "prisma-effect-kysely": "dist/generator/index.js"
   },
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/kysely/helpers.d.ts",
+      "import": "./dist/kysely/helpers.js"
+    },
+    "./generator": {
       "types": "./dist/generator/index.d.ts",
       "import": "./dist/generator/index.js"
     },
