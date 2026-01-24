@@ -1,5 +1,23 @@
 # Changelog
 
+## 5.1.1
+
+### Patch Changes
+
+- f002cc2: fix: Use **update** property for type extraction instead of VariantMarker
+
+  The Updateable<T> and Insertable<T> types now use the **update** and **insert**
+  phantom properties for type extraction instead of the VariantMarker interface
+  with unique symbols.
+
+  This fixes an issue where the type extraction would fail during cross-compilation
+  when TypeScript compiles source files across module boundaries. The unique symbol
+  approach caused type matching failures because each compilation context could
+  create different symbol references.
+
+  The new approach using **update** and **insert** properties is more reliable
+  as these are standard object properties that TypeScript matches structurally.
+
 ## 5.1.0
 
 ### Minor Changes
