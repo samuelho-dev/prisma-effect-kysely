@@ -420,15 +420,17 @@ const extractParametersFromTypeLiteral = (
 // These custom types handle ColumnType and Generated correctly.
 
 /**
- * Extract the insert type from a field using VariantMarker:
- * - ColumnType<S, I, U> -> I (via VariantMarker)
- * - Generated<T> -> T | undefined (via VariantMarker)
+ * Extract the insert type from a field using the __insert__ phantom property:
+ * - ColumnType<S, I, U> -> I (via __insert__)
+ * - Generated<T> -> T | undefined (via __insert__)
  * - Other types -> as-is
  *
- * Uses the mapped type in VariantMarker which survives declaration emit.
- * TypeScript cannot simplify `[_ in "insert"]: I` so the type information is preserved.
+ * Uses the __insert__ property which is always present on ColumnType and Generated.
+ * This approach is more reliable across module boundaries than using VariantMarker
+ * with unique symbols, which can cause type matching failures when TypeScript
+ * compiles from source files with different symbol references.
  */
-type ExtractInsertType<T> = T extends VariantMarker<infer I, unknown> ? I : T;
+type ExtractInsertType<T> = T extends { readonly __insert__: infer I } ? I : T;
 
 /**
  * Check if a type is nullable (includes null or undefined).
@@ -448,14 +450,17 @@ type IsOptionalInsert<T> =
 type ExtractInsertBaseType<T> = ExtractInsertType<T>;
 
 /**
- * Extract the update type from a field using VariantMarker:
- * - ColumnType<S, I, U> -> U (via VariantMarker)
- * - Generated<T> -> T (via VariantMarker)
+ * Extract the update type from a field using the __update__ phantom property:
+ * - ColumnType<S, I, U> -> U (via __update__)
+ * - Generated<T> -> T (via __update__)
  * - Other types -> as-is
  *
- * Uses the mapped type in VariantMarker which survives declaration emit.
+ * Uses the __update__ property which is always present on ColumnType and Generated.
+ * This approach is more reliable across module boundaries than using VariantMarker
+ * with unique symbols, which can cause type matching failures when TypeScript
+ * compiles from source files with different symbol references.
  */
-type ExtractUpdateType<T> = T extends VariantMarker<unknown, infer U> ? U : T;
+type ExtractUpdateType<T> = T extends { readonly __update__: infer U } ? U : T;
 
 /**
  * Custom Insertable type that:
