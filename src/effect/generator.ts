@@ -73,10 +73,10 @@ export type ${name} = typeof ${name};`;
     const header = generateFileHeader();
 
     // Import runtime helpers from prisma-effect-kysely
-    // Selectable is used for DB interface: Selectable<Model>
+    // columnType and generated are used for field type annotations
     const imports = [
       `import { Schema } from "effect";`,
-      `import { columnType, generated, Selectable } from "prisma-effect-kysely";`,
+      `import { columnType, generated } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {

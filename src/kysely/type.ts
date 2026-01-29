@@ -66,23 +66,26 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field, m
 
 /**
  * Generate DB interface entry for a model
- * Uses Selectable<Model> pattern for Kysely compatibility.
- * The Selectable type utility extracts the SELECT type from the schema.
+ * Uses Schema.Schema.Type<Model> to preserve phantom properties (__select__, __insert__, __update__)
+ * that Kysely needs for correct INSERT/UPDATE type inference.
+ *
+ * Previously used Selectable<Model> but this stripped the phantom properties,
+ * causing Kysely to require all fields on INSERT (including generated/read-only fields).
  */
 export function generateDBInterfaceEntry(model: DMMF.Model) {
   const tableName = model.dbName || model.name;
   const modelName = toPascalCase(model.name);
-  return `  ${tableName}: Selectable<${modelName}>;`;
+  return `  ${tableName}: Schema.Schema.Type<typeof ${modelName}>;`;
 }
 
 /**
  * Generate DB interface entry for a join table
- * Uses Selectable<JoinTable> pattern for Kysely compatibility
+ * Uses Schema.Schema.Type to preserve phantom properties for Kysely compatibility
  */
 export function generateJoinTableDBInterfaceEntry(joinTable: JoinTableInfo) {
   const { tableName, relationName } = joinTable;
   const schemaName = toPascalCase(relationName);
-  return `  ${tableName}: Selectable<${schemaName}>;`;
+  return `  ${tableName}: Schema.Schema.Type<typeof ${schemaName}>;`;
 }
 
 /**

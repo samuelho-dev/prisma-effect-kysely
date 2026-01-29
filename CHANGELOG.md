@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.2.0
+
+### Minor Changes
+
+- Remove Selectable wrapper from generated DB interface to preserve Kysely phantom properties
+
+  The DB interface now uses `Schema.Schema.Type<typeof Model>` instead of `Selectable<Model>`, which preserves the `__select__`, `__insert__`, and `__update__` phantom properties. This allows Kysely's type inference to correctly:
+  - Exclude fields with `never` insert type (e.g., auto-generated IDs via `columnType`)
+  - Make `Generated<T>` fields optional on insert
+  - Eliminate the need for `as never` casts on `.values()` calls
+
 ## 5.1.1
 
 ### Patch Changes

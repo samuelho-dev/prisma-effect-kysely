@@ -182,11 +182,11 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).not.toMatch(/export type UserSelectEncoded\s*=/);
     });
 
-    it('should generate DB interface with Selectable<Model> pattern', () => {
+    it('should generate DB interface with Schema.Schema.Type pattern', () => {
       expect(typesContent).toContain('export interface DB');
-      expect(typesContent).toMatch(/:\s*Selectable<\w+>;/);
+      expect(typesContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
 
-      // Should use Selectable<Model> pattern, not Schema.Schema.Encoded
+      // Should use Schema.Schema.Type<typeof Model> to preserve phantom properties
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
       const dbContent = dbMatch?.[1];
@@ -269,8 +269,10 @@ describe('Code Generation - E2E and Validation', () => {
 
     it('should use @@map for table names in DB interface', () => {
       // CompositeIdModel has @@map("composite_id_table")
-      // DB interface uses Selectable<Model> pattern
-      expect(typesContent).toMatch(/composite_id_table:\s*Selectable<CompositeIdModel>/);
+      // DB interface uses Schema.Schema.Type<typeof Model> to preserve phantom properties
+      expect(typesContent).toMatch(
+        /composite_id_table:\s*Schema\.Schema\.Type<typeof CompositeIdModel>/
+      );
     });
   });
 
@@ -364,8 +366,8 @@ describe('Code Generation - E2E and Validation', () => {
 
       const dbContent = dbMatch?.[1];
 
-      // Should have entries for models using Selectable<Model> pattern
-      expect(dbContent).toMatch(/:\s*Selectable<\w+>;/);
+      // Should have entries for models using Schema.Schema.Type<typeof Model> pattern
+      expect(dbContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
     });
   });
 

@@ -62,7 +62,7 @@ describe('Kysely Native Integration', () => {
     it('should generate Effect schemas with columnType and generated helpers', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // Should import from prisma-effect-kysely (includes columnType, generated, Selectable)
+      // Should import from prisma-effect-kysely (includes columnType, generated)
       expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
 
       // Should generate schemas directly (no underscore prefix)
@@ -89,14 +89,14 @@ describe('Kysely Native Integration', () => {
     });
   });
 
-  describe('DB Interface with Selectable Pattern', () => {
-    it('should use Selectable<Model> in DB interface', async () => {
+  describe('DB Interface with Schema.Schema.Type Pattern', () => {
+    it('should use Schema.Schema.Type<typeof Model> in DB interface', async () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
-      // DB interface should use Selectable<Model> pattern
+      // DB interface should use Schema.Schema.Type<typeof Model> to preserve phantom properties
       expect(typesContent).toMatch(/export interface DB \{/);
-      expect(typesContent).toMatch(/User:\s*Selectable<User>/);
-      expect(typesContent).toMatch(/Post:\s*Selectable<Post>/);
+      expect(typesContent).toMatch(/User:\s*Schema\.Schema\.Type<typeof User>/);
+      expect(typesContent).toMatch(/Post:\s*Schema\.Schema\.Type<typeof Post>/);
 
       // Should NOT use SelectEncoded in DB interface
       expect(typesContent).not.toMatch(/User:\s*UserSelectEncoded/);
@@ -109,8 +109,8 @@ describe('Kysely Native Integration', () => {
       const typesContent = await fs.readFile(path.join(outputDir, 'types.ts'), 'utf-8');
 
       // Package provides Insertable, Selectable, Updateable utilities
-      // DB interface uses Selectable<Model> pattern
-      expect(typesContent).toMatch(/Selectable<User>/);
+      // DB interface uses Schema.Schema.Type<typeof Model> to preserve phantom properties
+      expect(typesContent).toMatch(/Schema\.Schema\.Type<typeof User>/);
 
       // Effect schemas use columnType for read-only ID fields
       expect(typesContent).toContain('columnType(');

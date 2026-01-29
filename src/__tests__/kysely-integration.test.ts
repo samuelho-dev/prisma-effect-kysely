@@ -78,10 +78,10 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/export type User = typeof User/);
     });
 
-    it('should generate DB interface with Selectable<Model> pattern', () => {
-      // DB interface uses Selectable<Model> for Kysely compatibility
+    it('should generate DB interface with Schema.Schema.Type pattern', () => {
+      // DB interface uses Schema.Schema.Type<typeof Model> to preserve phantom properties
       expect(typesContent).toContain('export interface DB');
-      expect(typesContent).toMatch(/:\s*Selectable<\w+>;/);
+      expect(typesContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
     });
 
     it('should define DB as interface not type', () => {
@@ -112,8 +112,10 @@ describe('Kysely Integration - Functional Tests', () => {
 
     it('should use @@map for table names in DB interface', () => {
       // CompositeIdModel has @@map("composite_id_table")
-      // DB interface uses mapped table name with Selectable<Model>
-      expect(typesContent).toMatch(/composite_id_table:\s*Selectable<CompositeIdModel>/);
+      // DB interface uses mapped table name with Schema.Schema.Type<typeof Model>
+      expect(typesContent).toMatch(
+        /composite_id_table:\s*Schema\.Schema\.Type<typeof CompositeIdModel>/
+      );
     });
   });
 
@@ -150,8 +152,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
       const dbContent = dbMatch?.[1];
 
-      // Should have entries for each model using Selectable<Model>
-      expect(dbContent).toMatch(/:\s*Selectable<\w+>;/);
+      // Should have entries for each model using Schema.Schema.Type<typeof Model>
+      expect(dbContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
     });
   });
 
@@ -169,30 +171,30 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should use Selectable<Model> pattern for type safety', () => {
-      // DB interface uses Selectable<Model> for Kysely compatibility
+    it('should use Schema.Schema.Type pattern for type safety', () => {
+      // DB interface uses Schema.Schema.Type<typeof Model> to preserve phantom properties
       // Consumers use Insertable<User>, Selectable<User>, Updateable<User>
-      expect(typesContent).toMatch(/Selectable<\w+>/);
+      expect(typesContent).toMatch(/Schema\.Schema\.Type<typeof \w+>/);
     });
 
-    it('should generate DB interface with Selectable pattern', () => {
-      // DB interface uses Selectable<Model> for type compatibility
+    it('should generate DB interface with Schema.Schema.Type pattern', () => {
+      // DB interface uses Schema.Schema.Type<typeof Model> to preserve phantom properties
       const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
       expect(dbMatch).toBeTruthy();
 
       const dbContent = dbMatch?.[1];
 
-      // Should use Selectable<Model> pattern
-      expect(dbContent).toMatch(/:\s*Selectable<\w+>;/);
+      // Should use Schema.Schema.Type<typeof Model> pattern
+      expect(dbContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
 
       // Should NOT use Schema.Schema.Encoded inline
       expect(dbContent).not.toMatch(/Schema\.Schema\.Encoded/);
     });
 
-    it('should support junction table queries with Selectable pattern', () => {
+    it('should support junction table queries with Schema.Schema.Type pattern', () => {
       // Junction tables (implicit M2M) should be in DB interface
       // Example: _product_tags, _CategoryToPost
-      expect(typesContent).toMatch(/_product_tags:\s*Selectable<\w+>/);
+      expect(typesContent).toMatch(/_product_tags:\s*Schema\.Schema\.Type<typeof \w+>/);
     });
   });
 
@@ -271,8 +273,8 @@ describe('Kysely Integration - Functional Tests', () => {
 
       const dbContent = dbMatch?.[1];
 
-      // Should have table entries with Selectable<Model>
-      expect(dbContent).toMatch(/\w+:\s*Selectable<\w+>;/);
+      // Should have table entries with Schema.Schema.Type<typeof Model>
+      expect(dbContent).toMatch(/\w+:\s*Schema\.Schema\.Type<typeof \w+>;/);
     });
 
     it('should generate schemas compatible with Effect runtime', () => {
