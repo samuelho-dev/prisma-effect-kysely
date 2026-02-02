@@ -217,3 +217,12 @@ model session_model_preference {
 
   @@map("session_preferences")
 }
+
+// Model with Int ID for testing numeric ID generation
+model Todo {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  Int
+}

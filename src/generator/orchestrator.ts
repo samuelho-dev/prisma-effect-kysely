@@ -104,7 +104,10 @@ export class GeneratorOrchestrator {
     const enums = this.prismaGen.getEnums();
     if (enums.length > 0) {
       const enumsContent = this.effectGen.generateEnums(enums);
-      await domainFileManager.writeFile('enums.ts', enumsContent);
+      // Only write the file if there are enums (content is not null)
+      if (enumsContent !== null) {
+        await domainFileManager.writeFile('enums.ts', enumsContent);
+      }
     }
 
     // Generate types for this domain's models only
@@ -157,17 +160,22 @@ export class GeneratorOrchestrator {
     await domainFileManager.writeFile('types.ts', content);
 
     // Generate index file
-    const indexContent = this.kyselyGen.generateIndexFile();
+    const indexContent = this.kyselyGen.generateIndexFile(hasEnums);
     await domainFileManager.writeFile('index.ts', indexContent);
   }
 
   /**
    * Generate enums.ts file
+   * Only generates the file if there are enums to avoid empty files
    */
   private async generateEnums() {
     const enums = this.prismaGen.getEnums();
     const content = this.effectGen.generateEnums(enums);
-    await this.fileManager.writeFile('enums.ts', content);
+
+    // Only write the file if there are enums (content is not null)
+    if (content !== null) {
+      await this.fileManager.writeFile('enums.ts', content);
+    }
   }
 
   /**
@@ -224,9 +232,12 @@ export class GeneratorOrchestrator {
 
   /**
    * Generate index.ts file
+   * Only exports from enums if there are enums to avoid unnecessary imports
    */
   private async generateIndex() {
-    const content = this.kyselyGen.generateIndexFile();
+    const enums = this.prismaGen.getEnums();
+    const hasEnums = enums.length > 0;
+    const content = this.kyselyGen.generateIndexFile(hasEnums);
     await this.fileManager.writeFile('index.ts', content);
   }
 

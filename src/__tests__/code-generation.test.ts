@@ -97,8 +97,8 @@ describe('Code Generation - E2E and Validation', () => {
       const orchestrator = new GeneratorOrchestrator(options);
       await orchestrator.generate(options);
 
-      // Should still generate files
-      expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
+      // Should generate types and index files, but NOT enums.ts when there are no enums
+      expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(false);
       expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
       expect(existsSync(join(testOutputPath, 'index.ts'))).toBe(true);
 

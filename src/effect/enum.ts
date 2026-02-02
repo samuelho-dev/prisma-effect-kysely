@@ -12,10 +12,10 @@ import { toPascalCase } from '../utils/naming.js';
  * - Type alias with same name (value + type pattern)
  */
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
-  // Raw enum keeps original name (usually SCREAMING_SNAKE_CASE)
-  const enumName = enumDef.name;
-  // PascalCase name is exported as BOTH the Schema value AND the type
-  const pascalName = toPascalCase(enumDef.name);
+  // PascalCase name with "Enum" suffix for the enum itself to avoid naming conflicts
+  const enumPascalName = toPascalCase(enumDef.name) + 'Enum';
+  // PascalCase name for the Schema (without suffix)
+  const schemaName = toPascalCase(enumDef.name);
 
   // Generate native TypeScript enum members
   const enumMembers = enumDef.values
@@ -25,21 +25,25 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
     })
     .join(',\n');
 
-  // Export PascalCase as the Schema (not raw enum)
-  // This allows PayoutStatus to be used directly in Schema.Struct fields
-  // Also export type with same name for Insertable<User> pattern
-  return `export enum ${enumName} {
+  // Export PascalCase enum with "Enum" suffix to avoid naming conflicts
+  // Export Schema with original PascalCase name
+  return `export enum ${enumPascalName} {
 ${enumMembers}
 }
 
-export const ${pascalName} = Schema.Enums(${enumName});
-export type ${pascalName} = Schema.Schema.Type<typeof ${pascalName}>;`;
+export const ${schemaName} = Schema.Enums(${enumPascalName});
+export type ${schemaName} = Schema.Schema.Type<typeof ${schemaName}>;`;
 }
 
 /**
  * Generate all enum schemas as a single file content
+ * Returns null if there are no enums to avoid generating empty files
  */
 export function generateEnumsFile(enums: readonly DMMF.DatamodelEnum[]) {
+  if (enums.length === 0) {
+    return null;
+  }
+
   const header = generateFileHeader();
   const imports = `import { Schema } from "effect";`;
   const enumSchemas = enums.map(generateEnumSchema).join('\n\n');

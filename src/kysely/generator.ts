@@ -17,8 +17,13 @@ export class KyselyGenerator {
 
   /**
    * Generate index.ts re-export file
+   * Only exports from enums if there are enums to avoid unnecessary imports
    */
-  generateIndexFile() {
-    return `export * from "./enums";\nexport * from "./types";`;
+  generateIndexFile(hasEnums: boolean = true) {
+    if (hasEnums) {
+      return `export * from "./enums";\nexport * from "./types";`;
+    } else {
+      return `export * from "./types";`;
+    }
   }
 }

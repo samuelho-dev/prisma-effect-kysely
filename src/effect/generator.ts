@@ -16,6 +16,7 @@ export class EffectGenerator {
 
   /**
    * Generate enums.ts file content
+   * Returns null if there are no enums to avoid generating empty files
    */
   generateEnums(enums: readonly DMMF.DatamodelEnum[]) {
     return generateEnumsFile(enums);
@@ -33,7 +34,16 @@ export class EffectGenerator {
 
     const name = toPascalCase(model.name);
     const isUuid = isUuidField(idField);
-    const baseType = isUuid ? 'Schema.UUID' : 'Schema.String';
+
+    let baseType: string;
+    if (isUuid) {
+      baseType = 'Schema.UUID';
+    } else if (idField.type === 'Int') {
+      // For Int primary keys, use Schema.Number with positive validation
+      baseType = 'Schema.Number.pipe(Schema.positive())';
+    } else {
+      baseType = 'Schema.String';
+    }
 
     // Export Id as both value and type with same name
     return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
