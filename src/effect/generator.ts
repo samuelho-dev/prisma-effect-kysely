@@ -76,7 +76,7 @@ export type ${name} = typeof ${name};`;
     // columnType and generated are used for field type annotations
     const imports = [
       `import { Schema } from "effect";`,
-      `import { columnType, generated } from "prisma-effect-kysely";`,
+      `import { columnType, generated, JsonValue } from "prisma-effect-kysely";`,
     ];
 
     if (hasEnums) {

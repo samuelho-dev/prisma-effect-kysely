@@ -26,7 +26,7 @@ export const PRISMA_TO_EFFECT_SCHEMA = {
   Decimal: 'Schema.String', // For precision
   Boolean: 'Schema.Boolean',
   DateTime: 'Schema.DateFromSelf', // Native Date type for Kysely compatibility
-  Json: 'Schema.Unknown', // Safe unknown type
+  Json: 'JsonValue', // Recursive JSON type — prevents null absorption in NullOr
   Bytes: 'Schema.Uint8Array',
 } as const;
 
@@ -39,7 +39,7 @@ export const PRISMA_TO_TYPESCRIPT = {
   Float: 'number',
   Boolean: 'boolean',
   DateTime: 'Date',
-  Json: 'unknown',
+  Json: 'JsonValue',
   Bytes: 'Buffer',
   Decimal: 'string',
   BigInt: 'string', // Kysely convention

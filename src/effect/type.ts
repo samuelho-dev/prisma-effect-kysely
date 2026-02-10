@@ -21,7 +21,7 @@ const PRISMA_SCALAR_MAP = {
   Decimal: 'Schema.String', // For precision
   Boolean: 'Schema.Boolean',
   DateTime: 'Schema.DateFromSelf', // Native Date type for Kysely compatibility
-  Json: 'Schema.Unknown', // Safe unknown type
+  Json: 'JsonValue', // Recursive JSON type — prevents null absorption in NullOr
   Bytes: 'Schema.Uint8Array',
 } as const;
 

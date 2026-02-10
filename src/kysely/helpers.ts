@@ -253,6 +253,38 @@ export const generated = <S extends Schema.Schema.All>(schema: S) => {
 };
 
 // ============================================================================
+// JsonValue Schema (recursive JSON type for Prisma Json fields)
+// ============================================================================
+
+/**
+ * Standard recursive JSON value type.
+ *
+ * Used instead of `Schema.Unknown` for Prisma `Json` fields because:
+ * - `Schema.NullOr(Schema.Unknown)` resolves to `unknown` (null absorbed into unknown)
+ * - This causes the TS language server to hit depth limits resolving Selectable<T>
+ * - `Schema.NullOr(JsonValue)` stays concrete and resolvable
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ReadonlyArray<JsonValue>
+  | { readonly [key: string]: JsonValue };
+
+export const JsonValue: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(
+  (): Schema.Schema<JsonValue, JsonValue> =>
+    Schema.Union(
+      Schema.String,
+      Schema.Number,
+      Schema.Boolean,
+      Schema.Null,
+      Schema.Array(JsonValue),
+      Schema.Record({ key: Schema.String, value: JsonValue })
+    )
+);
+
+// ============================================================================
 // Type Helpers (defined early for use in schema functions)
 // ============================================================================
 
@@ -313,11 +345,7 @@ const isOptionalType = (ast: AST.AST) => {
   );
 };
 
-const isNullType = (ast: AST.AST) =>
-  AST.isLiteral(ast) &&
-  Object.entries(ast.annotations).find(
-    ([sym, value]) => sym === AST.IdentifierAnnotationId.toString() && value === 'null'
-  );
+const isNullType = (ast: AST.AST) => AST.isLiteral(ast) && ast.literal === null;
 
 /**
  * Strip null from a union type for Insertable fields.

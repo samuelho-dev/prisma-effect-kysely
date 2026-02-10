@@ -718,6 +718,25 @@ describe('Kysely Integration - Type Compatibility', () => {
       expect(postWithNullContent.content).toBeNull();
     });
 
+    it('should decode Insertable at runtime with nullable field omitted', () => {
+      const insertSchema = Insertable(_PostSchema);
+
+      // content is NullOr(String) — should be optional on insert
+      const withoutContent = Schema.decodeUnknownSync(insertSchema)({
+        title: 'Post without content',
+        author_id: '550e8400-e29b-41d4-a716-446655440000',
+      });
+      expect(withoutContent.title).toBe('Post without content');
+
+      // Should also work with content provided
+      const withContent = Schema.decodeUnknownSync(insertSchema)({
+        title: 'Post with content',
+        content: 'Some text',
+        author_id: '550e8400-e29b-41d4-a716-446655440000',
+      });
+      expect(withContent.content).toBe('Some text');
+    });
+
     it('should verify Insertable is compatible with Kysely Insertable', () => {
       type KyselyPostInsert = KyselyInsertable<TestDB['post']>;
       type OurPostInsert = Insertable<Post>;

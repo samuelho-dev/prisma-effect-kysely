@@ -222,7 +222,7 @@ describe('Effect Schema - Runtime Behavior', () => {
       expect(result).not.toHaveProperty('createdAt');
     });
 
-    it('should require nullable fields to be present (with null or value)', () => {
+    it('should make nullable fields optional on insert (omitting = NULL in DB)', () => {
       const ProductSchema = Schema.Struct({
         id: columnType(Schema.UUID, Schema.Never, Schema.Never),
         name: Schema.String,
@@ -230,15 +230,13 @@ describe('Effect Schema - Runtime Behavior', () => {
         price: Schema.NullOr(Schema.Number),
       });
 
-      // With null values (SQL semantics - null must be explicit)
-      const insertWithNulls = {
+      // Nullable fields can be omitted (SQL semantics - omitting = NULL)
+      const insertWithoutNullables = {
         name: 'Widget',
-        description: null,
-        price: null,
       };
 
-      const result1 = Schema.decodeUnknownSync(Insertable(ProductSchema))(insertWithNulls);
-      expect(result1).toEqual(insertWithNulls);
+      const result1 = Schema.decodeUnknownSync(Insertable(ProductSchema))(insertWithoutNullables);
+      expect(result1).toEqual(insertWithoutNullables);
 
       // With actual values
       const fullInsert = {
@@ -543,16 +541,14 @@ describe('Effect Schema - Runtime Behavior', () => {
         bio: Schema.NullOr(Schema.String),
       });
 
-      // Insertable: no id, no created_at, but bio must be present (null or value)
+      // Insertable: no id, no created_at, bio is optional (nullable = optional on insert)
       const insertResult = Schema.decodeUnknownSync(Insertable(baseSchema))({
         email: 'test@example.com',
         username: 'testuser',
-        bio: null,
       });
       expect(insertResult).toEqual({
         email: 'test@example.com',
         username: 'testuser',
-        bio: null,
       });
 
       // Updateable: partial update
@@ -592,12 +588,10 @@ describe('Effect Schema - Runtime Behavior', () => {
         roles: Schema.Array(Schema.String),
       });
 
-      // Insert: Required fields, arrays, and nullable fields (must be explicit)
+      // Insert: Required fields and arrays; nullable fields are optional (omitting = NULL)
       const insertData = {
         email: 'test@example.com',
         username: 'testuser',
-        bio: null,
-        avatar: null,
         roles: ['USER'],
       };
 
