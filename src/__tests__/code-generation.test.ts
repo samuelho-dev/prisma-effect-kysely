@@ -6,7 +6,12 @@ import prismaInternals from '@prisma/internals';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EffectGenerator } from '../effect/generator';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
-import { createMockDMMF, createMockEnum } from './helpers/dmmf-mocks';
+import {
+  createMockDMMF,
+  createMockEnum,
+  createMockField,
+  createMockModel,
+} from './helpers/dmmf-mocks';
 
 const { getDMMF } = prismaInternals;
 
@@ -203,6 +208,10 @@ describe('Code Generation - E2E and Validation', () => {
       expect(typesContent).not.toMatch(/InsertStrict/);
       expect(typesContent).not.toMatch(/UpdateStrict/);
     });
+
+    it('should generate Schema.Int branded ID for Int @id fields', () => {
+      expect(typesContent).toMatch(/const TodoId = Schema\.Int\.pipe\(Schema\.brand\("TodoId"\)\)/);
+    });
   });
 
   describe('TypeScript Validity', () => {
@@ -296,6 +305,71 @@ describe('Code Generation - E2E and Validation', () => {
       // Should NOT use SCREAMING_SNAKE_CASE in imports
       expect(header).not.toContain('PRODUCT_STATUS');
       expect(header).not.toContain('PRODUCT_TYPE');
+    });
+  });
+
+  describe('Branded ID Schema Type Selection', () => {
+    it('should generate Schema.Int for Int @id field', () => {
+      const model = createMockModel({ name: 'Todo' });
+      const fields = [
+        createMockField({ name: 'id', type: 'Int', isId: true, hasDefaultValue: true }),
+        createMockField({ name: 'title', type: 'String' }),
+      ];
+
+      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
+      const result = generator.generateBrandedIdSchema(model, fields);
+
+      expect(result).toContain('Schema.Int');
+      expect(result).not.toContain('Schema.String');
+      expect(result).toContain('Schema.brand("TodoId")');
+    });
+
+    it('should generate Schema.BigIntFromSelf for BigInt @id field', () => {
+      const model = createMockModel({ name: 'Counter' });
+      const fields = [
+        createMockField({ name: 'id', type: 'BigInt', isId: true, hasDefaultValue: true }),
+        createMockField({ name: 'value', type: 'Int' }),
+      ];
+
+      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
+      const result = generator.generateBrandedIdSchema(model, fields);
+
+      expect(result).toContain('Schema.BigIntFromSelf');
+      expect(result).not.toContain('Schema.String');
+      expect(result).toContain('Schema.brand("CounterId")');
+    });
+
+    it('should generate Schema.UUID for UUID @id field', () => {
+      const model = createMockModel({ name: 'User' });
+      const fields = [
+        createMockField({
+          name: 'id',
+          type: 'String',
+          isId: true,
+          hasDefaultValue: true,
+          nativeType: ['Uuid', []],
+        }),
+      ];
+
+      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
+      const result = generator.generateBrandedIdSchema(model, fields);
+
+      expect(result).toContain('Schema.UUID');
+      expect(result).toContain('Schema.brand("UserId")');
+    });
+
+    it('should generate Schema.String for non-UUID string @id field', () => {
+      const model = createMockModel({ name: 'Item' });
+      const fields = [
+        createMockField({ name: 'slug', type: 'String', isId: true, hasDefaultValue: true }),
+      ];
+
+      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
+      const result = generator.generateBrandedIdSchema(model, fields);
+
+      expect(result).toContain('Schema.String');
+      expect(result).not.toContain('Schema.UUID');
+      expect(result).toContain('Schema.brand("ItemId")');
     });
   });
 

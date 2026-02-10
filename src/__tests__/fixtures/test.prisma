@@ -203,6 +203,17 @@ model AnnotationTest {
 }
 
 // ============================================================================
+// INTEGER PRIMARY KEY - Testing Int @id generates Schema.Int branded ID
+// ============================================================================
+
+model Todo {
+  id        Int      @id @default(autoincrement())
+  title     String
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ============================================================================
 // NAMING STANDARDIZATION - Testing PascalCase conversion
 // ============================================================================
 

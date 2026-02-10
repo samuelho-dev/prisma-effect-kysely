@@ -32,12 +32,22 @@ export class EffectGenerator {
     }
 
     const name = toPascalCase(model.name);
-    const isUuid = isUuidField(idField);
-    const baseType = isUuid ? 'Schema.UUID' : 'Schema.String';
+    const baseType = this.getIdBaseType(idField);
 
     // Export Id as both value and type with same name
     return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
 export type ${name}Id = typeof ${name}Id.Type;`;
+  }
+
+  /**
+   * Determine the base Effect Schema type for an ID field.
+   * UUID strings → Schema.UUID, integers → Schema.Int, bigints → Schema.BigIntFromSelf, all others → Schema.String
+   */
+  private getIdBaseType(field: DMMF.Field) {
+    if (isUuidField(field)) return 'Schema.UUID';
+    if (field.type === 'Int') return 'Schema.Int';
+    if (field.type === 'BigInt') return 'Schema.BigIntFromSelf';
+    return 'Schema.String';
   }
 
   /**
