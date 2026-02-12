@@ -7,7 +7,6 @@ import type {
   ColumnType as KyselyColumnType,
   Generated as KyselyGenerated,
 } from 'kysely';
-import type { DeepMutable } from 'effect/Types';
 
 /**
  * Runtime helpers for Kysely schema integration
@@ -496,30 +495,31 @@ type ExtractUpdateType<T> = T extends { readonly __update__: infer U } ? U : T;
  * - Makes fields with `T | undefined` insert type optional with type T
  * - Keeps other fields required
  */
-type CustomInsertable<T> = DeepMutable<
+type CustomInsertable<T> =
   // Required fields (insert type doesn't include undefined)
   {
-    [K in keyof T as ExtractInsertType<T[K]> extends never
+    -readonly [K in keyof T as ExtractInsertType<T[K]> extends never
       ? never
       : IsOptionalInsert<T[K]> extends true
         ? never
         : K]: ExtractInsertType<T[K]>;
   } & {
     // Optional fields (insert type includes undefined)
-    [K in keyof T as ExtractInsertType<T[K]> extends never
+    -readonly [K in keyof T as ExtractInsertType<T[K]> extends never
       ? never
       : IsOptionalInsert<T[K]> extends true
         ? K
         : never]?: ExtractInsertBaseType<T[K]>;
-  }
->;
+  };
 
 /**
  * Custom Updateable type that properly omits fields with `never` update types.
  */
-type CustomUpdateable<T> = DeepMutable<{
-  [K in keyof T as ExtractUpdateType<T[K]> extends never ? never : K]?: ExtractUpdateType<T[K]>;
-}>;
+type CustomUpdateable<T> = {
+  -readonly [K in keyof T as ExtractUpdateType<T[K]> extends never ? never : K]?: ExtractUpdateType<
+    T[K]
+  >;
+};
 
 // Legacy aliases for backwards compatibility
 type MutableInsert<Type> = CustomInsertable<Type>;
