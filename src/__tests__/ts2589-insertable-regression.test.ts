@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { Schema } from 'effect';
 import { columnType, generated, Insertable, Updateable } from '../kysely/helpers';
 import type { Insertable as InsertableType } from '../kysely/helpers';
