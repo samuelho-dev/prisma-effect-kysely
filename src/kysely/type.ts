@@ -33,6 +33,11 @@ export function applyKyselyHelpers(fieldType: string, field: DMMF.Field, modelNa
   } else if (needsGenerated(field)) {
     return `generated(${fieldType})`;
   }
+  // Wrap Json fields with columnType so Kysely's distributive InsertType/UpdateType
+  // takes the ColumnType fast path instead of recursively expanding JsonValue
+  if (field.type === 'Json') {
+    return `columnType(${fieldType}, ${fieldType}, ${fieldType})`;
+  }
   return fieldType;
 }
 

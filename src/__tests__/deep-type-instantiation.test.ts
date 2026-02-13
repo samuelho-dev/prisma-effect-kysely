@@ -303,10 +303,13 @@ describe('Deep type instantiation - multiple tables simultaneously', () => {
 // ============================================================================
 // JsonValue field tests - TS2589 regression prevention
 // ============================================================================
-// JsonValue is a recursive type. Without short-circuit guards in
-// ExtractInsertType / ExtractUpdateType / StripKyselyWrapper,
-// TypeScript tries to fully expand the recursive type before evaluating
-// the conditional — hitting the depth limit.
+// JsonValue is a recursive type. Kysely's distributive InsertType/UpdateType
+// (`T extends ColumnType<...> ? ... : T`) expands each union member of JsonValue
+// recursively, hitting TypeScript's depth limit.
+//
+// Fix: Json fields are wrapped with columnType(JsonValue, JsonValue, JsonValue)
+// so Kysely's InsertType takes the ColumnType fast path (extracts via infer)
+// instead of distributing over the recursive union.
 
 const PaymentWithJson = Schema.Struct({
   id: columnType(PaymentId, Schema.Never, Schema.Never),
@@ -314,9 +317,10 @@ const PaymentWithJson = Schema.Struct({
   amount: Schema.Number,
   currency: Schema.String,
   status: generated(Schema.String),
-  last_payment_error: Schema.NullOr(JsonValue),
-  metadata: Schema.NullOr(JsonValue),
-  raw_response: JsonValue,
+  // Json fields wrapped in columnType — matches what the generator now produces
+  last_payment_error: Schema.NullOr(columnType(JsonValue, JsonValue, JsonValue)),
+  metadata: Schema.NullOr(columnType(JsonValue, JsonValue, JsonValue)),
+  raw_response: columnType(JsonValue, JsonValue, JsonValue),
   created_at: generated(Schema.DateFromSelf),
   updated_at: generated(Schema.DateFromSelf),
 });
@@ -379,5 +383,45 @@ describe('Deep type instantiation - JsonValue fields (TS2589 regression)', () =>
     expectTypeOf<Insert>().toHaveProperty('order_id');
     expectTypeOf<Insert>().toHaveProperty('last_payment_error');
     expectTypeOf<Insert>().toHaveProperty('raw_response');
+  });
+});
+
+// ============================================================================
+// Kysely query builder types with JsonValue — TS2589 regression
+// ============================================================================
+// These tests verify that Kysely's .values() and .set() methods compile
+// without TS2589 when used on tables with JsonValue fields.
+// This is the actual failure mode in production codebases.
+
+describe('Deep type instantiation - Kysely query builders with JsonValue', () => {
+  it('should type-check insertInto().values() for table with JsonValue fields', () => {
+    // Simulate: db.insertInto('payment_with_json').values(data)
+    // This triggers Kysely's InsertObject<DB, TB> which applies InsertType to each field
+    type ValuesBuilder = InsertQueryBuilder<JsonTestDB, 'payment_with_json', never>;
+
+    // If this compiles, InsertType did not trigger TS2589 on JsonValue fields
+    expectTypeOf<ValuesBuilder>().toBeObject();
+  });
+
+  it('should type-check updateTable().set() for table with JsonValue fields', () => {
+    // Simulate: db.updateTable('payment_with_json').set(data)
+    // This triggers Kysely's UpdateObject<DB, TB> which applies UpdateType to each field
+    type SetBuilder = UpdateQueryBuilder<
+      JsonTestDB,
+      'payment_with_json',
+      'payment_with_json',
+      never
+    >;
+
+    // If this compiles, UpdateType did not trigger TS2589 on JsonValue fields
+    expectTypeOf<SetBuilder>().toBeObject();
+  });
+
+  it('should type-check Kysely instance methods for JsonValue tables', () => {
+    // The full Kysely<DB> type resolves all table types in the DB interface
+    type DB = Kysely<JsonTestDB>;
+
+    // If this compiles, none of the JsonValue fields caused TS2589
+    expectTypeOf<DB>().toBeObject();
   });
 });
