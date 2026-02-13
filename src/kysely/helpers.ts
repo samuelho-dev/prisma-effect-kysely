@@ -457,11 +457,7 @@ const extractParametersFromTypeLiteral = (
  * with unique symbols, which can cause type matching failures when TypeScript
  * compiles from source files with different symbol references.
  */
-type ExtractInsertType<T> = T extends JsonValue
-  ? T
-  : T extends { readonly __insert__: infer I }
-    ? I
-    : T;
+type ExtractInsertType<T> = [T] extends [{ readonly __insert__: infer I }] ? I : T;
 
 /**
  * Check if a type is nullable (includes null or undefined).
@@ -491,11 +487,7 @@ type ExtractInsertBaseType<T> = ExtractInsertType<T>;
  * with unique symbols, which can cause type matching failures when TypeScript
  * compiles from source files with different symbol references.
  */
-type ExtractUpdateType<T> = T extends JsonValue
-  ? T
-  : T extends { readonly __update__: infer U }
-    ? U
-    : T;
+type ExtractUpdateType<T> = [T] extends [{ readonly __update__: infer U }] ? U : T;
 
 /**
  * Custom Insertable type that:
@@ -542,17 +534,19 @@ type MutableUpdate<Type> = CustomUpdateable<Type>;
  * For non-Generated types, returns as-is.
  * Preserves branded foreign keys (UserId, ProductId, etc.).
  */
-type StripGeneratedWrapper<T> = T extends GeneratedBrand<infer U> ? U : T;
+type StripGeneratedWrapper<T> = [T] extends [GeneratedBrand<infer U>] ? U : T;
 
 /**
  * Strip ColumnType wrapper, extracting the select type S.
  * Must check AFTER Generated because Generated<T> also has __select__.
  * Uses __insert__ existence to differentiate ColumnType from other types.
  */
-type StripColumnTypeWrapper<T> = T extends {
-  readonly __select__: infer S;
-  readonly __insert__: unknown;
-}
+type StripColumnTypeWrapper<T> = [T] extends [
+  {
+    readonly __select__: infer S;
+    readonly __insert__: unknown;
+  },
+]
   ? S
   : T;
 
@@ -561,9 +555,7 @@ type StripColumnTypeWrapper<T> = T extends {
  * Order matters: check Generated first, then ColumnType.
  * Preserves branded foreign keys (UserId, ProductId, etc.).
  */
-type StripKyselyWrapper<T> = T extends JsonValue
-  ? T
-  : StripColumnTypeWrapper<StripGeneratedWrapper<T>>;
+type StripKyselyWrapper<T> = StripColumnTypeWrapper<StripGeneratedWrapper<T>>;
 
 /**
  * Strip Kysely wrappers from all fields in a type.
