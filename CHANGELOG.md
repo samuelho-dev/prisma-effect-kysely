@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.3.3
+
+### Patch Changes
+
+- Fix TS2589 "Type instantiation is excessively deep" for schemas with JsonValue fields
+
+  Added short-circuit guards in `ExtractInsertType`, `ExtractUpdateType`, and `StripKyselyWrapper` type utilities to avoid expanding the recursive `JsonValue` type before evaluating conditional type checks. This fixes the TS2589 error when using `Selectable<T>`, `Insertable<T>`, or `Updateable<T>` on schemas containing `JsonValue | null` fields (e.g., Prisma `Json?` columns).
+
 ## 5.3.2
 
 ### Patch Changes

@@ -84,20 +84,18 @@ export function createMockModel(overrides: Partial<DMMF.Model> & { name: string 
  */
 export function createMockField(overrides: Partial<DMMF.Field> & { name: string }): DMMF.Field {
   return {
-    name: overrides.name,
-    kind: overrides.kind ?? 'scalar',
-    type: overrides.type ?? 'String',
-    isList: overrides.isList ?? false,
-    isRequired: overrides.isRequired ?? true,
-    isUnique: overrides.isUnique ?? false,
-    isId: overrides.isId ?? false,
-    isReadOnly: overrides.isReadOnly ?? false,
-    hasDefaultValue: overrides.hasDefaultValue ?? false,
-    relationName: overrides.relationName,
-    documentation: overrides.documentation,
-    nativeType: overrides.nativeType,
-    dbName: overrides.dbName ?? null,
-    isGenerated: overrides.isGenerated ?? false,
-    isUpdatedAt: overrides.isUpdatedAt ?? false,
+    kind: 'scalar',
+    type: 'String',
+    isList: false,
+    isRequired: true,
+    isUnique: false,
+    isId: false,
+    isReadOnly: false,
+    hasDefaultValue: false,
+    nativeType: null,
+    dbName: null,
+    isGenerated: false,
+    isUpdatedAt: false,
+    ...overrides,
   };
 }

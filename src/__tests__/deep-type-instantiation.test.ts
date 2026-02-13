@@ -32,7 +32,16 @@ import type {
   UpdateQueryBuilder,
 } from 'kysely';
 import { describe, it, expectTypeOf } from 'vitest';
-import { columnType, generated, type ColumnType, type Generated } from '../kysely/helpers';
+import {
+  columnType,
+  generated,
+  JsonValue,
+  type ColumnType,
+  type Generated,
+  type Selectable,
+  type Insertable,
+  type Updateable,
+} from '../kysely/helpers';
 
 // ============================================================================
 // Simulate a realistically complex database schema (20+ fields per table)
@@ -288,5 +297,87 @@ describe('Deep type instantiation - multiple tables simultaneously', () => {
     expectTypeOf<AllSelectables>().toHaveProperty('product');
     expectTypeOf<AllSelectables>().toHaveProperty('order');
     expectTypeOf<AllSelectables>().toHaveProperty('payment');
+  });
+});
+
+// ============================================================================
+// JsonValue field tests - TS2589 regression prevention
+// ============================================================================
+// JsonValue is a recursive type. Without short-circuit guards in
+// ExtractInsertType / ExtractUpdateType / StripKyselyWrapper,
+// TypeScript tries to fully expand the recursive type before evaluating
+// the conditional — hitting the depth limit.
+
+const PaymentWithJson = Schema.Struct({
+  id: columnType(PaymentId, Schema.Never, Schema.Never),
+  order_id: OrderId,
+  amount: Schema.Number,
+  currency: Schema.String,
+  status: generated(Schema.String),
+  last_payment_error: Schema.NullOr(JsonValue),
+  metadata: Schema.NullOr(JsonValue),
+  raw_response: JsonValue,
+  created_at: generated(Schema.DateFromSelf),
+  updated_at: generated(Schema.DateFromSelf),
+});
+
+interface JsonTestDB {
+  payment_with_json: Schema.Schema.Type<typeof PaymentWithJson>;
+}
+
+describe('Deep type instantiation - JsonValue fields (TS2589 regression)', () => {
+  it('should resolve Selectable<PaymentWithJson> without TS2589', () => {
+    type Select = Selectable<typeof PaymentWithJson>;
+
+    expectTypeOf<Select>().toHaveProperty('id');
+    expectTypeOf<Select>().toHaveProperty('order_id');
+    expectTypeOf<Select>().toHaveProperty('last_payment_error');
+    expectTypeOf<Select>().toHaveProperty('metadata');
+    expectTypeOf<Select>().toHaveProperty('raw_response');
+  });
+
+  it('should resolve Insertable<PaymentWithJson> without TS2589', () => {
+    type Insert = Insertable<typeof PaymentWithJson>;
+
+    // id should be excluded (never insert)
+    expectTypeOf<Insert>().not.toHaveProperty('id');
+
+    // order_id should be required
+    expectTypeOf<Insert>().toHaveProperty('order_id');
+
+    // JsonValue fields should be present
+    expectTypeOf<Insert>().toHaveProperty('last_payment_error');
+    expectTypeOf<Insert>().toHaveProperty('metadata');
+    expectTypeOf<Insert>().toHaveProperty('raw_response');
+  });
+
+  it('should resolve Updateable<PaymentWithJson> without TS2589', () => {
+    type Update = Updateable<typeof PaymentWithJson>;
+
+    // id should be excluded (never update)
+    expectTypeOf<Update>().not.toHaveProperty('id');
+
+    // JsonValue fields should be present
+    expectTypeOf<Update>().toHaveProperty('last_payment_error');
+    expectTypeOf<Update>().toHaveProperty('metadata');
+    expectTypeOf<Update>().toHaveProperty('raw_response');
+  });
+
+  it('should resolve KyselySelectable with JsonValue fields without TS2589', () => {
+    type Select = KyselySelectable<JsonTestDB['payment_with_json']>;
+
+    expectTypeOf<Select>().toHaveProperty('id');
+    expectTypeOf<Select>().toHaveProperty('last_payment_error');
+    expectTypeOf<Select>().toHaveProperty('metadata');
+    expectTypeOf<Select>().toHaveProperty('raw_response');
+  });
+
+  it('should resolve KyselyInsertable with JsonValue fields without TS2589', () => {
+    type Insert = KyselyInsertable<JsonTestDB['payment_with_json']>;
+
+    expectTypeOf<Insert>().not.toHaveProperty('id');
+    expectTypeOf<Insert>().toHaveProperty('order_id');
+    expectTypeOf<Insert>().toHaveProperty('last_payment_error');
+    expectTypeOf<Insert>().toHaveProperty('raw_response');
   });
 });
