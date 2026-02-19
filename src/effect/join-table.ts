@@ -1,6 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
 import type { JoinTableInfo } from '../prisma/relation.js';
-import { isUuidField } from '../prisma/type.js';
 import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 /**
@@ -15,9 +14,9 @@ import { toPascalCase, toSnakeCase } from '../utils/naming.js';
  * Example:
  * - Database columns: A, B (Prisma requirement for implicit many-to-many)
  * - TypeScript fields: product_id, product_tag_id (semantic names)
- * - Types: columnType(Schema.UUID, Schema.Never, Schema.Never) (read-only)
+ * - Types: columnType(ProductId, Schema.Never, Schema.Never) (read-only, branded)
  */
-export function generateJoinTableSchema(joinTable: JoinTableInfo, dmmf: DMMF.Document) {
+export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document) {
   const { tableName, relationName, modelA, modelB } = joinTable;
 
   // Generate semantic snake_case field names from model names
@@ -25,22 +24,9 @@ export function generateJoinTableSchema(joinTable: JoinTableInfo, dmmf: DMMF.Doc
   const columnAFieldName = `${toSnakeCase(modelA)}_id`;
   const columnBFieldName = `${toSnakeCase(modelB)}_id`;
 
-  // Get ID field types for each model
-  const modelADef = dmmf.datamodel.models.find((m) => m.name === modelA);
-  const modelBDef = dmmf.datamodel.models.find((m) => m.name === modelB);
-
-  const modelAIdField = modelADef?.fields.find((f) => f.isId);
-  const modelBIdField = modelBDef?.fields.find((f) => f.isId);
-
-  // Determine base schema type for each ID field
-  const modelABaseType =
-    modelAIdField && isUuidField(modelAIdField) ? 'Schema.UUID' : 'Schema.String';
-  const modelBBaseType =
-    modelBIdField && isUuidField(modelBIdField) ? 'Schema.UUID' : 'Schema.String';
-
-  // Handle Int ID fields
-  const modelASchemaType = modelAIdField?.type === 'Int' ? 'Schema.Number' : modelABaseType;
-  const modelBSchemaType = modelBIdField?.type === 'Int' ? 'Schema.Number' : modelBBaseType;
+  // Reference branded ID schemas (e.g., ProductId, SellerId) generated earlier in the output
+  const modelASchemaType = `${toPascalCase(modelA)}Id`;
+  const modelBSchemaType = `${toPascalCase(modelB)}Id`;
 
   // Use columnType for read-only FK fields (can't insert/update join table rows directly)
   // Schema.propertySignature + Schema.fromKey maps TypeScript name to database column

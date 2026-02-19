@@ -218,8 +218,8 @@ describe('Join Table Generation - Functional Tests', () => {
     });
   });
 
-  describe('ID Type Handling', () => {
-    it('should handle UUID ID fields', async () => {
+  describe('Branded ID Type References', () => {
+    it('should reference branded ID schemas for UUID ID fields', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -240,10 +240,13 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('columnType(Schema.UUID, Schema.Never, Schema.Never)');
+      // Should reference branded ID schemas, not raw Schema.UUID
+      expect(generated).toContain('columnType(CategoryId, Schema.Never, Schema.Never)');
+      expect(generated).toContain('columnType(PostId, Schema.Never, Schema.Never)');
+      expect(generated).not.toContain('Schema.UUID');
     });
 
-    it('should handle Int ID fields', async () => {
+    it('should reference branded ID schemas for Int ID fields', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -264,10 +267,13 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      expect(generated).toContain('columnType(Schema.Number, Schema.Never, Schema.Never)');
+      // Should reference branded ID schemas regardless of underlying type
+      expect(generated).toContain('columnType(CategoryId, Schema.Never, Schema.Never)');
+      expect(generated).toContain('columnType(PostId, Schema.Never, Schema.Never)');
+      expect(generated).not.toContain('Schema.Number');
     });
 
-    it('should handle mixed ID types across models', async () => {
+    it('should reference branded ID schemas for mixed ID types across models', async () => {
       const schema = `
         datasource db {
           provider = "postgresql"
@@ -288,11 +294,40 @@ describe('Join Table Generation - Functional Tests', () => {
       const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
       const generated = generateJoinTableSchema(joinTables[0], dmmf);
 
-      // Post comes before Tag alphabetically, so A = Post (UUID), B = Tag (Int)
+      // Post comes before Tag alphabetically, so A = Post, B = Tag
       expect(generated).toContain('post_id:');
-      expect(generated).toContain('columnType(Schema.UUID, Schema.Never, Schema.Never)');
+      expect(generated).toContain('columnType(PostId, Schema.Never, Schema.Never)');
       expect(generated).toContain('tag_id:');
-      expect(generated).toContain('columnType(Schema.Number, Schema.Never, Schema.Never)');
+      expect(generated).toContain('columnType(TagId, Schema.Never, Schema.Never)');
+      // Should not contain raw schema types
+      expect(generated).not.toContain('Schema.UUID');
+      expect(generated).not.toContain('Schema.Number');
+    });
+
+    it('should derive branded ID name from PascalCase model name', async () => {
+      const schema = `
+        datasource db {
+          provider = "postgresql"
+        }
+
+        model UserProfile {
+          id           String         @id
+          permissions  UserPermission[]
+        }
+
+        model UserPermission {
+          id       String       @id
+          profiles UserProfile[]
+        }
+      `;
+
+      const dmmf = await getDMMF({ datamodel: schema });
+      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
+      const generated = generateJoinTableSchema(joinTables[0], dmmf);
+
+      // Branded IDs should follow PascalCase model name + "Id"
+      expect(generated).toContain('columnType(UserPermissionId, Schema.Never, Schema.Never)');
+      expect(generated).toContain('columnType(UserProfileId, Schema.Never, Schema.Never)');
     });
   });
 
