@@ -2,6 +2,18 @@ import type { DMMF } from '@prisma/generator-helper';
 import { isListField, isRequiredField, isUuidField } from '../prisma/type.js';
 import { extractEffectTypeOverride } from '../utils/annotations.js';
 import { toPascalCase } from '../utils/naming.js';
+import {
+  EMIT_BIGINT,
+  EMIT_BOOLEAN,
+  EMIT_BYTES,
+  EMIT_DATETIME,
+  EMIT_NUMBER,
+  EMIT_STRING,
+  EMIT_UNKNOWN,
+  EMIT_UUID,
+  emitArray,
+  emitNullOr,
+} from './emit-tokens.js';
 
 /**
  * Prisma scalar type mapping to Effect Schema types
@@ -14,15 +26,15 @@ import { toPascalCase } from '../utils/naming.js';
  * Schema.Date would encode to string, requiring ISO string conversions.
  */
 const PRISMA_SCALAR_MAP = {
-  String: 'Schema.String',
-  Int: 'Schema.Number',
-  Float: 'Schema.Number',
-  BigInt: 'Schema.BigInt',
-  Decimal: 'Schema.String', // For precision
-  Boolean: 'Schema.Boolean',
-  DateTime: 'Schema.DateFromSelf', // Native Date type for Kysely compatibility
+  String: EMIT_STRING,
+  Int: EMIT_NUMBER,
+  Float: EMIT_NUMBER,
+  BigInt: EMIT_BIGINT,
+  Decimal: EMIT_STRING, // For precision
+  Boolean: EMIT_BOOLEAN,
+  DateTime: EMIT_DATETIME, // Native Date type for Kysely compatibility
   Json: 'JsonValue', // Recursive JSON type — prevents null absorption in NullOr
-  Bytes: 'Schema.Uint8Array',
+  Bytes: EMIT_BYTES,
 } as const;
 
 /**
@@ -53,7 +65,7 @@ export function mapFieldToEffectType(
 
   // PRIORITY 3: Handle String type with UUID detection (non-FK UUIDs)
   if (field.type === 'String' && isUuidField(field)) {
-    return 'Schema.UUID';
+    return EMIT_UUID;
   }
 
   // PRIORITY 4: Handle scalar types with const assertion lookup
@@ -70,7 +82,7 @@ export function mapFieldToEffectType(
   }
 
   // PRIORITY 6: Fallback to Unknown
-  return 'Schema.Unknown';
+  return EMIT_UNKNOWN;
 }
 
 /**
@@ -89,13 +101,13 @@ export function buildFieldType(
 
   // Handle arrays
   if (isListField(field)) {
-    baseType = `Schema.Array(${baseType})`;
+    baseType = emitArray(baseType);
   }
 
   // Handle nullable fields - wrap with NullOr regardless of default value
   // This ensures SELECT type correctly allows null values (e.g., Boolean? @default(false))
   if (!isRequiredField(field)) {
-    baseType = `Schema.NullOr(${baseType})`;
+    baseType = emitNullOr(baseType);
   }
 
   return baseType;

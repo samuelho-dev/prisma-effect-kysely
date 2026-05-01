@@ -1,0 +1,250 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Generator output snapshot > matches snapshot for enums.ts, types.ts, and index.ts > enums.ts 1`] = `
+"/**
+ * Generated: 2024-01-01T00:00:00.000Z
+ * DO NOT EDIT MANUALLY
+ */
+
+import { Schema } from "effect";
+
+export enum Role {
+  ADMIN = "ADMIN",
+  GUEST = "GUEST",
+  USER = "USER"
+}
+
+export const Role = Schema.Enums(Role);
+export type Role = Schema.Schema.Type<typeof Role>;
+
+export enum Status {
+  ACTIVE = "active",
+  INACTIVE = "inactive",
+  PENDING = "pending"
+}
+
+export const Status = Schema.Enums(Status);
+export type Status = Schema.Schema.Type<typeof Status>;"
+`;
+
+exports[`Generator output snapshot > matches snapshot for enums.ts, types.ts, and index.ts > index.ts 1`] = `
+"export * from "./enums";
+export * from "./types";"
+`;
+
+exports[`Generator output snapshot > matches snapshot for enums.ts, types.ts, and index.ts > types.ts 1`] = `
+"/**
+ * Generated: 2024-01-01T00:00:00.000Z
+ * DO NOT EDIT MANUALLY
+ */
+
+import { Schema } from "effect";
+import { columnType, generated, JsonValue } from "prisma-effect-kysely";
+import { Role, Status } from "./enums";
+
+// ===== Branded ID Schemas =====
+export const AllTypesId = Schema.UUID.pipe(Schema.brand("AllTypesId"));
+export type AllTypesId = typeof AllTypesId.Type;
+
+export const AnnotationTestId = Schema.UUID.pipe(Schema.brand("AnnotationTestId"));
+export type AnnotationTestId = typeof AnnotationTestId.Type;
+
+export const CategoryId = Schema.UUID.pipe(Schema.brand("CategoryId"));
+export type CategoryId = typeof CategoryId.Type;
+
+export const EmployeeId = Schema.UUID.pipe(Schema.brand("EmployeeId"));
+export type EmployeeId = typeof EmployeeId.Type;
+
+export const PostId = Schema.UUID.pipe(Schema.brand("PostId"));
+export type PostId = typeof PostId.Type;
+
+export const ProductId = Schema.UUID.pipe(Schema.brand("ProductId"));
+export type ProductId = typeof ProductId.Type;
+
+export const ProductTagId = Schema.UUID.pipe(Schema.brand("ProductTagId"));
+export type ProductTagId = typeof ProductTagId.Type;
+
+export const ProfileId = Schema.UUID.pipe(Schema.brand("ProfileId"));
+export type ProfileId = typeof ProfileId.Type;
+
+export const SessionModelPreferenceId = Schema.UUID.pipe(Schema.brand("SessionModelPreferenceId"));
+export type SessionModelPreferenceId = typeof SessionModelPreferenceId.Type;
+
+export const TodoId = Schema.Int.pipe(Schema.brand("TodoId"));
+export type TodoId = typeof TodoId.Type;
+
+export const UserId = Schema.UUID.pipe(Schema.brand("UserId"));
+export type UserId = typeof UserId.Type;
+
+// ===== Model Schemas =====
+export const AllTypes = Schema.Struct({
+  bigIntArray: Schema.Array(Schema.BigInt),
+  bigIntField: Schema.BigInt,
+  boolArray: Schema.Array(Schema.Boolean),
+  boolField: Schema.Boolean,
+  bytesArray: Schema.Array(Schema.Uint8Array),
+  bytesField: Schema.Uint8Array,
+  createdAt: generated(Schema.DateFromSelf),
+  cuidField: generated(Schema.String),
+  dateArray: Schema.Array(Schema.DateFromSelf),
+  dateField: Schema.DateFromSelf,
+  decimalArray: Schema.Array(Schema.String),
+  decimalField: Schema.String,
+  floatArray: Schema.Array(Schema.Number),
+  floatField: Schema.Number,
+  id: columnType(AllTypesId, Schema.Never, Schema.Never),
+  intArray: Schema.Array(Schema.Number),
+  intField: Schema.Number,
+  jsonArray: columnType(Schema.Array(JsonValue), Schema.Array(JsonValue), Schema.Array(JsonValue)),
+  jsonField: columnType(JsonValue, JsonValue, JsonValue),
+  mappedField: Schema.propertySignature(Schema.String).pipe(Schema.fromKey("db_mapped_field")),
+  mappedWithDefault: Schema.propertySignature(generated(Schema.Number)).pipe(Schema.fromKey("mapped_default")),
+  optionalBigInt: Schema.NullOr(Schema.BigInt),
+  optionalBool: Schema.NullOr(Schema.Boolean),
+  optionalBytes: Schema.NullOr(Schema.Uint8Array),
+  optionalDate: Schema.NullOr(Schema.DateFromSelf),
+  optionalDecimal: Schema.NullOr(Schema.String),
+  optionalFloat: Schema.NullOr(Schema.Number),
+  optionalInt: Schema.NullOr(Schema.Number),
+  optionalJson: columnType(Schema.NullOr(JsonValue), Schema.NullOr(JsonValue), Schema.NullOr(JsonValue)),
+  optionalRole: Schema.NullOr(Role),
+  optionalStatus: Schema.NullOr(Status),
+  optionalString: Schema.NullOr(Schema.String),
+  role: Role,
+  roleArray: Schema.Array(Role),
+  session_id: generated(Schema.UUID),
+  status: Status,
+  statusArray: Schema.Array(Status),
+  stringArray: Schema.Array(Schema.String),
+  stringField: Schema.String,
+  tenant_id: Schema.UUID,
+  ulidField: generated(Schema.String),
+  uniqueEmail: Schema.String,
+  updatedAt: Schema.DateFromSelf
+});
+export type AllTypes = typeof AllTypes;
+
+export const AnnotationTest = Schema.Struct({
+  age: Schema.Number.pipe(Schema.positive()),
+  coordinates: Schema.Array(Schema.Array(Schema.Number).pipe(Schema.itemsCount(3))),
+  createdAt: generated(Schema.DateFromSelf),
+  email: Schema.String,
+  id: columnType(AnnotationTestId, Schema.Never, Schema.Never),
+  userId: Schema.String.pipe(Schema.brand('UserId'))
+});
+export type AnnotationTest = typeof AnnotationTest;
+
+export const Category = Schema.Struct({
+  id: columnType(CategoryId, Schema.Never, Schema.Never),
+  name: Schema.String
+});
+export type Category = typeof Category;
+
+export const CompositeIdModel = Schema.Struct({
+  postId: Schema.UUID,
+  timestamp: generated(Schema.DateFromSelf),
+  userId: Schema.UUID
+});
+export type CompositeIdModel = typeof CompositeIdModel;
+
+export const Employee = Schema.Struct({
+  id: columnType(EmployeeId, Schema.Never, Schema.Never),
+  managerId: Schema.NullOr(EmployeeId),
+  name: Schema.String
+});
+export type Employee = typeof Employee;
+
+export const Post = Schema.Struct({
+  authorId: UserId,
+  content: Schema.NullOr(Schema.String),
+  createdAt: generated(Schema.DateFromSelf),
+  id: columnType(PostId, Schema.Never, Schema.Never),
+  published: generated(Schema.Boolean),
+  title: Schema.String,
+  updatedAt: Schema.DateFromSelf
+});
+export type Post = typeof Post;
+
+export const Product = Schema.Struct({
+  id: columnType(ProductId, Schema.Never, Schema.Never),
+  name: Schema.String
+});
+export type Product = typeof Product;
+
+export const ProductTag = Schema.Struct({
+  id: columnType(ProductTagId, Schema.Never, Schema.Never),
+  name: Schema.String
+});
+export type ProductTag = typeof ProductTag;
+
+export const Profile = Schema.Struct({
+  bio: Schema.String,
+  id: columnType(ProfileId, Schema.Never, Schema.Never),
+  userId: UserId
+});
+export type Profile = typeof Profile;
+
+export const SessionModelPreference = Schema.Struct({
+  createdAt: generated(Schema.DateFromSelf),
+  id: columnType(SessionModelPreferenceId, Schema.Never, Schema.Never),
+  language: generated(Schema.String),
+  notifications: generated(Schema.Boolean),
+  theme: Schema.String,
+  updatedAt: Schema.DateFromSelf,
+  user_id: Schema.UUID
+});
+export type SessionModelPreference = typeof SessionModelPreference;
+
+export const Todo = Schema.Struct({
+  completed: generated(Schema.Boolean),
+  createdAt: generated(Schema.DateFromSelf),
+  id: columnType(TodoId, Schema.Never, Schema.Never),
+  title: Schema.String
+});
+export type Todo = typeof Todo;
+
+export const User = Schema.Struct({
+  createdAt: generated(Schema.DateFromSelf),
+  email: Schema.String,
+  id: columnType(UserId, Schema.Never, Schema.Never),
+  name: Schema.String,
+  updatedAt: Schema.DateFromSelf
+});
+export type User = typeof User;
+
+// _CategoryToPost Join Table Schema (Prisma implicit many-to-many)
+// Database columns: A (Category), B (Post)
+// TypeScript fields: category_id, post_id
+export const CategoryToPost = Schema.Struct({
+  category_id: Schema.propertySignature(columnType(CategoryId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
+  post_id: Schema.propertySignature(columnType(PostId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
+});
+export type CategoryToPost = typeof CategoryToPost;
+
+// _product_tags Join Table Schema (Prisma implicit many-to-many)
+// Database columns: A (Product), B (ProductTag)
+// TypeScript fields: product_id, product_tag_id
+export const ProductTags = Schema.Struct({
+  product_id: Schema.propertySignature(columnType(ProductId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
+  product_tag_id: Schema.propertySignature(columnType(ProductTagId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
+});
+export type ProductTags = typeof ProductTags;
+
+// Kysely Database Interface
+export interface DB {
+  AllTypes: Schema.Schema.Type<typeof AllTypes>;
+  AnnotationTest: Schema.Schema.Type<typeof AnnotationTest>;
+  Category: Schema.Schema.Type<typeof Category>;
+  composite_id_table: Schema.Schema.Type<typeof CompositeIdModel>;
+  Employee: Schema.Schema.Type<typeof Employee>;
+  Post: Schema.Schema.Type<typeof Post>;
+  Product: Schema.Schema.Type<typeof Product>;
+  ProductTag: Schema.Schema.Type<typeof ProductTag>;
+  Profile: Schema.Schema.Type<typeof Profile>;
+  session_preferences: Schema.Schema.Type<typeof SessionModelPreference>;
+  Todo: Schema.Schema.Type<typeof Todo>;
+  User: Schema.Schema.Type<typeof User>;
+  _CategoryToPost: Schema.Schema.Type<typeof CategoryToPost>;
+  _product_tags: Schema.Schema.Type<typeof ProductTags>;
+}"
+`;

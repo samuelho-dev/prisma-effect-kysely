@@ -1,4 +1,11 @@
 import type { DMMF } from '@prisma/generator-helper';
+import {
+  EMIT_NEVER,
+  emitColumnType,
+  emitFromKey,
+  emitGenerated,
+  emitSchemaType,
+} from '../effect/emit-tokens.js';
 import type { JoinTableInfo } from '../prisma/relation.js';
 import { getFieldDbName, hasDefaultValue, isIdField } from '../prisma/type.js';
 import { toPascalCase } from '../utils/naming.js';
@@ -29,14 +36,14 @@ export function applyKyselyHelpers(fieldType: string, field: DMMF.Field, modelNa
   if (needsColumnType(field)) {
     // For @id fields, use the model's branded ID type instead of Schema.UUID
     const idType = modelName ? `${toPascalCase(modelName)}Id` : fieldType;
-    return `columnType(${idType}, Schema.Never, Schema.Never)`;
+    return emitColumnType(idType, EMIT_NEVER, EMIT_NEVER);
   } else if (needsGenerated(field)) {
-    return `generated(${fieldType})`;
+    return emitGenerated(fieldType);
   }
   // Wrap Json fields with columnType so Kysely's distributive InsertType/UpdateType
   // takes the ColumnType fast path instead of recursively expanding JsonValue
   if (field.type === 'Json') {
-    return `columnType(${fieldType}, ${fieldType}, ${fieldType})`;
+    return emitColumnType(fieldType, fieldType, fieldType);
   }
   return fieldType;
 }
@@ -47,7 +54,7 @@ export function applyKyselyHelpers(fieldType: string, field: DMMF.Field, modelNa
 export function applyMapDirective(fieldType: string, field: DMMF.Field) {
   const dbName = getFieldDbName(field);
   if (field.dbName && field.dbName !== field.name) {
-    return `Schema.propertySignature(${fieldType}).pipe(Schema.fromKey("${dbName}"))`;
+    return emitFromKey(fieldType, dbName);
   }
   return fieldType;
 }
@@ -80,7 +87,7 @@ export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field, m
 export function generateDBInterfaceEntry(model: DMMF.Model) {
   const tableName = model.dbName || model.name;
   const modelName = toPascalCase(model.name);
-  return `  ${tableName}: Schema.Schema.Type<typeof ${modelName}>;`;
+  return `  ${tableName}: ${emitSchemaType(modelName)};`;
 }
 
 /**
@@ -90,7 +97,7 @@ export function generateDBInterfaceEntry(model: DMMF.Model) {
 export function generateJoinTableDBInterfaceEntry(joinTable: JoinTableInfo) {
   const { tableName, relationName } = joinTable;
   const schemaName = toPascalCase(relationName);
-  return `  ${tableName}: Schema.Schema.Type<typeof ${schemaName}>;`;
+  return `  ${tableName}: ${emitSchemaType(schemaName)};`;
 }
 
 /**

@@ -2,6 +2,7 @@ import type { DMMF } from '@prisma/generator-helper';
 import { getEnumValueDbName } from '../prisma/enum.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
+import { EMIT_EFFECT_IMPORT, emitEnums, emitSchemaType } from './emit-tokens.js';
 
 /**
  * Generate TypeScript enum + Effect Schema.Enums wrapper
@@ -32,8 +33,8 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
 ${enumMembers}
 }
 
-export const ${pascalName} = Schema.Enums(${enumName});
-export type ${pascalName} = Schema.Schema.Type<typeof ${pascalName}>;`;
+export const ${pascalName} = ${emitEnums(enumName)};
+export type ${pascalName} = ${emitSchemaType(pascalName)};`;
 }
 
 /**
@@ -41,7 +42,7 @@ export type ${pascalName} = Schema.Schema.Type<typeof ${pascalName}>;`;
  */
 export function generateEnumsFile(enums: readonly DMMF.DatamodelEnum[]) {
   const header = generateFileHeader();
-  const imports = `import { Schema } from "effect";`;
+  const imports = EMIT_EFFECT_IMPORT;
   const enumSchemas = enums.map(generateEnumSchema).join('\n\n');
 
   return `${header}\n\n${imports}\n\n${enumSchemas}`;

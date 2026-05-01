@@ -1,6 +1,7 @@
 import type { DMMF } from '@prisma/generator-helper';
 import type { JoinTableInfo } from '../prisma/relation.js';
 import { toPascalCase, toSnakeCase } from '../utils/naming.js';
+import { EMIT_NEVER, emitColumnType, emitFromKey } from './emit-tokens.js';
 
 /**
  * Generate Effect Schema for an implicit many-to-many join table
@@ -30,8 +31,8 @@ export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Do
 
   // Use columnType for read-only FK fields (can't insert/update join table rows directly)
   // Schema.propertySignature + Schema.fromKey maps TypeScript name to database column
-  const columnAField = `  ${columnAFieldName}: Schema.propertySignature(columnType(${modelASchemaType}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A"))`;
-  const columnBField = `  ${columnBFieldName}: Schema.propertySignature(columnType(${modelBSchemaType}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B"))`;
+  const columnAField = `  ${columnAFieldName}: ${emitFromKey(emitColumnType(modelASchemaType, EMIT_NEVER, EMIT_NEVER), 'A')}`;
+  const columnBField = `  ${columnBFieldName}: ${emitFromKey(emitColumnType(modelBSchemaType, EMIT_NEVER, EMIT_NEVER), 'B')}`;
 
   // Use PascalCase for exported name (consistent with regular models)
   const pascalName = toPascalCase(relationName);

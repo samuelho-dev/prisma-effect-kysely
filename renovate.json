@@ -51,6 +51,11 @@
       "description": "Pin Effect to avoid breaking changes",
       "matchPackageNames": ["effect"],
       "rangeStrategy": "pin"
+    },
+    {
+      "description": "Ignore Effect v4 prereleases on main; v4 migration tracked on the effect-v4 branch",
+      "matchPackageNames": ["effect", "@effect/vitest"],
+      "allowedVersions": "<4.0.0-0"
     }
   ],
   "vulnerabilityAlerts": {

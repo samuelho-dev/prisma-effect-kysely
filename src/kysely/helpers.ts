@@ -329,6 +329,55 @@ function getColumnTypeSchemas(ast: AST.AST) {
   return annotation as AnyColumnTypeSchemas;
 }
 
+// ============================================================================
+// Internal AST construction helpers
+// ============================================================================
+// Single swap point for the Effect v3 → v4 migration. Every direct call to
+// `new AST.X(...)`, `AST.Union.make`, `AST.annotations`, `Schema.make`, and
+// `Schema.asSchema` goes through these helpers so the v4 branch can change
+// each in one place. v4 deltas anticipated:
+// - makePropertySignature: 5-arg constructor → 2-arg + AST.optionalKey/mutableKey/annotateKey
+// - makeTypeLiteral: AST.TypeLiteral → AST.Objects
+// - makeUnion: AST.Union.make → new AST.Union(types, "anyOf")
+// - makeUndefined: new AST.UndefinedKeyword() → AST.undefined singleton
+// - stripAnns: AST.annotations(...) → AST.annotate(...)
+// - isStruct/isUndef/isNever: AST.isTypeLiteral → AST.isObjects, etc.
+// - reveal: Schema.asSchema → Schema.revealCodec
+
+const makePropertySignature = (
+  name: PropertyKey,
+  type: AST.AST,
+  isOptional: boolean,
+  isReadonly: boolean,
+  annotations: AST.PropertySignature['annotations']
+): AST.PropertySignature =>
+  new AST.PropertySignature(name, type, isOptional, isReadonly, annotations);
+
+const makeTypeLiteral = (
+  propertySignatures: ReadonlyArray<AST.PropertySignature>,
+  indexSignatures: ReadonlyArray<AST.IndexSignature>,
+  annotations: AST.TypeLiteral['annotations']
+): AST.TypeLiteral => new AST.TypeLiteral(propertySignatures, indexSignatures, annotations);
+
+const makeUnion = (types: ReadonlyArray<AST.AST>): AST.AST => AST.Union.make(types);
+
+const makeUndefined = (): AST.AST => new AST.UndefinedKeyword();
+
+const stripAnns = (ast: AST.AST, ids: ReadonlyArray<symbol>): AST.AST =>
+  AST.annotations(ast, {
+    ...ast.annotations,
+    ...Object.fromEntries(ids.map((id) => [id, undefined])),
+  });
+
+const isStruct = (ast: AST.AST): ast is AST.TypeLiteral => AST.isTypeLiteral(ast);
+const isUndef = (ast: AST.AST): boolean => AST.isUndefinedKeyword(ast);
+const isNever = (ast: AST.AST): boolean => AST.isNeverKeyword(ast);
+
+const reveal = <A, I, R>(schema: Schema.Schema<A, I, R>): Schema.Schema<A, I, R> =>
+  Schema.asSchema(schema);
+
+const makeSchemaFromAst = (ast: AST.AST) => Schema.make(ast);
+
 const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
 
 const isOptionalType = (ast: AST.AST) => {
@@ -339,8 +388,7 @@ const isOptionalType = (ast: AST.AST) => {
   }
 
   return (
-    ast.types.some((t: AST.AST) => AST.isUndefinedKeyword(t)) ||
-    ast.types.some((t: AST.AST) => isNullType(t))
+    ast.types.some((t: AST.AST) => isUndef(t)) || ast.types.some((t: AST.AST) => isNullType(t))
   );
 };
 
@@ -366,7 +414,7 @@ const stripNullFromUnion = (ast: AST.AST): AST.AST => {
 
   // If multiple types remain, create a new union without null
   if (nonNullTypes.length > 1) {
-    return AST.Union.make(nonNullTypes);
+    return makeUnion(nonNullTypes);
   }
 
   // Edge case: all types were null (shouldn't happen in practice)
@@ -386,14 +434,14 @@ const extractParametersFromTypeLiteral = (
 
         // Check for Schema.Never BEFORE mutable transformation
         // Schema.mutable() wraps in Transformation node, changing _tag
-        if (AST.isNeverKeyword(targetSchema.ast)) {
+        if (isNever(targetSchema.ast)) {
           return null; // Will be filtered out
         }
 
         // Use Schema.mutable() for insert/update schema to make arrays mutable
         // Kysely expects mutable T[] for insert/update operations
         const shouldBeMutable = schemaType === 'updateSchema' || schemaType === 'insertSchema';
-        return new AST.PropertySignature(
+        return makePropertySignature(
           prop.name,
           shouldBeMutable ? Schema.mutable(targetSchema).ast : targetSchema.ast,
           prop.isOptional,
@@ -408,12 +456,8 @@ const extractParametersFromTypeLiteral = (
         // Generated fields have the base schema stored in annotations
         // The AST is the annotated version of the base schema, so just strip annotations
         // Get the underlying type by removing the Generated annotation
-        const baseAst = AST.annotations(prop.type, {
-          ...prop.type.annotations,
-          [GeneratedId]: undefined,
-          [ColumnTypeId]: undefined,
-        });
-        return new AST.PropertySignature(
+        const baseAst = stripAnns(prop.type, [GeneratedId, ColumnTypeId]);
+        return makePropertySignature(
           prop.name,
           baseAst,
           prop.isOptional,
@@ -425,9 +469,9 @@ const extractParametersFromTypeLiteral = (
       // Apply Schema.mutable() to regular fields for insert/updateSchema to make arrays mutable
       // Safe for all types - no-op for non-arrays
       if (schemaType === 'updateSchema' || schemaType === 'insertSchema') {
-        return new AST.PropertySignature(
+        return makePropertySignature(
           prop.name,
-          Schema.mutable(Schema.asSchema(Schema.make(prop.type))).ast,
+          Schema.mutable(reveal(makeSchemaFromAst(prop.type))).ast,
           prop.isOptional,
           prop.isReadonly,
           prop.annotations
@@ -579,20 +623,20 @@ export function Selectable<Type, Encoded>(
   // Strip Generated/ColumnType wrappers to match what Kysely returns from queries
   // Branded foreign keys (UserId, ProductId) are preserved
   const { ast } = schema;
-  if (!AST.isTypeLiteral(ast)) {
+  if (!isStruct(ast)) {
     // Non-struct schemas: use as identity
     // Internal cast needed because Schema.make(ast) returns unknown types
     // The return type annotation is what TypeScript uses for declaration emit
-    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+    return reveal(makeSchemaFromAst(ast)) as Schema.Schema<
       StripKyselyWrappersFromObject<Type>,
       StripKyselyWrappersFromObject<Encoded>,
       never
     >;
   }
   // Extract select schemas from annotated fields (strips wrappers at runtime)
-  return Schema.asSchema(
-    Schema.make(
-      new AST.TypeLiteral(
+  return reveal(
+    makeSchemaFromAst(
+      makeTypeLiteral(
         extractParametersFromTypeLiteral(ast, 'selectSchema'),
         ast.indexSignatures,
         ast.annotations
@@ -611,9 +655,9 @@ export function Selectable<Type, Encoded>(
  */
 export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
   const { ast } = schema;
-  if (!AST.isTypeLiteral(ast)) {
+  if (!isStruct(ast)) {
     // Internal cast - return type annotation is what TypeScript uses for declaration emit
-    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+    return reveal(makeSchemaFromAst(ast)) as Schema.Schema<
       MutableInsert<Type>,
       MutableInsert<Encoded>,
       never
@@ -634,15 +678,12 @@ export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
     let fieldType = prop.type;
     if (isGenerated) {
       // Strip the Generated annotation to get the base type
-      fieldType = AST.annotations(prop.type, {
-        ...prop.type.annotations,
-        [GeneratedId]: undefined,
-      });
+      fieldType = stripAnns(prop.type, [GeneratedId]);
     } else if (isOptionalType(prop.type)) {
       fieldType = stripNullFromUnion(prop.type);
     }
 
-    return new AST.PropertySignature(
+    return makePropertySignature(
       prop.name,
       fieldType,
       isOptional,
@@ -651,8 +692,8 @@ export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
     );
   });
 
-  return Schema.asSchema(
-    Schema.make(new AST.TypeLiteral(fields, ast.indexSignatures, ast.annotations))
+  return reveal(
+    makeSchemaFromAst(makeTypeLiteral(fields, ast.indexSignatures, ast.annotations))
   ) as Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
 }
 
@@ -661,9 +702,9 @@ export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
  */
 export function Updateable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
   const { ast } = schema;
-  if (!AST.isTypeLiteral(ast)) {
+  if (!isStruct(ast)) {
     // Internal cast - return type annotation is what TypeScript uses for declaration emit
-    return Schema.asSchema(Schema.make(ast)) as Schema.Schema<
+    return reveal(makeSchemaFromAst(ast)) as Schema.Schema<
       MutableUpdate<Type>,
       MutableUpdate<Encoded>,
       never
@@ -672,22 +713,21 @@ export function Updateable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
 
-  const res = new AST.TypeLiteral(
-    extracted.map(
-      (prop) =>
-        new AST.PropertySignature(
-          prop.name,
-          AST.Union.make([prop.type, new AST.UndefinedKeyword()]),
-          true,
-          prop.isReadonly,
-          prop.annotations
-        )
+  const res = makeTypeLiteral(
+    extracted.map((prop) =>
+      makePropertySignature(
+        prop.name,
+        makeUnion([prop.type, makeUndefined()]),
+        true,
+        prop.isReadonly,
+        prop.annotations
+      )
     ),
     ast.indexSignatures,
     ast.annotations
   );
 
-  return Schema.asSchema(Schema.make(res)) as Schema.Schema<
+  return reveal(makeSchemaFromAst(res)) as Schema.Schema<
     MutableUpdate<Type>,
     MutableUpdate<Encoded>,
     never

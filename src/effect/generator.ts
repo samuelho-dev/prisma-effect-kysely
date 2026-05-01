@@ -4,6 +4,14 @@ import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
 import { isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
+import {
+  EMIT_BIGINT_FROM_SELF,
+  EMIT_EFFECT_IMPORT,
+  EMIT_INT,
+  EMIT_STRING,
+  EMIT_UUID,
+  emitBrand,
+} from './emit-tokens.js';
 import { generateEnumsFile } from './enum.js';
 import { generateJoinTableSchema } from './join-table.js';
 import { buildFieldType } from './type.js';
@@ -35,7 +43,7 @@ export class EffectGenerator {
     const baseType = this.getIdBaseType(idField);
 
     // Export Id as both value and type with same name
-    return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
+    return `export const ${name}Id = ${emitBrand(baseType, `${name}Id`)};
 export type ${name}Id = typeof ${name}Id.Type;`;
   }
 
@@ -44,10 +52,10 @@ export type ${name}Id = typeof ${name}Id.Type;`;
    * UUID strings → Schema.UUID, integers → Schema.Int, bigints → Schema.BigIntFromSelf, all others → Schema.String
    */
   private getIdBaseType(field: DMMF.Field) {
-    if (isUuidField(field)) return 'Schema.UUID';
-    if (field.type === 'Int') return 'Schema.Int';
-    if (field.type === 'BigInt') return 'Schema.BigIntFromSelf';
-    return 'Schema.String';
+    if (isUuidField(field)) return EMIT_UUID;
+    if (field.type === 'Int') return EMIT_INT;
+    if (field.type === 'BigInt') return EMIT_BIGINT_FROM_SELF;
+    return EMIT_STRING;
   }
 
   /**
@@ -85,7 +93,7 @@ export type ${name} = typeof ${name};`;
     // Import runtime helpers from prisma-effect-kysely
     // columnType and generated are used for field type annotations
     const imports = [
-      `import { Schema } from "effect";`,
+      EMIT_EFFECT_IMPORT,
       `import { columnType, generated, JsonValue } from "prisma-effect-kysely";`,
     ];
 
