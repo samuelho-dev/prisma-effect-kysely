@@ -104,10 +104,9 @@ describe('Kysely Integration - Functional Tests', () => {
       typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
     });
 
-    it('should use propertySignature with fromKey for @map fields', () => {
-      // Should use Schema.propertySignature(...).pipe(Schema.fromKey("db_name"))
-      expect(typesContent).toMatch(/Schema\.propertySignature/);
-      expect(typesContent).toMatch(/\.pipe\(\s*Schema\.fromKey\(/);
+    it('should use struct-level encodeKeys for @map fields', () => {
+      // v4: rename collected at struct level via Schema.encodeKeys({ ts: "db", ... })
+      expect(typesContent).toMatch(/\.pipe\(Schema\.encodeKeys\(\{/);
     });
 
     it('should use @@map for table names in DB interface', () => {
@@ -241,7 +240,7 @@ describe('Kysely Integration - Functional Tests', () => {
       expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
 
       // Branded ID schemas: ModelNameId
-      expect(typesContent).toMatch(/export const \w+Id = Schema\.\w+\.pipe\(Schema\.brand\(/);
+      expect(typesContent).toMatch(/export const \w+Id = Schema\..+?\.pipe\(Schema\.brand\(/);
 
       // Type aliases for type usage
       expect(typesContent).toMatch(/export type \w+ = typeof \w+/);

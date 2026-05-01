@@ -2,7 +2,6 @@ import type { DMMF } from '@prisma/generator-helper';
 import {
   EMIT_NEVER,
   emitColumnType,
-  emitFromKey,
   emitGenerated,
   emitSchemaType,
 } from '../effect/emit-tokens.js';
@@ -49,31 +48,26 @@ export function applyKyselyHelpers(fieldType: string, field: DMMF.Field, modelNa
 }
 
 /**
- * Apply @map directive wrapper if field has different DB name
+ * Resolve the @map rename for a field, or null if there is none.
+ * Returns `[tsName, dbName]` so the caller can collect all renames for one
+ * struct-level `Schema.encodeKeys({...})` call.
  */
-export function applyMapDirective(fieldType: string, field: DMMF.Field) {
+export function getMapRename(field: DMMF.Field): readonly [string, string] | null {
   const dbName = getFieldDbName(field);
   if (field.dbName && field.dbName !== field.name) {
-    return emitFromKey(fieldType, dbName);
+    return [field.name, dbName];
   }
-  return fieldType;
+  return null;
 }
 
 /**
- * Build complete field type with Kysely helpers and @map
- * Order: base type → Kysely helpers → @map wrapper
+ * Build the field type body (no @map wrapper — that's emitted at struct level).
  * @param baseFieldType - The base Effect Schema type
  * @param field - The Prisma field
  * @param modelName - Optional model name for branded ID generation
  */
 export function buildKyselyFieldType(baseFieldType: string, field: DMMF.Field, modelName?: string) {
-  // Step 1: Apply Kysely helpers (domain transformation)
-  let fieldType = applyKyselyHelpers(baseFieldType, field, modelName);
-
-  // Step 2: Apply @map wrapper (structural transformation)
-  fieldType = applyMapDirective(fieldType, field);
-
-  return fieldType;
+  return applyKyselyHelpers(baseFieldType, field, modelName);
 }
 
 /**

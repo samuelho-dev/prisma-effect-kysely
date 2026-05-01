@@ -38,8 +38,19 @@ export type {
   KyselyGenerated,
 };
 
-export const ColumnTypeId = Symbol.for('/ColumnTypeId');
-export const GeneratedId = Symbol.for('/GeneratedId');
+/**
+ * Annotation key for ColumnType-wrapped fields.
+ *
+ * Effect v4 stores annotations in a `Schema.Annotations.Annotations` interface
+ * with string keys (`[x: string]: unknown`). Symbol keys are not propagated by
+ * `Schema.annotate` in v4, so this is a string constant.
+ */
+export const ColumnTypeId = '~prisma-effect-kysely/ColumnType' as const;
+export type ColumnTypeId = typeof ColumnTypeId;
+
+/** Annotation key for Generated fields. See {@link ColumnTypeId} for v4 rationale. */
+export const GeneratedId = '~prisma-effect-kysely/Generated' as const;
+export type GeneratedId = typeof GeneratedId;
 
 /**
  * Symbol for VariantMarker - used in mapped type pattern that survives declaration emit.
@@ -152,28 +163,43 @@ export type Generated<T> = GeneratedBrand<T> & {
 // Runtime Annotation Schemas
 // ============================================================================
 
-interface ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> {
-  selectSchema: Schema.Schema<SType, SEncoded, SR>;
-  insertSchema: Schema.Schema<IType, IEncoded, IR>;
-  updateSchema: Schema.Schema<UType, UEncoded, UR>;
+interface ColumnTypeSchemas<
+  SType,
+  SEncoded,
+  SRD,
+  SRE,
+  IType,
+  IEncoded,
+  IRD,
+  IRE,
+  UType,
+  UEncoded,
+  URD,
+  URE,
+> {
+  selectSchema: Schema.Codec<SType, SEncoded, SRD, SRE>;
+  insertSchema: Schema.Codec<IType, IEncoded, IRD, IRE>;
+  updateSchema: Schema.Codec<UType, UEncoded, URD, URE>;
 }
 
 /**
- * Interface for ColumnType schema - preserves type parameters in declaration emit.
+ * Type alias for ColumnType schema — preserves type parameters in declaration emit.
  *
- * Named interfaces with type parameters are preserved by TypeScript in declaration files,
- * unlike anonymous intersection types which may be simplified.
- *
- * This follows the Schema.brand pattern from Effect which returns a named interface.
+ * The runtime value is exactly `S["Rebuild"]` (output of `Schema.annotate(...)(selectSchema)`)
+ * intersected with `{ selectSchema: S }` (added via `Object.assign`). The intersection is
+ * separately viewable as `Schema.Codec<ColumnType<...>, ColumnType<...>, RD, RE>` so
+ * downstream consumers see the branded I/U variance without losing access to the
+ * underlying `selectSchema` reference. Declared as a type intersection (not an
+ * interface) so the construction matches the runtime shape with no coercion.
  */
-export interface ColumnTypeSchema<S extends Schema.Schema.All, IType, UType> extends Schema.Schema<
-  ColumnType<Schema.Schema.Type<S>, IType, UType>,
-  ColumnType<Schema.Schema.Encoded<S>, IType, UType>,
-  Schema.Schema.Context<S>
-> {
-  /** The original select schema */
+export type ColumnTypeSchema<S extends Schema.Top, IType, UType> = S['Rebuild'] & {
   readonly selectSchema: S;
-}
+} & Schema.Codec<
+    ColumnType<Schema.Schema.Type<S>, IType, UType>,
+    ColumnType<Schema.Codec.Encoded<S>, IType, UType>,
+    Schema.Codec.DecodingServices<S>,
+    Schema.Codec.EncodingServices<S>
+  >;
 
 /**
  * Mark a field as having different types for select/insert/update
@@ -189,23 +215,48 @@ export interface ColumnTypeSchema<S extends Schema.Schema.All, IType, UType> ext
  *
  * This enables Kysely to recognize fields with `__insert__: never` and omit them from INSERT.
  */
-export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR>(
-  selectSchema: Schema.Schema<SType, SEncoded, SR>,
-  insertSchema: Schema.Schema<IType, IEncoded, IR>,
-  updateSchema: Schema.Schema<UType, UEncoded, UR>
+export const columnType = <
+  SType,
+  SEncoded,
+  SRD,
+  SRE,
+  IType,
+  IEncoded,
+  IRD,
+  IRE,
+  UType,
+  UEncoded,
+  URD,
+  URE,
+>(
+  selectSchema: Schema.Codec<SType, SEncoded, SRD, SRE>,
+  insertSchema: Schema.Codec<IType, IEncoded, IRD, IRE>,
+  updateSchema: Schema.Codec<UType, UEncoded, URD, URE>
 ) => {
-  const schemas: ColumnTypeSchemas<SType, SEncoded, SR, IType, IEncoded, IR, UType, UEncoded, UR> =
-    {
-      selectSchema,
-      insertSchema,
-      updateSchema,
-    };
+  const schemas: ColumnTypeSchemas<
+    SType,
+    SEncoded,
+    SRD,
+    SRE,
+    IType,
+    IEncoded,
+    IRD,
+    IRE,
+    UType,
+    UEncoded,
+    URD,
+    URE
+  > = {
+    selectSchema,
+    insertSchema,
+    updateSchema,
+  };
   // Return annotated schema with ColumnType brand at type level
   // The runtime annotation enables filtering in Insertable() function
   // The type-level brand enables Kysely to recognize INSERT/UPDATE constraints
-  const annotated = selectSchema.annotations({ [ColumnTypeId]: schemas });
+  const annotated = Schema.annotate({ [ColumnTypeId]: schemas })(selectSchema);
   return Object.assign(annotated, { selectSchema }) as ColumnTypeSchema<
-    Schema.Schema<SType, SEncoded, SR>,
+    Schema.Codec<SType, SEncoded, SRD, SRE>,
     IType,
     UType
   >;
@@ -219,14 +270,18 @@ export const columnType = <SType, SEncoded, SR, IType, IEncoded, IR, UType, UEnc
  *
  * This follows the Schema.brand pattern from Effect which returns a named interface.
  */
-export interface GeneratedSchema<S extends Schema.Schema.All> extends Schema.Schema<
-  Generated<Schema.Schema.Type<S>>,
-  Generated<Schema.Schema.Encoded<S>>,
-  Schema.Schema.Context<S>
-> {
-  /** The original schema before Generated wrapper */
+/**
+ * Type alias for Generated schema — see {@link ColumnTypeSchema} for the
+ * matching runtime/type composition pattern.
+ */
+export type GeneratedSchema<S extends Schema.Top> = S['Rebuild'] & {
   readonly from: S;
-}
+} & Schema.Codec<
+    Generated<Schema.Schema.Type<S>>,
+    Generated<Schema.Codec.Encoded<S>>,
+    Schema.Codec.DecodingServices<S>,
+    Schema.Codec.EncodingServices<S>
+  >;
 
 /**
  * Mark a field as database-generated (omitted from insert)
@@ -243,11 +298,11 @@ export interface GeneratedSchema<S extends Schema.Schema.All> extends Schema.Sch
  *
  * This enables CustomInsertable to filter out generated fields at compile time.
  */
-export const generated = <S extends Schema.Schema.All>(schema: S) => {
+export const generated = <S extends Schema.Top>(schema: S) => {
   // Return annotated schema with Generated brand at type level
   // The runtime annotation enables filtering in Insertable() function
   // The type-level brand enables filtering in CustomInsertable type utility
-  const annotated = schema.annotations({ [GeneratedId]: true });
+  const annotated = Schema.annotate({ [GeneratedId]: true })(schema);
   return Object.assign(annotated, { from: schema }) as GeneratedSchema<S>;
 };
 
@@ -271,16 +326,16 @@ export type JsonValue =
   | ReadonlyArray<JsonValue>
   | { readonly [key: string]: JsonValue };
 
-export const JsonValue: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(
-  (): Schema.Schema<JsonValue, JsonValue> =>
-    Schema.Union(
+export const JsonValue: Schema.Codec<JsonValue, JsonValue> = Schema.suspend(
+  (): Schema.Codec<JsonValue, JsonValue> =>
+    Schema.Union([
       Schema.String,
       Schema.Number,
       Schema.Boolean,
       Schema.Null,
       Schema.Array(JsonValue),
-      Schema.Record({ key: Schema.String, value: JsonValue })
-    )
+      Schema.Record(Schema.String, JsonValue),
+    ])
 );
 
 // ============================================================================
@@ -288,6 +343,9 @@ export const JsonValue: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(
 // ============================================================================
 
 type AnyColumnTypeSchemas = ColumnTypeSchemas<
+  unknown,
+  unknown,
+  unknown,
   unknown,
   unknown,
   unknown,
@@ -313,11 +371,15 @@ const ColumnTypeSchemasValidator = Schema.Struct({
  * Returns null if not a column type or validation fails
  */
 function getColumnTypeSchemas(ast: AST.AST) {
-  if (!(ColumnTypeId in ast.annotations)) {
+  // v4 stores user annotations on the last `Check` when one is present, so
+  // `ast.annotations` is often `undefined` for schemas built with `.check(...)`.
+  // `AST.resolve(ast)` looks up annotations from the right place.
+  const anns = AST.resolve(ast);
+  if (!anns || !(ColumnTypeId in anns)) {
     return null;
   }
 
-  const annotation = ast.annotations[ColumnTypeId];
+  const annotation = (anns as Record<string, unknown>)[ColumnTypeId];
   const decoded = Schema.decodeUnknownOption(ColumnTypeSchemasValidator)(annotation);
 
   if (decoded._tag === 'None') {
@@ -332,53 +394,377 @@ function getColumnTypeSchemas(ast: AST.AST) {
 // ============================================================================
 // Internal AST construction helpers
 // ============================================================================
-// Single swap point for the Effect v3 → v4 migration. Every direct call to
-// `new AST.X(...)`, `AST.Union.make`, `AST.annotations`, `Schema.make`, and
-// `Schema.asSchema` goes through these helpers so the v4 branch can change
-// each in one place. v4 deltas anticipated:
-// - makePropertySignature: 5-arg constructor → 2-arg + AST.optionalKey/mutableKey/annotateKey
-// - makeTypeLiteral: AST.TypeLiteral → AST.Objects
-// - makeUnion: AST.Union.make → new AST.Union(types, "anyOf")
-// - makeUndefined: new AST.UndefinedKeyword() → AST.undefined singleton
-// - stripAnns: AST.annotations(...) → AST.annotate(...)
-// - isStruct/isUndef/isNever: AST.isTypeLiteral → AST.isObjects, etc.
-// - reveal: Schema.asSchema → Schema.revealCodec
+// v4 differences from v3:
+// - PropertySignature: 2-arg constructor; optional/mutable carried on type.context
+//   via `AST.optionalKey(...)` or by rebuilding the node with a new `Context`
+//   whose `isMutable` flag is set (no `AST.mutableKey` is exported)
+// - Objects replaces TypeLiteral
+// - `new AST.Union(types, "anyOf")` replaces `AST.Union.make`
+// - `AST.undefined` singleton replaces `new AST.UndefinedKeyword()`
+// - `AST.isObjects/isUndefined/isNever` replace the Keyword-suffixed v3 names
+// - `Schema.revealCodec` replaces `Schema.asSchema` (only valid on Codec)
+// - No `AST.annotate` function: rebuild via the concrete `_tag`'s constructor
+
+const isStruct = (ast: AST.AST): ast is AST.Objects => AST.isObjects(ast);
+const isUndef = (ast: AST.AST): boolean => AST.isUndefined(ast);
+const isNever = (ast: AST.AST): boolean => AST.isNever(ast);
+
+const reveal = <T, E, RD, RE>(schema: Schema.Codec<T, E, RD, RE>): Schema.Codec<T, E, RD, RE> =>
+  Schema.revealCodec(schema);
+
+const makeSchemaFromAst = (ast: AST.AST) => Schema.make(ast);
+
+const isGeneratedType = (ast: AST.AST): boolean => {
+  const anns = AST.resolve(ast);
+  return anns ? GeneratedId in anns : false;
+};
+
+/**
+ * Rebuild an AST node with new annotations, preserving its `_tag`-specific data,
+ * checks, encoding, and context. v4 has no `AST.annotate(ast, anns)` helper, so
+ * this dispatches on `_tag` and constructs a fresh node via the public constructor.
+ *
+ * The `annotations` arg replaces the existing annotations entirely — callers
+ * should merge themselves if they want to preserve unrelated keys.
+ */
+const rebuildWithAnnotations = (
+  ast: AST.AST,
+  annotations: Schema.Annotations.Annotations | undefined
+): AST.AST => {
+  const checks = ast.checks;
+  const encoding = ast.encoding;
+  const context = ast.context;
+  switch (ast._tag) {
+    case 'Null':
+      return new AST.Null(annotations, checks, encoding, context);
+    case 'Undefined':
+      return new AST.Undefined(annotations, checks, encoding, context);
+    case 'Void':
+      return new AST.Void(annotations, checks, encoding, context);
+    case 'Never':
+      return new AST.Never(annotations, checks, encoding, context);
+    case 'Any':
+      return new AST.Any(annotations, checks, encoding, context);
+    case 'Unknown':
+      return new AST.Unknown(annotations, checks, encoding, context);
+    case 'String':
+      return new AST.String(annotations, checks, encoding, context);
+    case 'Number':
+      return new AST.Number(annotations, checks, encoding, context);
+    case 'Boolean':
+      return new AST.Boolean(annotations, checks, encoding, context);
+    case 'BigInt':
+      return new AST.BigInt(annotations, checks, encoding, context);
+    case 'Symbol':
+      return new AST.Symbol(annotations, checks, encoding, context);
+    case 'ObjectKeyword':
+      return new AST.ObjectKeyword(annotations, checks, encoding, context);
+    case 'Literal':
+      return new AST.Literal(ast.literal, annotations, checks, encoding, context);
+    case 'UniqueSymbol':
+      return new AST.UniqueSymbol(ast.symbol, annotations, checks, encoding, context);
+    case 'Enum':
+      return new AST.Enum(ast.enums, annotations, checks, encoding, context);
+    case 'TemplateLiteral':
+      return new AST.TemplateLiteral(ast.parts, annotations, checks, encoding, context);
+    case 'Arrays':
+      return new AST.Arrays(
+        ast.isMutable,
+        ast.elements,
+        ast.rest,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+    case 'Objects':
+      return new AST.Objects(
+        ast.propertySignatures,
+        ast.indexSignatures,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+    case 'Union':
+      return new AST.Union(ast.types, ast.mode, annotations, checks, encoding, context);
+    case 'Suspend':
+      return new AST.Suspend(ast.thunk, annotations, checks, encoding, context);
+    case 'Declaration':
+      return new AST.Declaration(
+        ast.typeParameters,
+        ast.run,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+  }
+};
+
+/**
+ * Rebuild an AST node with new `checks`, preserving annotations, encoding,
+ * context, and `_tag`-specific data. v4 has no `AST.replaceChecks` helper, so
+ * this dispatches on `_tag` and constructs a fresh node.
+ */
+const rebuildWithChecks = (ast: AST.AST, checks: AST.Checks | undefined): AST.AST => {
+  const annotations = ast.annotations;
+  const encoding = ast.encoding;
+  const context = ast.context;
+  switch (ast._tag) {
+    case 'Null':
+      return new AST.Null(annotations, checks, encoding, context);
+    case 'Undefined':
+      return new AST.Undefined(annotations, checks, encoding, context);
+    case 'Void':
+      return new AST.Void(annotations, checks, encoding, context);
+    case 'Never':
+      return new AST.Never(annotations, checks, encoding, context);
+    case 'Any':
+      return new AST.Any(annotations, checks, encoding, context);
+    case 'Unknown':
+      return new AST.Unknown(annotations, checks, encoding, context);
+    case 'String':
+      return new AST.String(annotations, checks, encoding, context);
+    case 'Number':
+      return new AST.Number(annotations, checks, encoding, context);
+    case 'Boolean':
+      return new AST.Boolean(annotations, checks, encoding, context);
+    case 'BigInt':
+      return new AST.BigInt(annotations, checks, encoding, context);
+    case 'Symbol':
+      return new AST.Symbol(annotations, checks, encoding, context);
+    case 'ObjectKeyword':
+      return new AST.ObjectKeyword(annotations, checks, encoding, context);
+    case 'Literal':
+      return new AST.Literal(ast.literal, annotations, checks, encoding, context);
+    case 'UniqueSymbol':
+      return new AST.UniqueSymbol(ast.symbol, annotations, checks, encoding, context);
+    case 'Enum':
+      return new AST.Enum(ast.enums, annotations, checks, encoding, context);
+    case 'TemplateLiteral':
+      return new AST.TemplateLiteral(ast.parts, annotations, checks, encoding, context);
+    case 'Arrays':
+      return new AST.Arrays(
+        ast.isMutable,
+        ast.elements,
+        ast.rest,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+    case 'Objects':
+      return new AST.Objects(
+        ast.propertySignatures,
+        ast.indexSignatures,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+    case 'Union':
+      return new AST.Union(ast.types, ast.mode, annotations, checks, encoding, context);
+    case 'Suspend':
+      return new AST.Suspend(ast.thunk, annotations, checks, encoding, context);
+    case 'Declaration':
+      return new AST.Declaration(
+        ast.typeParameters,
+        ast.run,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+  }
+};
+
+/**
+ * Rebuild an AST node, replacing its `Context` while preserving annotations,
+ * checks, encoding, and `_tag`-specific data. Used to set `isMutable: true` on a
+ * property's type AST without an `AST.mutableKey` helper (which v4 does not expose
+ * at the AST level — only `Schema.mutableKey` at the schema level).
+ */
+const rebuildWithContext = (ast: AST.AST, context: AST.Context | undefined): AST.AST => {
+  const annotations = ast.annotations;
+  const checks = ast.checks;
+  const encoding = ast.encoding;
+  switch (ast._tag) {
+    case 'Null':
+      return new AST.Null(annotations, checks, encoding, context);
+    case 'Undefined':
+      return new AST.Undefined(annotations, checks, encoding, context);
+    case 'Void':
+      return new AST.Void(annotations, checks, encoding, context);
+    case 'Never':
+      return new AST.Never(annotations, checks, encoding, context);
+    case 'Any':
+      return new AST.Any(annotations, checks, encoding, context);
+    case 'Unknown':
+      return new AST.Unknown(annotations, checks, encoding, context);
+    case 'String':
+      return new AST.String(annotations, checks, encoding, context);
+    case 'Number':
+      return new AST.Number(annotations, checks, encoding, context);
+    case 'Boolean':
+      return new AST.Boolean(annotations, checks, encoding, context);
+    case 'BigInt':
+      return new AST.BigInt(annotations, checks, encoding, context);
+    case 'Symbol':
+      return new AST.Symbol(annotations, checks, encoding, context);
+    case 'ObjectKeyword':
+      return new AST.ObjectKeyword(annotations, checks, encoding, context);
+    case 'Literal':
+      return new AST.Literal(ast.literal, annotations, checks, encoding, context);
+    case 'UniqueSymbol':
+      return new AST.UniqueSymbol(ast.symbol, annotations, checks, encoding, context);
+    case 'Enum':
+      return new AST.Enum(ast.enums, annotations, checks, encoding, context);
+    case 'TemplateLiteral':
+      return new AST.TemplateLiteral(ast.parts, annotations, checks, encoding, context);
+    case 'Arrays':
+      return new AST.Arrays(
+        ast.isMutable,
+        ast.elements,
+        ast.rest,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+    case 'Objects':
+      return new AST.Objects(
+        ast.propertySignatures,
+        ast.indexSignatures,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+    case 'Union':
+      return new AST.Union(ast.types, ast.mode, annotations, checks, encoding, context);
+    case 'Suspend':
+      return new AST.Suspend(ast.thunk, annotations, checks, encoding, context);
+    case 'Declaration':
+      return new AST.Declaration(
+        ast.typeParameters,
+        ast.run,
+        annotations,
+        checks,
+        encoding,
+        context
+      );
+  }
+};
+
+/**
+ * Strip the listed annotation keys from an AST node. v4 may store user-supplied
+ * annotations on the AST node directly OR on the last `Check` when checks are
+ * present. We handle both: rebuild the node with filtered top-level annotations
+ * and replace the last check with one whose annotations are filtered.
+ */
+const stripAnns = (ast: AST.AST, ids: ReadonlyArray<string>): AST.AST => {
+  const stripFrom = (
+    existing: Schema.Annotations.Annotations | undefined
+  ): Schema.Annotations.Annotations | undefined => {
+    if (!existing) return existing;
+    const next: Schema.Annotations.Annotations = { ...existing };
+    for (const id of ids) {
+      delete (next as Record<string, unknown>)[id];
+    }
+    return next;
+  };
+
+  const nextAnns = stripFrom(ast.annotations);
+  let result = ast;
+  if (nextAnns !== ast.annotations) {
+    result = rebuildWithAnnotations(ast, nextAnns);
+  }
+
+  const checks = result.checks;
+  if (checks) {
+    const [head, ...tail] = checks;
+    // `last` is `tail`'s last element if any, otherwise `head`. Equivalent to
+    // `checks[checks.length - 1]` but reachable through the `Checks` non-empty
+    // tuple type so no widening cast is needed.
+    const last = tail.length === 0 ? head : tail[tail.length - 1];
+    const init = tail.length === 0 ? [] : tail.slice(0, tail.length - 1);
+    const newCheckAnns = stripFrom(last.annotations as Schema.Annotations.Annotations | undefined);
+    if (newCheckAnns !== last.annotations) {
+      const newLast = last.annotate(newCheckAnns as Schema.Annotations.Filter);
+      const newChecks: AST.Checks = tail.length === 0 ? [newLast] : [head, ...init, newLast];
+      result = rebuildWithChecks(result, newChecks);
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Build a property's type AST with optional/mutable context applied.
+ * Optional flag uses the public `AST.optionalKey(...)` helper. Mutable flag is
+ * carried by rebuilding the AST with a new `Context` whose `isMutable` is true.
+ */
+const applyKeyContext = (
+  ast: AST.AST,
+  options: { readonly isOptional: boolean; readonly isMutable: boolean }
+): AST.AST => {
+  let result = ast;
+  if (options.isOptional) {
+    result = AST.optionalKey(result);
+  }
+  if (options.isMutable) {
+    const existing = result.context;
+    const merged = new AST.Context(
+      existing?.isOptional ?? options.isOptional,
+      true,
+      existing?.defaultValue,
+      existing?.annotations
+    );
+    result = rebuildWithContext(result, merged);
+  }
+  return result;
+};
 
 const makePropertySignature = (
   name: PropertyKey,
   type: AST.AST,
-  isOptional: boolean,
-  isReadonly: boolean,
-  annotations: AST.PropertySignature['annotations']
-): AST.PropertySignature =>
-  new AST.PropertySignature(name, type, isOptional, isReadonly, annotations);
+  options: { readonly isOptional: boolean; readonly isMutable: boolean }
+): AST.PropertySignature => new AST.PropertySignature(name, applyKeyContext(type, options));
 
-const makeTypeLiteral = (
+const makeObjects = (
   propertySignatures: ReadonlyArray<AST.PropertySignature>,
   indexSignatures: ReadonlyArray<AST.IndexSignature>,
-  annotations: AST.TypeLiteral['annotations']
-): AST.TypeLiteral => new AST.TypeLiteral(propertySignatures, indexSignatures, annotations);
+  annotations: Schema.Annotations.Annotations | undefined
+): AST.Objects => new AST.Objects(propertySignatures, indexSignatures, annotations);
 
-const makeUnion = (types: ReadonlyArray<AST.AST>): AST.AST => AST.Union.make(types);
+const makeUnion = (types: ReadonlyArray<AST.AST>): AST.AST => new AST.Union(types, 'anyOf');
 
-const makeUndefined = (): AST.AST => new AST.UndefinedKeyword();
+const makeUndefined = (): AST.AST => AST.undefined;
 
-const stripAnns = (ast: AST.AST, ids: ReadonlyArray<symbol>): AST.AST =>
-  AST.annotations(ast, {
-    ...ast.annotations,
-    ...Object.fromEntries(ids.map((id) => [id, undefined])),
-  });
+/**
+ * Rebuild an array AST as mutable. Returns the ast unchanged for non-array nodes,
+ * since v4's `Schema.mutable` only applies to `Arrays` and rebuilding a leaf to be
+ * "mutable" has no observable meaning.
+ */
+const makeMutableIfArray = (ast: AST.AST): AST.AST => {
+  if (!AST.isArrays(ast)) return ast;
+  return new AST.Arrays(
+    true,
+    ast.elements,
+    ast.rest,
+    ast.annotations,
+    ast.checks,
+    ast.encoding,
+    ast.context
+  );
+};
 
-const isStruct = (ast: AST.AST): ast is AST.TypeLiteral => AST.isTypeLiteral(ast);
-const isUndef = (ast: AST.AST): boolean => AST.isUndefinedKeyword(ast);
-const isNever = (ast: AST.AST): boolean => AST.isNeverKeyword(ast);
+const propIsOptional = (prop: AST.PropertySignature): boolean =>
+  prop.type.context?.isOptional ?? false;
 
-const reveal = <A, I, R>(schema: Schema.Schema<A, I, R>): Schema.Schema<A, I, R> =>
-  Schema.asSchema(schema);
-
-const makeSchemaFromAst = (ast: AST.AST) => Schema.make(ast);
-
-const isGeneratedType = (ast: AST.AST) => GeneratedId in ast.annotations;
+const propIsMutable = (prop: AST.PropertySignature): boolean =>
+  prop.type.context?.isMutable ?? false;
 
 const isOptionalType = (ast: AST.AST) => {
   // Check for Union(T, Undefined) or Union(T, null) patterns
@@ -392,7 +778,7 @@ const isOptionalType = (ast: AST.AST) => {
   );
 };
 
-const isNullType = (ast: AST.AST) => AST.isLiteral(ast) && ast.literal === null;
+const isNullType = (ast: AST.AST): boolean => AST.isNull(ast);
 
 /**
  * Strip null from a union type for Insertable fields.
@@ -422,63 +808,44 @@ const stripNullFromUnion = (ast: AST.AST): AST.AST => {
 };
 
 const extractParametersFromTypeLiteral = (
-  ast: AST.TypeLiteral,
+  ast: AST.Objects,
   schemaType: keyof AnyColumnTypeSchemas
 ) => {
   return ast.propertySignatures
-    .map((prop: AST.PropertySignature) => {
+    .map((prop: AST.PropertySignature): AST.PropertySignature | null => {
+      const isOptional = propIsOptional(prop);
+      const isMutable = propIsMutable(prop);
       const columnSchemas = getColumnTypeSchemas(prop.type);
 
       if (columnSchemas !== null) {
         const targetSchema = columnSchemas[schemaType];
 
-        // Check for Schema.Never BEFORE mutable transformation
-        // Schema.mutable() wraps in Transformation node, changing _tag
+        // Filter out fields whose insert/update schema is Schema.Never
         if (isNever(targetSchema.ast)) {
-          return null; // Will be filtered out
+          return null;
         }
 
-        // Use Schema.mutable() for insert/update schema to make arrays mutable
-        // Kysely expects mutable T[] for insert/update operations
+        // For insert/update, ensure array fields are mutable so Kysely accepts T[]
         const shouldBeMutable = schemaType === 'updateSchema' || schemaType === 'insertSchema';
-        return makePropertySignature(
-          prop.name,
-          shouldBeMutable ? Schema.mutable(targetSchema).ast : targetSchema.ast,
-          prop.isOptional,
-          prop.isReadonly,
-          prop.annotations
-        );
+        const typeAst = shouldBeMutable ? makeMutableIfArray(targetSchema.ast) : targetSchema.ast;
+        return makePropertySignature(prop.name, typeAst, { isOptional, isMutable });
       }
 
-      // Handle Generated fields for Selectable - need to unwrap the base type
-      // Generated<T> annotates the schema but we want plain T for select
+      // For Selectable: unwrap Generated<T> to plain T by stripping the annotation
       if (schemaType === 'selectSchema' && isGeneratedType(prop.type)) {
-        // Generated fields have the base schema stored in annotations
-        // The AST is the annotated version of the base schema, so just strip annotations
-        // Get the underlying type by removing the Generated annotation
         const baseAst = stripAnns(prop.type, [GeneratedId, ColumnTypeId]);
-        return makePropertySignature(
-          prop.name,
-          baseAst,
-          prop.isOptional,
-          prop.isReadonly,
-          prop.annotations
-        );
+        return makePropertySignature(prop.name, baseAst, { isOptional, isMutable });
       }
 
-      // Apply Schema.mutable() to regular fields for insert/updateSchema to make arrays mutable
-      // Safe for all types - no-op for non-arrays
+      // For insert/update, ensure regular array fields are mutable
       if (schemaType === 'updateSchema' || schemaType === 'insertSchema') {
-        return makePropertySignature(
-          prop.name,
-          Schema.mutable(reveal(makeSchemaFromAst(prop.type))).ast,
-          prop.isOptional,
-          prop.isReadonly,
-          prop.annotations
-        );
+        return makePropertySignature(prop.name, makeMutableIfArray(prop.type), {
+          isOptional,
+          isMutable,
+        });
       }
 
-      // Regular fields - return as-is
+      // Selectable on regular fields: return as-is
       return prop;
     })
     .filter((prop): prop is AST.PropertySignature => prop !== null);
@@ -614,59 +981,48 @@ type StripKyselyWrappersFromObject<T> = {
 // ============================================================================
 
 export function Selectable<Type, Encoded>(
-  schema: Schema.Schema<Type, Encoded>
-): Schema.Schema<
-  StripKyselyWrappersFromObject<Type>,
-  StripKyselyWrappersFromObject<Encoded>,
-  never
-> {
+  schema: Schema.Codec<Type, Encoded>
+): Schema.Codec<StripKyselyWrappersFromObject<Type>, StripKyselyWrappersFromObject<Encoded>> {
   // Strip Generated/ColumnType wrappers to match what Kysely returns from queries
   // Branded foreign keys (UserId, ProductId) are preserved
   const { ast } = schema;
   if (!isStruct(ast)) {
-    // Non-struct schemas: use as identity
-    // Internal cast needed because Schema.make(ast) returns unknown types
-    // The return type annotation is what TypeScript uses for declaration emit
-    return reveal(makeSchemaFromAst(ast)) as Schema.Schema<
+    // Non-struct schemas: identity. Internal cast needed because Schema.make(ast)
+    // returns the input schema's type parameters, which we narrow at the boundary.
+    return reveal(makeSchemaFromAst(ast)) as Schema.Codec<
       StripKyselyWrappersFromObject<Type>,
-      StripKyselyWrappersFromObject<Encoded>,
-      never
+      StripKyselyWrappersFromObject<Encoded>
     >;
   }
   // Extract select schemas from annotated fields (strips wrappers at runtime)
   return reveal(
     makeSchemaFromAst(
-      makeTypeLiteral(
+      makeObjects(
         extractParametersFromTypeLiteral(ast, 'selectSchema'),
         ast.indexSignatures,
         ast.annotations
       )
     )
-  ) as Schema.Schema<
-    StripKyselyWrappersFromObject<Type>,
-    StripKyselyWrappersFromObject<Encoded>,
-    never
-  >;
+  ) as Schema.Codec<StripKyselyWrappersFromObject<Type>, StripKyselyWrappersFromObject<Encoded>>;
 }
 
 /**
  * Create Insertable schema from base schema
  * Generated fields (@default) are made optional, not excluded
  */
-export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
+export function Insertable<Type, Encoded>(schema: Schema.Codec<Type, Encoded>) {
   const { ast } = schema;
   if (!isStruct(ast)) {
-    // Internal cast - return type annotation is what TypeScript uses for declaration emit
-    return reveal(makeSchemaFromAst(ast)) as Schema.Schema<
+    return reveal(makeSchemaFromAst(ast)) as Schema.Codec<
       MutableInsert<Type>,
-      MutableInsert<Encoded>,
-      never
+      MutableInsert<Encoded>
     >;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
 
   const fields = extracted.map((prop) => {
+    const isMutable = propIsMutable(prop);
     // Check if this is a Generated field - make it optional
     const isGenerated = isGeneratedType(prop.type);
 
@@ -677,60 +1033,47 @@ export function Insertable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
     // For generated fields, unwrap the base type from the Generated annotation
     let fieldType = prop.type;
     if (isGenerated) {
-      // Strip the Generated annotation to get the base type
       fieldType = stripAnns(prop.type, [GeneratedId]);
     } else if (isOptionalType(prop.type)) {
       fieldType = stripNullFromUnion(prop.type);
     }
 
-    return makePropertySignature(
-      prop.name,
-      fieldType,
-      isOptional,
-      prop.isReadonly,
-      prop.annotations
-    );
+    return makePropertySignature(prop.name, fieldType, { isOptional, isMutable });
   });
 
   return reveal(
-    makeSchemaFromAst(makeTypeLiteral(fields, ast.indexSignatures, ast.annotations))
-  ) as Schema.Schema<MutableInsert<Type>, MutableInsert<Encoded>, never>;
+    makeSchemaFromAst(makeObjects(fields, ast.indexSignatures, ast.annotations))
+  ) as Schema.Codec<MutableInsert<Type>, MutableInsert<Encoded>>;
 }
 
 /**
  * Create Updateable schema from base schema
  */
-export function Updateable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) {
+export function Updateable<Type, Encoded>(schema: Schema.Codec<Type, Encoded>) {
   const { ast } = schema;
   if (!isStruct(ast)) {
-    // Internal cast - return type annotation is what TypeScript uses for declaration emit
-    return reveal(makeSchemaFromAst(ast)) as Schema.Schema<
+    return reveal(makeSchemaFromAst(ast)) as Schema.Codec<
       MutableUpdate<Type>,
-      MutableUpdate<Encoded>,
-      never
+      MutableUpdate<Encoded>
     >;
   }
 
   const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
 
-  const res = makeTypeLiteral(
+  const res = makeObjects(
     extracted.map((prop) =>
-      makePropertySignature(
-        prop.name,
-        makeUnion([prop.type, makeUndefined()]),
-        true,
-        prop.isReadonly,
-        prop.annotations
-      )
+      makePropertySignature(prop.name, makeUnion([prop.type, makeUndefined()]), {
+        isOptional: true,
+        isMutable: propIsMutable(prop),
+      })
     ),
     ast.indexSignatures,
     ast.annotations
   );
 
-  return reveal(makeSchemaFromAst(res)) as Schema.Schema<
+  return reveal(makeSchemaFromAst(res)) as Schema.Codec<
     MutableUpdate<Type>,
-    MutableUpdate<Encoded>,
-    never
+    MutableUpdate<Encoded>
   >;
 }
 
@@ -751,20 +1094,18 @@ export function Updateable<Type, Encoded>(schema: Schema.Schema<Type, Encoded>) 
  *
  * @example type UserSelect = Selectable<User>;
  */
-export type Selectable<T extends Schema.Schema.All> = StripKyselyWrappersFromObject<
-  Schema.Schema.Type<T>
->;
+export type Selectable<T extends Schema.Top> = StripKyselyWrappersFromObject<Schema.Schema.Type<T>>;
 
 /**
  * Extract INSERT type from schema.
  * Omits fields with `never` insert type (read-only IDs, generated fields).
  * @example type UserInsert = Insertable<User>;
  */
-export type Insertable<T extends Schema.Schema.All> = CustomInsertable<Schema.Schema.Type<T>>;
+export type Insertable<T extends Schema.Top> = CustomInsertable<Schema.Schema.Type<T>>;
 
 /**
  * Extract UPDATE type from schema.
  * Omits fields with `never` update type, makes all fields optional.
  * @example type UserUpdate = Updateable<User>;
  */
-export type Updateable<T extends Schema.Schema.All> = CustomUpdateable<Schema.Schema.Type<T>>;
+export type Updateable<T extends Schema.Top> = CustomUpdateable<Schema.Schema.Type<T>>;

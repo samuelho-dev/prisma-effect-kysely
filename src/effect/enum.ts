@@ -2,15 +2,16 @@ import type { DMMF } from '@prisma/generator-helper';
 import { getEnumValueDbName } from '../prisma/enum.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
-import { EMIT_EFFECT_IMPORT, emitEnums, emitSchemaType } from './emit-tokens.js';
+import { EMIT_EFFECT_IMPORT, emitLiterals, emitSchemaType } from './emit-tokens.js';
 
 /**
- * Generate TypeScript enum + Effect Schema.Enums wrapper
+ * Generate TypeScript enum + Effect `Schema.Literals` wrapper.
  *
  * Output pattern:
- * - Native TS enum with SCREAMING_SNAKE_CASE (internal, for Schema.Enums)
- * - PascalCase export IS the Schema (so it works in Schema.Struct)
- * - Type alias with same name (value + type pattern)
+ * - Native TS enum with SCREAMING_SNAKE_CASE for downstream `keyof typeof` use
+ * - PascalCase export IS the Schema (so it works in `Schema.Struct`); v4 has
+ *   no `Schema.Enums`, so this is `Schema.Literals([...db values])`.
+ * - Type alias with the same name (value + type pattern)
  */
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
   // Raw enum keeps original name (usually SCREAMING_SNAKE_CASE)
@@ -26,6 +27,8 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
     })
     .join(',\n');
 
+  const dbValues = enumDef.values.map((v) => getEnumValueDbName(v));
+
   // Export PascalCase as the Schema (not raw enum)
   // This allows PayoutStatus to be used directly in Schema.Struct fields
   // Also export type with same name for Insertable<User> pattern
@@ -33,7 +36,7 @@ export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
 ${enumMembers}
 }
 
-export const ${pascalName} = ${emitEnums(enumName)};
+export const ${pascalName} = ${emitLiterals(dbValues)};
 export type ${pascalName} = ${emitSchemaType(pascalName)};`;
 }
 

@@ -16,7 +16,7 @@ import type { DomainInfo } from './domain-detector.js';
 /**
  * Scaffold method schema
  */
-const ScaffoldMethod = Schema.Literal('generator', 'manual', 'existing');
+const ScaffoldMethod = Schema.Literals(['generator', 'manual', 'existing']);
 
 /**
  * Scaffold result schema

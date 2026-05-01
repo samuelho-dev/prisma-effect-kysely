@@ -14,7 +14,7 @@ export enum Role {
   USER = "USER"
 }
 
-export const Role = Schema.Enums(Role);
+export const Role = Schema.Literals(["ADMIN", "GUEST", "USER"]);
 export type Role = Schema.Schema.Type<typeof Role>;
 
 export enum Status {
@@ -23,7 +23,7 @@ export enum Status {
   PENDING = "pending"
 }
 
-export const Status = Schema.Enums(Status);
+export const Status = Schema.Literals(["active", "inactive", "pending"]);
 export type Status = Schema.Schema.Type<typeof Status>;"
 `;
 
@@ -43,37 +43,37 @@ import { columnType, generated, JsonValue } from "prisma-effect-kysely";
 import { Role, Status } from "./enums";
 
 // ===== Branded ID Schemas =====
-export const AllTypesId = Schema.UUID.pipe(Schema.brand("AllTypesId"));
+export const AllTypesId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("AllTypesId"));
 export type AllTypesId = typeof AllTypesId.Type;
 
-export const AnnotationTestId = Schema.UUID.pipe(Schema.brand("AnnotationTestId"));
+export const AnnotationTestId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("AnnotationTestId"));
 export type AnnotationTestId = typeof AnnotationTestId.Type;
 
-export const CategoryId = Schema.UUID.pipe(Schema.brand("CategoryId"));
+export const CategoryId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("CategoryId"));
 export type CategoryId = typeof CategoryId.Type;
 
-export const EmployeeId = Schema.UUID.pipe(Schema.brand("EmployeeId"));
+export const EmployeeId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("EmployeeId"));
 export type EmployeeId = typeof EmployeeId.Type;
 
-export const PostId = Schema.UUID.pipe(Schema.brand("PostId"));
+export const PostId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("PostId"));
 export type PostId = typeof PostId.Type;
 
-export const ProductId = Schema.UUID.pipe(Schema.brand("ProductId"));
+export const ProductId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("ProductId"));
 export type ProductId = typeof ProductId.Type;
 
-export const ProductTagId = Schema.UUID.pipe(Schema.brand("ProductTagId"));
+export const ProductTagId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("ProductTagId"));
 export type ProductTagId = typeof ProductTagId.Type;
 
-export const ProfileId = Schema.UUID.pipe(Schema.brand("ProfileId"));
+export const ProfileId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("ProfileId"));
 export type ProfileId = typeof ProfileId.Type;
 
-export const SessionModelPreferenceId = Schema.UUID.pipe(Schema.brand("SessionModelPreferenceId"));
+export const SessionModelPreferenceId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("SessionModelPreferenceId"));
 export type SessionModelPreferenceId = typeof SessionModelPreferenceId.Type;
 
-export const TodoId = Schema.Int.pipe(Schema.brand("TodoId"));
+export const TodoId = Schema.Number.check(Schema.isInt()).pipe(Schema.brand("TodoId"));
 export type TodoId = typeof TodoId.Type;
 
-export const UserId = Schema.UUID.pipe(Schema.brand("UserId"));
+export const UserId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("UserId"));
 export type UserId = typeof UserId.Type;
 
 // ===== Model Schemas =====
@@ -84,10 +84,10 @@ export const AllTypes = Schema.Struct({
   boolField: Schema.Boolean,
   bytesArray: Schema.Array(Schema.Uint8Array),
   bytesField: Schema.Uint8Array,
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
   cuidField: generated(Schema.String),
-  dateArray: Schema.Array(Schema.DateFromSelf),
-  dateField: Schema.DateFromSelf,
+  dateArray: Schema.Array(Schema.Date),
+  dateField: Schema.Date,
   decimalArray: Schema.Array(Schema.String),
   decimalField: Schema.String,
   floatArray: Schema.Array(Schema.Number),
@@ -97,12 +97,12 @@ export const AllTypes = Schema.Struct({
   intField: Schema.Number,
   jsonArray: columnType(Schema.Array(JsonValue), Schema.Array(JsonValue), Schema.Array(JsonValue)),
   jsonField: columnType(JsonValue, JsonValue, JsonValue),
-  mappedField: Schema.propertySignature(Schema.String).pipe(Schema.fromKey("db_mapped_field")),
-  mappedWithDefault: Schema.propertySignature(generated(Schema.Number)).pipe(Schema.fromKey("mapped_default")),
+  mappedField: Schema.String,
+  mappedWithDefault: generated(Schema.Number),
   optionalBigInt: Schema.NullOr(Schema.BigInt),
   optionalBool: Schema.NullOr(Schema.Boolean),
   optionalBytes: Schema.NullOr(Schema.Uint8Array),
-  optionalDate: Schema.NullOr(Schema.DateFromSelf),
+  optionalDate: Schema.NullOr(Schema.Date),
   optionalDecimal: Schema.NullOr(Schema.String),
   optionalFloat: Schema.NullOr(Schema.Number),
   optionalInt: Schema.NullOr(Schema.Number),
@@ -112,22 +112,22 @@ export const AllTypes = Schema.Struct({
   optionalString: Schema.NullOr(Schema.String),
   role: Role,
   roleArray: Schema.Array(Role),
-  session_id: generated(Schema.UUID),
+  session_id: generated(Schema.String.check(Schema.isUUID())),
   status: Status,
   statusArray: Schema.Array(Status),
   stringArray: Schema.Array(Schema.String),
   stringField: Schema.String,
-  tenant_id: Schema.UUID,
+  tenant_id: Schema.String.check(Schema.isUUID()),
   ulidField: generated(Schema.String),
   uniqueEmail: Schema.String,
-  updatedAt: Schema.DateFromSelf
-});
+  updatedAt: Schema.Date
+}).pipe(Schema.encodeKeys({ mappedField: "db_mapped_field", mappedWithDefault: "mapped_default" }));
 export type AllTypes = typeof AllTypes;
 
 export const AnnotationTest = Schema.Struct({
   age: Schema.Number.pipe(Schema.positive()),
   coordinates: Schema.Array(Schema.Array(Schema.Number).pipe(Schema.itemsCount(3))),
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
   email: Schema.String,
   id: columnType(AnnotationTestId, Schema.Never, Schema.Never),
   userId: Schema.String.pipe(Schema.brand('UserId'))
@@ -141,9 +141,9 @@ export const Category = Schema.Struct({
 export type Category = typeof Category;
 
 export const CompositeIdModel = Schema.Struct({
-  postId: Schema.UUID,
-  timestamp: generated(Schema.DateFromSelf),
-  userId: Schema.UUID
+  postId: Schema.String.check(Schema.isUUID()),
+  timestamp: generated(Schema.Date),
+  userId: Schema.String.check(Schema.isUUID())
 });
 export type CompositeIdModel = typeof CompositeIdModel;
 
@@ -157,11 +157,11 @@ export type Employee = typeof Employee;
 export const Post = Schema.Struct({
   authorId: UserId,
   content: Schema.NullOr(Schema.String),
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
   id: columnType(PostId, Schema.Never, Schema.Never),
   published: generated(Schema.Boolean),
   title: Schema.String,
-  updatedAt: Schema.DateFromSelf
+  updatedAt: Schema.Date
 });
 export type Post = typeof Post;
 
@@ -185,30 +185,30 @@ export const Profile = Schema.Struct({
 export type Profile = typeof Profile;
 
 export const SessionModelPreference = Schema.Struct({
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
   id: columnType(SessionModelPreferenceId, Schema.Never, Schema.Never),
   language: generated(Schema.String),
   notifications: generated(Schema.Boolean),
   theme: Schema.String,
-  updatedAt: Schema.DateFromSelf,
-  user_id: Schema.UUID
+  updatedAt: Schema.Date,
+  user_id: Schema.String.check(Schema.isUUID())
 });
 export type SessionModelPreference = typeof SessionModelPreference;
 
 export const Todo = Schema.Struct({
   completed: generated(Schema.Boolean),
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
   id: columnType(TodoId, Schema.Never, Schema.Never),
   title: Schema.String
 });
 export type Todo = typeof Todo;
 
 export const User = Schema.Struct({
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
   email: Schema.String,
   id: columnType(UserId, Schema.Never, Schema.Never),
   name: Schema.String,
-  updatedAt: Schema.DateFromSelf
+  updatedAt: Schema.Date
 });
 export type User = typeof User;
 
@@ -216,18 +216,18 @@ export type User = typeof User;
 // Database columns: A (Category), B (Post)
 // TypeScript fields: category_id, post_id
 export const CategoryToPost = Schema.Struct({
-  category_id: Schema.propertySignature(columnType(CategoryId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
-  post_id: Schema.propertySignature(columnType(PostId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
-});
+  category_id: columnType(CategoryId, Schema.Never, Schema.Never),
+  post_id: columnType(PostId, Schema.Never, Schema.Never),
+}).pipe(Schema.encodeKeys({ category_id: "A", post_id: "B" }));
 export type CategoryToPost = typeof CategoryToPost;
 
 // _product_tags Join Table Schema (Prisma implicit many-to-many)
 // Database columns: A (Product), B (ProductTag)
 // TypeScript fields: product_id, product_tag_id
 export const ProductTags = Schema.Struct({
-  product_id: Schema.propertySignature(columnType(ProductId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A")),
-  product_tag_id: Schema.propertySignature(columnType(ProductTagId, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B")),
-});
+  product_id: columnType(ProductId, Schema.Never, Schema.Never),
+  product_tag_id: columnType(ProductTagId, Schema.Never, Schema.Never),
+}).pipe(Schema.encodeKeys({ product_id: "A", product_tag_id: "B" }));
 export type ProductTags = typeof ProductTags;
 
 // Kysely Database Interface

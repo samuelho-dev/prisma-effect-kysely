@@ -3,15 +3,15 @@ import * as AST from 'effect/SchemaAST';
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import { columnType, generated, Insertable, Updateable, Selectable } from '../kysely/helpers';
 
-const getPropertyNames = (schema: Schema.Schema<unknown, unknown>) => {
+const getPropertyNames = (schema: Schema.Codec<unknown, unknown>) => {
   const ast = schema.ast;
-  if (!AST.isTypeLiteral(ast)) return [];
+  if (!AST.isObjects(ast)) return [];
   return ast.propertySignatures.map((prop) => String(prop.name));
 };
 
 const User = Schema.Struct({
-  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-  createdAt: generated(Schema.DateFromSelf),
+  id: columnType(Schema.String.check(Schema.isUUID()), Schema.Never, Schema.Never),
+  createdAt: generated(Schema.Date),
   name: Schema.String,
   email: Schema.String,
 });

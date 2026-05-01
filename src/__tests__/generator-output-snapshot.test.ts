@@ -13,7 +13,7 @@ const { getDMMF } = prismaInternals;
  * the v3 baseline. Phase 0.3 of the Effect v3→v4 migration.
  *
  * The v4 branch will intentionally update this snapshot when emit tokens swap
- * (Schema.UUID → Schema.String.check(Schema.isUUID()), etc.). A human reviews
+ * (Schema.String.check(Schema.isUUID()) → Schema.String.check(Schema.isUUID()), etc.). A human reviews
  * the diff before committing — the generated shape is the public contract for
  * downstream consumers.
  */

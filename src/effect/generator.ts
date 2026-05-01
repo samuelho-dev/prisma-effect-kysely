@@ -1,5 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { buildKyselyFieldType } from '../kysely/type.js';
+import { buildKyselyFieldType, getMapRename } from '../kysely/type.js';
 import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
 import { isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
@@ -11,6 +11,7 @@ import {
   EMIT_STRING,
   EMIT_UUID,
   emitBrand,
+  emitEncodeKeys,
 } from './emit-tokens.js';
 import { generateEnumsFile } from './enum.js';
 import { generateJoinTableSchema } from './join-table.js';
@@ -67,20 +68,25 @@ export type ${name}Id = typeof ${name}Id.Type;`;
     const fkMap = buildForeignKeyMap(model, this.dmmf.datamodel.models);
     const name = toPascalCase(model.name);
 
+    const renames: Record<string, string> = {};
     const fieldDefinitions = fields
       .map((field) => {
-        // Get base Effect type
         const baseType = buildFieldType(field, this.dmmf, fkMap);
-        // Apply Kysely helpers (columnType, generated) and @map directive
-        // Pass model.name so @id fields use the model's branded ID type
         const fieldType = buildKyselyFieldType(baseType, field, model.name);
+        const rename = getMapRename(field);
+        if (rename) {
+          renames[rename[0]] = rename[1];
+        }
         return `  ${field.name}: ${fieldType}`;
       })
       .join(',\n');
 
+    const encodeKeysCall =
+      Object.keys(renames).length > 0 ? `.pipe(${emitEncodeKeys(renames)})` : '';
+
     return `export const ${name} = Schema.Struct({
 ${fieldDefinitions}
-});
+})${encodeKeysCall};
 export type ${name} = typeof ${name};`;
   }
 

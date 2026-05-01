@@ -30,14 +30,14 @@ import { Schema } from "effect";
 import { columnType, generated, Selectable } from "prisma-effect-kysely";
 
 // Branded ID
-export const UserId = Schema.UUID.pipe(Schema.brand("UserId"));
+export const UserId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("UserId"));
 export type UserId = typeof UserId.Type;
 
 // Model schema
 export const User = Schema.Struct({
-  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+  id: columnType(Schema.String.check(Schema.isUUID()), Schema.Never, Schema.Never),
   email: Schema.String,
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
 });
 export type User = typeof User;
 
@@ -73,18 +73,18 @@ Schema names are PascalCase regardless of Prisma model name (`session_preference
 
 ## Type Mappings
 
-| Prisma      | Effect Schema         |
-| ----------- | --------------------- |
-| String      | `Schema.String`       |
-| Int / Float | `Schema.Number`       |
-| BigInt      | `Schema.BigInt`       |
-| Decimal     | `Schema.String`       |
-| Boolean     | `Schema.Boolean`      |
-| DateTime    | `Schema.DateFromSelf` |
-| Json        | `Schema.Unknown`      |
-| Bytes       | `Schema.Uint8Array`   |
-| Enum        | `Schema.Literal(...)` |
-| UUID        | `Schema.UUID`         |
+| Prisma      | Effect Schema (v4)                     |
+| ----------- | -------------------------------------- |
+| String      | `Schema.String`                        |
+| Int / Float | `Schema.Number`                        |
+| BigInt      | `Schema.BigInt`                        |
+| Decimal     | `Schema.String`                        |
+| Boolean     | `Schema.Boolean`                       |
+| DateTime    | `Schema.Date`                          |
+| Json        | `Schema.Unknown`                       |
+| Bytes       | `Schema.Uint8Array`                    |
+| Enum        | `Schema.Literals([...])`               |
+| UUID        | `Schema.String.check(Schema.isUUID())` |
 
 Arrays → `Schema.Array(t)`. Nullable → `Schema.NullOr(t)`.
 
@@ -113,17 +113,13 @@ Supported on all Prisma scalar types.
 
 ## Implicit M2M Join Tables
 
-Prisma columns `A`/`B` map to semantic snake_case fields via `Schema.fromKey`:
+Prisma columns `A`/`B` map to semantic snake_case fields via a struct-level `Schema.encodeKeys`:
 
 ```typescript
 export const ProductToProductTag = Schema.Struct({
-  product_id: Schema.propertySignature(
-    columnType(Schema.UUID, Schema.Never, Schema.Never)
-  ).pipe(Schema.fromKey("A")),
-  product_tag_id: Schema.propertySignature(
-    columnType(Schema.UUID, Schema.Never, Schema.Never)
-  ).pipe(Schema.fromKey("B")),
-});
+  product_id: columnType(ProductId, Schema.Never, Schema.Never),
+  product_tag_id: columnType(ProductTagId, Schema.Never, Schema.Never),
+}).pipe(Schema.encodeKeys({ product_id: "A", product_tag_id: "B" }));
 ```
 
 ## Package Exports

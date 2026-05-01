@@ -65,9 +65,9 @@ describe('Public API type shape', () => {
 
   describe('Selectable / Insertable / Updateable on a representative model', () => {
     const User = Schema.Struct({
-      id: columnType(Schema.UUID, Schema.Never, Schema.Never),
-      createdAt: generated(Schema.DateFromSelf),
-      updatedAt: generated(Schema.DateFromSelf),
+      id: columnType(Schema.String.check(Schema.isUUID()), Schema.Never, Schema.Never),
+      createdAt: generated(Schema.Date),
+      updatedAt: generated(Schema.Date),
       email: Schema.String,
       bio: Schema.NullOr(Schema.String),
       tags: Schema.Array(Schema.String),
