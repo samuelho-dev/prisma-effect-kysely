@@ -33,7 +33,7 @@ export function needsGenerated(field: DMMF.Field) {
  */
 export function applyKyselyHelpers(fieldType: string, field: DMMF.Field, modelName?: string) {
   if (needsColumnType(field)) {
-    // For @id fields, use the model's branded ID type instead of Schema.UUID
+    // For @id fields, use the model's branded ID type instead of the bare scalar
     const idType = modelName ? `${toPascalCase(modelName)}Id` : fieldType;
     return emitColumnType(idType, EMIT_NEVER, EMIT_NEVER);
   } else if (needsGenerated(field)) {

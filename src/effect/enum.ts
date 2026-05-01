@@ -5,13 +5,13 @@ import { toPascalCase } from '../utils/naming.js';
 import { EMIT_EFFECT_IMPORT, emitLiterals, emitSchemaType } from './emit-tokens.js';
 
 /**
- * Generate TypeScript enum + Effect `Schema.Literals` wrapper.
+ * Generate a TypeScript enum plus a `Schema.Literals` wrapper over its DB values.
  *
  * Output pattern:
- * - Native TS enum with SCREAMING_SNAKE_CASE for downstream `keyof typeof` use
- * - PascalCase export IS the Schema (so it works in `Schema.Struct`); v4 has
- *   no `Schema.Enums`, so this is `Schema.Literals([...db values])`.
- * - Type alias with the same name (value + type pattern)
+ * - Raw TS enum with the original (usually SCREAMING_SNAKE_CASE) name for
+ *   downstream `keyof typeof` use
+ * - PascalCase export is itself the Schema, so it can drop into `Schema.Struct`
+ * - Type alias with the same PascalCase name (value + type pattern)
  */
 export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
   // Raw enum keeps original name (usually SCREAMING_SNAKE_CASE)

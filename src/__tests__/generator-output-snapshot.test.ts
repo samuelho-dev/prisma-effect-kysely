@@ -9,13 +9,10 @@ import { GeneratorOrchestrator } from '../generator/orchestrator';
 const { getDMMF } = prismaInternals;
 
 /**
- * Generator output snapshot — pins emitted code shape byte-for-byte against
- * the v3 baseline. Phase 0.3 of the Effect v3→v4 migration.
+ * Generator output snapshot — pins emitted code shape byte-for-byte.
  *
- * The v4 branch will intentionally update this snapshot when emit tokens swap
- * (Schema.String.check(Schema.isUUID()) → Schema.String.check(Schema.isUUID()), etc.). A human reviews
- * the diff before committing — the generated shape is the public contract for
- * downstream consumers.
+ * Generated code is the package's public contract; any change here must be
+ * reviewed manually before the snapshot is updated.
  */
 
 vi.mock('../utils/templates', () => ({

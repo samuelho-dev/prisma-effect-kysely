@@ -13,14 +13,12 @@ import {
 } from '../kysely/helpers';
 
 /**
- * Public-API shape pin — Phase 0.4 of the Effect v3 → v4 migration.
+ * Public-API shape pin.
  *
  * Type-level assertions on the structural shape of every exported branded
  * type and on the type extracted from `Selectable`/`Insertable`/`Updateable`
- * for a representative model. Effect v4 may silently change AST inference
- * depth or `DeepMutable` propagation; if the public types differ structurally
- * between v3 and v4, this test fails on the v4 branch and we surface the
- * change as a public-API break in the v6 release notes.
+ * for a representative model. Failures here indicate an unintended change in
+ * the package's public type surface.
  */
 
 describe('Public API type shape', () => {

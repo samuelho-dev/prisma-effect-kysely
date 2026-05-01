@@ -15,7 +15,7 @@
  * NO type coercions (as any, as unknown) except for branded ID casts.
  */
 
-import { Schema } from 'effect';
+import { Brand, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   Kysely,
@@ -107,9 +107,9 @@ interface Comment extends Schema.Schema.Type<typeof _CommentSchema> {
 }
 
 // Extract branded ID types
-type UserId = string & Schema.Brand<'UserId'>;
-type PostId = string & Schema.Brand<'PostId'>;
-type CommentId = number & Schema.Brand<'CommentId'>;
+type UserId = string & Brand.Brand<'UserId'>;
+type PostId = string & Brand.Brand<'PostId'>;
+type CommentId = number & Brand.Brand<'CommentId'>;
 
 describe('Type Utilities and Branded IDs', () => {
   describe('Branded ID Types', () => {

@@ -16,14 +16,11 @@ import {
 } from './emit-tokens.js';
 
 /**
- * Prisma scalar type mapping to Effect Schema types
- * Uses const assertion to avoid type guards
+ * Prisma scalar type mapping to Effect Schema types.
+ * Uses const assertion to avoid type guards.
  *
- * Note: DateTime uses Schema.DateFromSelf (not Schema.Date) so that:
- * - Type = Date (runtime)
- * - Encoded = Date (database)
- * This allows Kysely to work with native Date objects directly.
- * Schema.Date would encode to string, requiring ISO string conversions.
+ * DateTime maps to `Schema.Date` (Type = Encoded = Date) so Kysely can pass
+ * native `Date` objects through without ISO-string round-tripping.
  */
 const PRISMA_SCALAR_MAP = {
   String: EMIT_STRING,
@@ -32,7 +29,7 @@ const PRISMA_SCALAR_MAP = {
   BigInt: EMIT_BIGINT,
   Decimal: EMIT_STRING, // For precision
   Boolean: EMIT_BOOLEAN,
-  DateTime: EMIT_DATETIME, // Native Date type for Kysely compatibility
+  DateTime: EMIT_DATETIME,
   Json: 'JsonValue', // Recursive JSON type — prevents null absorption in NullOr
   Bytes: EMIT_BYTES,
 } as const;

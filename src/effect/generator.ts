@@ -5,7 +5,7 @@ import { isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 import {
-  EMIT_BIGINT_FROM_SELF,
+  EMIT_BIGINT,
   EMIT_EFFECT_IMPORT,
   EMIT_INT,
   EMIT_STRING,
@@ -50,12 +50,12 @@ export type ${name}Id = typeof ${name}Id.Type;`;
 
   /**
    * Determine the base Effect Schema type for an ID field.
-   * UUID strings → Schema.UUID, integers → Schema.Int, bigints → Schema.BigIntFromSelf, all others → Schema.String
+   * UUID strings → string with isUUID check, ints/bigints/strings → matching scalar.
    */
   private getIdBaseType(field: DMMF.Field) {
     if (isUuidField(field)) return EMIT_UUID;
     if (field.type === 'Int') return EMIT_INT;
-    if (field.type === 'BigInt') return EMIT_BIGINT_FROM_SELF;
+    if (field.type === 'BigInt') return EMIT_BIGINT;
     return EMIT_STRING;
   }
 

@@ -1,7 +1,8 @@
 /**
  * Centralized emitted-string tokens for generated code.
  *
- * Effect v4 forms.
+ * Every place that builds a Schema source string imports from here so the
+ * emit shape is changed in one file.
  */
 
 export const EMIT_STRING = 'Schema.String';
@@ -12,16 +13,13 @@ export const EMIT_BYTES = 'Schema.Uint8Array';
 export const EMIT_NEVER = 'Schema.Never';
 export const EMIT_UNKNOWN = 'Schema.Unknown';
 
-/** UUID schema (v4: filter on String). */
+/** UUID schema — string with a UUID format check. */
 export const EMIT_UUID = 'Schema.String.check(Schema.isUUID())';
 
-/** DateTime schema. v4 `Schema.Date` (Type = Encoded = Date for Kysely). */
+/** DateTime schema — Type = Encoded = Date for Kysely passthrough. */
 export const EMIT_DATETIME = 'Schema.Date';
 
-/** BigInt branded ID base type. v4: `Schema.BigInt`. */
-export const EMIT_BIGINT_FROM_SELF = 'Schema.BigInt';
-
-/** Int branded ID base type — v4 has no `Schema.Int`; use Number with isInt check. */
+/** Int — Number with an integer check (Effect has no dedicated `Int`). */
 export const EMIT_INT = 'Schema.Number.check(Schema.isInt())';
 
 /** Effect import statement. */
@@ -33,11 +31,7 @@ export const emitArray = (inner: string) => `Schema.Array(${inner})`;
 /** Wrap a base type in `Schema.NullOr(...)`. */
 export const emitNullOr = (inner: string) => `Schema.NullOr(${inner})`;
 
-/**
- * Emit `Schema.Literals([...])` for an enum's DB values.
- * v4 removed `Schema.Enums`; the closest behavior-preserving replacement is
- * `Schema.Literals` over the same union of string literal values.
- */
+/** Emit `Schema.Literals([...])` over the given string values. */
 export const emitLiterals = (values: ReadonlyArray<string>) => {
   const items = values.map((v) => `"${v}"`).join(', ');
   return `Schema.Literals([${items}])`;
@@ -59,9 +53,8 @@ export const emitSchemaType = (name: string) => `Schema.Schema.Type<typeof ${nam
 /**
  * Emit a struct-level `Schema.encodeKeys` rename map.
  *
- * v4 replaces v3's per-field `Schema.propertySignature(...).pipe(Schema.fromKey(...))`
- * with one struct-level `.pipe(Schema.encodeKeys({ ts: "db", ... }))` after the
- * `Schema.Struct({...})` literal.
+ * Renames are collected per-model and emitted as a single
+ * `.pipe(Schema.encodeKeys({ ts: "db", ... }))` after the `Schema.Struct({...})`.
  */
 export const emitEncodeKeys = (renames: Record<string, string>) => {
   const entries = Object.entries(renames)

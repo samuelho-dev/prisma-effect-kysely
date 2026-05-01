@@ -36,9 +36,10 @@ Entry: `src/generator/index.ts` exposes the Prisma generator manifest and delega
 Generators:
 
 - `src/effect/generator.ts` — model schemas + branded IDs
-- `src/effect/enum.ts` — Prisma enums → `Schema.Literal`
+- `src/effect/enum.ts` — Prisma enums → `Schema.Literals`
 - `src/effect/join-table.ts` — implicit M2M join tables
-- `src/kysely/generator.ts` — `DB` interface
+- `src/kysely/type.ts` — `DB` interface
+- `src/effect/emit-tokens.ts` — emitted-string tokens (single swap point for the Schema source shape)
 
 Support: `src/utils/file-manager.ts` (FS), `src/utils/templates.ts` (Prettier formatting), `src/prisma/` (DMMF parsing, type utils, relation detection).
 
@@ -46,28 +47,28 @@ Support: `src/utils/file-manager.ts` (FS), `src/utils/templates.ts` (Prettier fo
 
 Three files in the configured output directory:
 
-- **enums.ts** — `Schema.Literal` per Prisma enum (respects `@map`)
+- **enums.ts** — `Schema.Literals([...])` per Prisma enum (respects `@map`)
 - **types.ts** — direct exports (no underscore prefix, no wrapper functions):
   - Branded ID schema + type per model
-  - Model `Schema.Struct` + type alias
-  - `DB` interface using `Selectable<Model>` per table (respects `@@map`)
+  - Model `Schema.Struct` + type alias, plus `.pipe(Schema.encodeKeys({...}))` if any field uses `@map`
+  - `DB` interface using `Schema.Schema.Type<typeof Model>` per table (respects `@@map`)
 - **index.ts** — re-exports
 
 ## Generated shape
 
 ```typescript
-export const UserId = Schema.UUID.pipe(Schema.brand("UserId"));
+export const UserId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("UserId"));
 export type UserId = typeof UserId.Type;
 
 export const User = Schema.Struct({
-  id: columnType(Schema.UUID, Schema.Never, Schema.Never),
+  id: columnType(UserId, Schema.Never, Schema.Never),
   email: Schema.String,
-  createdAt: generated(Schema.DateFromSelf),
+  createdAt: generated(Schema.Date),
 });
 export type User = typeof User;
 
 export interface DB {
-  User: Selectable<User>;
+  User: Schema.Schema.Type<typeof User>;
 }
 ```
 
@@ -85,7 +86,7 @@ Consumers use `Selectable<typeof User>` / `Insertable<typeof User>` / `Updateabl
 
 ## Implicit M2M join tables
 
-Prisma stores `A`/`B` columns; we emit semantic snake_case fields via `Schema.propertySignature(...).pipe(Schema.fromKey("A"))`. Join tables get NO branded ID (composite key).
+Prisma stores `A`/`B` columns; we emit semantic snake_case fields and a struct-level `.pipe(Schema.encodeKeys({ x_id: "A", y_id: "B" }))`. Join tables get NO branded ID (composite key).
 
 ## UUID detection
 
@@ -97,17 +98,17 @@ Prisma stores `A`/`B` columns; we emit semantic snake_case fields via `Schema.pr
 
 ## Type mappings
 
-| Prisma      | Effect                | Notes              |
-| ----------- | --------------------- | ------------------ |
-| String      | `Schema.String`       | UUID → `Schema.UUID` |
-| Int / Float | `Schema.Number`       |                    |
-| BigInt      | `Schema.BigInt`       |                    |
-| Decimal     | `Schema.String`       | precision          |
-| Boolean     | `Schema.Boolean`      |                    |
-| DateTime    | `Schema.DateFromSelf` |                    |
-| Json        | `Schema.Unknown`      |                    |
-| Bytes       | `Schema.Uint8Array`   |                    |
-| Enum        | imported enum schema  |                    |
+| Prisma      | Effect                                 | Notes                                          |
+| ----------- | -------------------------------------- | ---------------------------------------------- |
+| String      | `Schema.String`                        | UUID → `Schema.String.check(Schema.isUUID())` |
+| Int / Float | `Schema.Number`                        | `@id` Int → `.check(Schema.isInt())`           |
+| BigInt      | `Schema.BigInt`                        | bigint↔bigint                                  |
+| Decimal     | `Schema.String`                        | precision                                      |
+| Boolean     | `Schema.Boolean`                       |                                                |
+| DateTime    | `Schema.Date`                          | Type = Encoded = Date                          |
+| Json        | `JsonValue`                            | recursive runtime schema                       |
+| Bytes       | `Schema.Uint8Array`                    |                                                |
+| Enum        | `Schema.Literals([...])`               | over @map'd DB values                          |
 
 Arrays → `Schema.Array(t)`. Nullable → `Schema.NullOr(t)`.
 
@@ -120,18 +121,21 @@ Arrays → `Schema.Array(t)`. Nullable → `Schema.NullOr(t)`.
 
 ## Package exports
 
+All five entries currently resolve to the same `dist/kysely/helpers.js`; the named subpaths exist for namespacing future splits without breaking consumers.
+
 | Entry          | Contents                                          |
 | -------------- | ------------------------------------------------- |
 | `.`            | `Selectable`, `Insertable`, `Updateable`, helpers |
 | `./generator`  | Prisma generator binary entry                     |
-| `./kysely`     | `getSchemas`, `columnType`, `generated`, types    |
-| `./error`      | `NotFoundError`, `QueryError`, `DatabaseError`    |
-| `./runtime`    | All runtime utilities                             |
+| `./kysely`     | `columnType`, `generated`, type utilities         |
+| `./error`      | (currently same as `.`; reserved)                 |
+| `./runtime`    | (currently same as `.`; reserved)                 |
 
 ## Working in this repo
 
-- Run `bun run test` (280 tests) to baseline before changes
-- Generator must be rebuilt before `prisma generate` picks up changes
+- Run `bun run test` to baseline before changes (currently 356 tests)
+- Generator must be rebuilt (`bun run build`) before `prisma generate` picks up changes
 - Test fixtures: `src/__tests__/fixtures/test.prisma`
+- Generator output snapshot at `src/__tests__/__snapshots__/generator-output-snapshot.test.ts.snap` pins the emit shape; review diffs before updating
 - Generated headers include timestamp + edit warning
-- Direct exports only — never reintroduce underscore prefixes or wrapper functions in generated code (`getSchemas` remains in runtime API, not in output)
+- Direct exports only — never reintroduce underscore prefixes or wrapper functions in generated code

@@ -4,18 +4,19 @@ import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 import { EMIT_NEVER, emitColumnType, emitEncodeKeys } from './emit-tokens.js';
 
 /**
- * Generate Effect Schema for an implicit many-to-many join table
+ * Generate Effect Schema for an implicit many-to-many join table.
  *
  * Structure:
  * - Direct export with semantic snake_case field names
- * - Maps TypeScript names to database A/B columns using Schema.fromKey
- * - Uses columnType for read-only foreign keys (can't insert/update join table rows directly)
- * - No type exports - consumers use type utilities: Selectable<JoinTable>
+ * - Maps TypeScript names to database A/B columns via struct-level
+ *   `.pipe(Schema.encodeKeys({ ts: "A", ... }))`
+ * - Uses `columnType` for read-only foreign keys (rows aren't insertable/updateable directly)
+ * - No type exports — consumers use type utilities: `Selectable<JoinTable>` etc.
  *
  * Example:
- * - Database columns: A, B (Prisma requirement for implicit many-to-many)
- * - TypeScript fields: product_id, product_tag_id (semantic names)
- * - Types: columnType(ProductId, Schema.Never, Schema.Never) (read-only, branded)
+ * - Database columns: `A`, `B` (Prisma requirement for implicit many-to-many)
+ * - TypeScript fields: `product_id`, `product_tag_id` (semantic names)
+ * - Types: `columnType(ProductId, Schema.Never, Schema.Never)` (read-only, branded)
  */
 export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document) {
   const { tableName, relationName, modelA, modelB } = joinTable;

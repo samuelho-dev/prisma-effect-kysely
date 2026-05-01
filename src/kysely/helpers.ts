@@ -39,16 +39,15 @@ export type {
 };
 
 /**
- * Annotation key for ColumnType-wrapped fields.
+ * Annotation keys used to mark ColumnType- and Generated-wrapped fields.
  *
- * Effect v4 stores annotations in a `Schema.Annotations.Annotations` interface
- * with string keys (`[x: string]: unknown`). Symbol keys are not propagated by
- * `Schema.annotate` in v4, so this is a string constant.
+ * Annotations live in a `Schema.Annotations.Annotations` interface with
+ * string keys (`[x: string]: unknown`); only string keys round-trip through
+ * `Schema.annotate`, so these are plain strings rather than symbols.
  */
 export const ColumnTypeId = '~prisma-effect-kysely/ColumnType' as const;
 export type ColumnTypeId = typeof ColumnTypeId;
 
-/** Annotation key for Generated fields. See {@link ColumnTypeId} for v4 rationale. */
 export const GeneratedId = '~prisma-effect-kysely/Generated' as const;
 export type GeneratedId = typeof GeneratedId;
 
@@ -371,9 +370,9 @@ const ColumnTypeSchemasValidator = Schema.Struct({
  * Returns null if not a column type or validation fails
  */
 function getColumnTypeSchemas(ast: AST.AST) {
-  // v4 stores user annotations on the last `Check` when one is present, so
+  // User annotations live on the last `Check` when checks are present, so
   // `ast.annotations` is often `undefined` for schemas built with `.check(...)`.
-  // `AST.resolve(ast)` looks up annotations from the right place.
+  // `AST.resolve(ast)` resolves annotations from wherever they actually are.
   const anns = AST.resolve(ast);
   if (!anns || !(ColumnTypeId in anns)) {
     return null;
@@ -394,16 +393,10 @@ function getColumnTypeSchemas(ast: AST.AST) {
 // ============================================================================
 // Internal AST construction helpers
 // ============================================================================
-// v4 differences from v3:
-// - PropertySignature: 2-arg constructor; optional/mutable carried on type.context
-//   via `AST.optionalKey(...)` or by rebuilding the node with a new `Context`
-//   whose `isMutable` flag is set (no `AST.mutableKey` is exported)
-// - Objects replaces TypeLiteral
-// - `new AST.Union(types, "anyOf")` replaces `AST.Union.make`
-// - `AST.undefined` singleton replaces `new AST.UndefinedKeyword()`
-// - `AST.isObjects/isUndefined/isNever` replace the Keyword-suffixed v3 names
-// - `Schema.revealCodec` replaces `Schema.asSchema` (only valid on Codec)
-// - No `AST.annotate` function: rebuild via the concrete `_tag`'s constructor
+// AST nodes are immutable. To "modify" a node we construct a new instance via
+// the concrete `_tag` constructor. Optional/mutable property metadata lives on
+// the type AST's `Context`, set via `AST.optionalKey(...)` (the only public
+// helper) or by calling the constructor with a freshly-built `AST.Context`.
 
 const isStruct = (ast: AST.AST): ast is AST.Objects => AST.isObjects(ast);
 const isUndef = (ast: AST.AST): boolean => AST.isUndefined(ast);
@@ -419,175 +412,25 @@ const isGeneratedType = (ast: AST.AST): boolean => {
   return anns ? GeneratedId in anns : false;
 };
 
+interface BaseOverrides {
+  readonly annotations?: Schema.Annotations.Annotations | undefined;
+  readonly checks?: AST.Checks | undefined;
+  readonly context?: AST.Context | undefined;
+}
+
 /**
- * Rebuild an AST node with new annotations, preserving its `_tag`-specific data,
- * checks, encoding, and context. v4 has no `AST.annotate(ast, anns)` helper, so
- * this dispatches on `_tag` and constructs a fresh node via the public constructor.
+ * Reconstruct an AST node, optionally replacing any of `annotations`/`checks`/
+ * `context` while preserving everything else (the `_tag`-specific data, the
+ * encoding chain, and any field not named in `overrides`).
  *
- * The `annotations` arg replaces the existing annotations entirely — callers
- * should merge themselves if they want to preserve unrelated keys.
+ * Effect v4 does not expose `AST.annotate` / `AST.replaceChecks` /
+ * `AST.replaceContext` helpers, so we dispatch on `_tag` and call the concrete
+ * public constructor. Pass `undefined` to clear a field.
  */
-const rebuildWithAnnotations = (
-  ast: AST.AST,
-  annotations: Schema.Annotations.Annotations | undefined
-): AST.AST => {
-  const checks = ast.checks;
-  const encoding = ast.encoding;
-  const context = ast.context;
-  switch (ast._tag) {
-    case 'Null':
-      return new AST.Null(annotations, checks, encoding, context);
-    case 'Undefined':
-      return new AST.Undefined(annotations, checks, encoding, context);
-    case 'Void':
-      return new AST.Void(annotations, checks, encoding, context);
-    case 'Never':
-      return new AST.Never(annotations, checks, encoding, context);
-    case 'Any':
-      return new AST.Any(annotations, checks, encoding, context);
-    case 'Unknown':
-      return new AST.Unknown(annotations, checks, encoding, context);
-    case 'String':
-      return new AST.String(annotations, checks, encoding, context);
-    case 'Number':
-      return new AST.Number(annotations, checks, encoding, context);
-    case 'Boolean':
-      return new AST.Boolean(annotations, checks, encoding, context);
-    case 'BigInt':
-      return new AST.BigInt(annotations, checks, encoding, context);
-    case 'Symbol':
-      return new AST.Symbol(annotations, checks, encoding, context);
-    case 'ObjectKeyword':
-      return new AST.ObjectKeyword(annotations, checks, encoding, context);
-    case 'Literal':
-      return new AST.Literal(ast.literal, annotations, checks, encoding, context);
-    case 'UniqueSymbol':
-      return new AST.UniqueSymbol(ast.symbol, annotations, checks, encoding, context);
-    case 'Enum':
-      return new AST.Enum(ast.enums, annotations, checks, encoding, context);
-    case 'TemplateLiteral':
-      return new AST.TemplateLiteral(ast.parts, annotations, checks, encoding, context);
-    case 'Arrays':
-      return new AST.Arrays(
-        ast.isMutable,
-        ast.elements,
-        ast.rest,
-        annotations,
-        checks,
-        encoding,
-        context
-      );
-    case 'Objects':
-      return new AST.Objects(
-        ast.propertySignatures,
-        ast.indexSignatures,
-        annotations,
-        checks,
-        encoding,
-        context
-      );
-    case 'Union':
-      return new AST.Union(ast.types, ast.mode, annotations, checks, encoding, context);
-    case 'Suspend':
-      return new AST.Suspend(ast.thunk, annotations, checks, encoding, context);
-    case 'Declaration':
-      return new AST.Declaration(
-        ast.typeParameters,
-        ast.run,
-        annotations,
-        checks,
-        encoding,
-        context
-      );
-  }
-};
-
-/**
- * Rebuild an AST node with new `checks`, preserving annotations, encoding,
- * context, and `_tag`-specific data. v4 has no `AST.replaceChecks` helper, so
- * this dispatches on `_tag` and constructs a fresh node.
- */
-const rebuildWithChecks = (ast: AST.AST, checks: AST.Checks | undefined): AST.AST => {
-  const annotations = ast.annotations;
-  const encoding = ast.encoding;
-  const context = ast.context;
-  switch (ast._tag) {
-    case 'Null':
-      return new AST.Null(annotations, checks, encoding, context);
-    case 'Undefined':
-      return new AST.Undefined(annotations, checks, encoding, context);
-    case 'Void':
-      return new AST.Void(annotations, checks, encoding, context);
-    case 'Never':
-      return new AST.Never(annotations, checks, encoding, context);
-    case 'Any':
-      return new AST.Any(annotations, checks, encoding, context);
-    case 'Unknown':
-      return new AST.Unknown(annotations, checks, encoding, context);
-    case 'String':
-      return new AST.String(annotations, checks, encoding, context);
-    case 'Number':
-      return new AST.Number(annotations, checks, encoding, context);
-    case 'Boolean':
-      return new AST.Boolean(annotations, checks, encoding, context);
-    case 'BigInt':
-      return new AST.BigInt(annotations, checks, encoding, context);
-    case 'Symbol':
-      return new AST.Symbol(annotations, checks, encoding, context);
-    case 'ObjectKeyword':
-      return new AST.ObjectKeyword(annotations, checks, encoding, context);
-    case 'Literal':
-      return new AST.Literal(ast.literal, annotations, checks, encoding, context);
-    case 'UniqueSymbol':
-      return new AST.UniqueSymbol(ast.symbol, annotations, checks, encoding, context);
-    case 'Enum':
-      return new AST.Enum(ast.enums, annotations, checks, encoding, context);
-    case 'TemplateLiteral':
-      return new AST.TemplateLiteral(ast.parts, annotations, checks, encoding, context);
-    case 'Arrays':
-      return new AST.Arrays(
-        ast.isMutable,
-        ast.elements,
-        ast.rest,
-        annotations,
-        checks,
-        encoding,
-        context
-      );
-    case 'Objects':
-      return new AST.Objects(
-        ast.propertySignatures,
-        ast.indexSignatures,
-        annotations,
-        checks,
-        encoding,
-        context
-      );
-    case 'Union':
-      return new AST.Union(ast.types, ast.mode, annotations, checks, encoding, context);
-    case 'Suspend':
-      return new AST.Suspend(ast.thunk, annotations, checks, encoding, context);
-    case 'Declaration':
-      return new AST.Declaration(
-        ast.typeParameters,
-        ast.run,
-        annotations,
-        checks,
-        encoding,
-        context
-      );
-  }
-};
-
-/**
- * Rebuild an AST node, replacing its `Context` while preserving annotations,
- * checks, encoding, and `_tag`-specific data. Used to set `isMutable: true` on a
- * property's type AST without an `AST.mutableKey` helper (which v4 does not expose
- * at the AST level — only `Schema.mutableKey` at the schema level).
- */
-const rebuildWithContext = (ast: AST.AST, context: AST.Context | undefined): AST.AST => {
-  const annotations = ast.annotations;
-  const checks = ast.checks;
+const rebuildBase = (ast: AST.AST, overrides: BaseOverrides): AST.AST => {
+  const annotations = 'annotations' in overrides ? overrides.annotations : ast.annotations;
+  const checks = 'checks' in overrides ? overrides.checks : ast.checks;
+  const context = 'context' in overrides ? overrides.context : ast.context;
   const encoding = ast.encoding;
   switch (ast._tag) {
     case 'Null':
@@ -658,10 +501,9 @@ const rebuildWithContext = (ast: AST.AST, context: AST.Context | undefined): AST
 };
 
 /**
- * Strip the listed annotation keys from an AST node. v4 may store user-supplied
- * annotations on the AST node directly OR on the last `Check` when checks are
- * present. We handle both: rebuild the node with filtered top-level annotations
- * and replace the last check with one whose annotations are filtered.
+ * Strip the listed annotation keys from an AST node. User-supplied annotations
+ * may live on the node directly or on the last `Check` when checks are present;
+ * this rebuilds both with the filtered annotation maps.
  */
 const stripAnns = (ast: AST.AST, ids: ReadonlyArray<string>): AST.AST => {
   const stripFrom = (
@@ -678,7 +520,7 @@ const stripAnns = (ast: AST.AST, ids: ReadonlyArray<string>): AST.AST => {
   const nextAnns = stripFrom(ast.annotations);
   let result = ast;
   if (nextAnns !== ast.annotations) {
-    result = rebuildWithAnnotations(ast, nextAnns);
+    result = rebuildBase(ast, { annotations: nextAnns });
   }
 
   const checks = result.checks;
@@ -693,7 +535,7 @@ const stripAnns = (ast: AST.AST, ids: ReadonlyArray<string>): AST.AST => {
     if (newCheckAnns !== last.annotations) {
       const newLast = last.annotate(newCheckAnns as Schema.Annotations.Filter);
       const newChecks: AST.Checks = tail.length === 0 ? [newLast] : [head, ...init, newLast];
-      result = rebuildWithChecks(result, newChecks);
+      result = rebuildBase(result, { checks: newChecks });
     }
   }
 
@@ -721,7 +563,7 @@ const applyKeyContext = (
       existing?.defaultValue,
       existing?.annotations
     );
-    result = rebuildWithContext(result, merged);
+    result = rebuildBase(result, { context: merged });
   }
   return result;
 };
@@ -807,10 +649,7 @@ const stripNullFromUnion = (ast: AST.AST): AST.AST => {
   return ast;
 };
 
-const extractParametersFromTypeLiteral = (
-  ast: AST.Objects,
-  schemaType: keyof AnyColumnTypeSchemas
-) => {
+const extractFieldsForVariant = (ast: AST.Objects, schemaType: keyof AnyColumnTypeSchemas) => {
   return ast.propertySignatures
     .map((prop: AST.PropertySignature): AST.PropertySignature | null => {
       const isOptional = propIsOptional(prop);
@@ -998,7 +837,7 @@ export function Selectable<Type, Encoded>(
   return reveal(
     makeSchemaFromAst(
       makeObjects(
-        extractParametersFromTypeLiteral(ast, 'selectSchema'),
+        extractFieldsForVariant(ast, 'selectSchema'),
         ast.indexSignatures,
         ast.annotations
       )
@@ -1019,7 +858,7 @@ export function Insertable<Type, Encoded>(schema: Schema.Codec<Type, Encoded>) {
     >;
   }
 
-  const extracted = extractParametersFromTypeLiteral(ast, 'insertSchema');
+  const extracted = extractFieldsForVariant(ast, 'insertSchema');
 
   const fields = extracted.map((prop) => {
     const isMutable = propIsMutable(prop);
@@ -1058,7 +897,7 @@ export function Updateable<Type, Encoded>(schema: Schema.Codec<Type, Encoded>) {
     >;
   }
 
-  const extracted = extractParametersFromTypeLiteral(ast, 'updateSchema');
+  const extracted = extractFieldsForVariant(ast, 'updateSchema');
 
   const res = makeObjects(
     extracted.map((prop) =>
