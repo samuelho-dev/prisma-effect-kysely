@@ -84,7 +84,7 @@
     ]
   },
   "dependencies": {
-    "prettier": "^3.7.4"
+    "prettier": "^3.8.3"
   },
   "peerDependencies": {
     "effect": "^3.19.14",
@@ -96,28 +96,28 @@
     }
   },
   "devDependencies": {
-    "@prisma/generator-helper": "^7.2.0",
-    "@changesets/changelog-github": "^0.5.1",
-    "@changesets/cli": "^2.29.8",
-    "@effect/vitest": "^0.27.0",
-    "@eslint/js": "^9.39.2",
-    "@prisma/internals": "^7.2.0",
-    "@types/node": "^25.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.50.0",
-    "@typescript-eslint/parser": "^8.50.0",
-    "@vitest/coverage-v8": "^4.0.16",
-    "@vitest/eslint-plugin": "^1.5.4",
-    "effect": "^3.19.14",
-    "eslint": "^9.39.2",
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.31.0",
+    "@effect/vitest": "^0.29.0",
+    "@eslint/js": "^10.0.0",
+    "@prisma/generator-helper": "^7.8.0",
+    "@prisma/internals": "^7.8.0",
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
+    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/eslint-plugin": "^1.6.16",
+    "effect": "^3.21.2",
+    "eslint": "^10.0.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "husky": "^9.1.7",
-    "kysely": "^0.28.9",
-    "lint-staged": "^16.2.7",
-    "prisma": "^7.2.0",
+    "kysely": "^0.28.16",
+    "lint-staged": "^16.4.0",
+    "prisma": "^7.8.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.50.0",
-    "vitest": "^4.0.16"
+    "typescript": "^6.0.0",
+    "typescript-eslint": "^8.59.1",
+    "vitest": "^4.1.5"
   }
 }
