@@ -52,6 +52,45 @@ export function isIdField(field: DMMF.Field) {
 }
 
 /**
+ * Check whether a field belongs to the model's primary key.
+ */
+export function isPrimaryKeyField(model: DMMF.Model, field: DMMF.Field) {
+  return field.isId === true || model.primaryKey?.fields.includes(field.name) === true;
+}
+
+/**
+ * Check whether the database, rather than Prisma Client, supplies a default.
+ */
+export function hasDatabaseDefault(field: DMMF.Field) {
+  if (!field.hasDefaultValue || field.default === undefined) {
+    return false;
+  }
+
+  if (
+    Array.isArray(field.default) ||
+    typeof field.default === 'string' ||
+    typeof field.default === 'number' ||
+    typeof field.default === 'boolean'
+  ) {
+    return true;
+  }
+
+  return (
+    'name' in field.default && ['autoincrement', 'dbgenerated', 'now'].includes(field.default.name)
+  );
+}
+
+/**
+ * Derive insert/update ownership for a database field.
+ */
+export function getFieldOperationConfig(model: DMMF.Model, field: DMMF.Field) {
+  return {
+    insertOptional: !field.isRequired || hasDatabaseDefault(field),
+    update: !isPrimaryKeyField(model, field),
+  } as const;
+}
+
+/**
  * Check if field is required using native DMMF property
  */
 export function isRequiredField(field: DMMF.Field) {

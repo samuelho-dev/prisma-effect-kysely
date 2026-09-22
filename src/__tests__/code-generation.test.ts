@@ -1,538 +1,291 @@
+import { execFile } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { rm } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EffectGenerator } from '../effect/generator';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
-import {
-  createMockDMMF,
-  createMockEnum,
-  createMockField,
-  createMockModel,
-} from './helpers/dmmf-mocks';
 
 const { getDMMF } = prismaInternals;
+const execFileAsync = promisify(execFile);
 
-/**
- * Code Generation - E2E and Validation Tests
- *
- * Unified test suite for all code generation behavior.
- * Tests verify BEHAVIOR not IMPLEMENTATION.
- *
- * Domains covered:
- * - E2E file generation (orchestration, file creation)
- * - Generated code structure (imports, exports, DB interface)
- * - TypeScript validity (syntax, type safety)
- * - Error handling (empty DMMF, invalid configs)
- * - Import generation (enum imports)
- *
- * NO type coercions (as any, as unknown).
- */
-
-// Mock prettier
 vi.mock('../utils/templates', () => ({
   formatCode: vi.fn((code: string) => Promise.resolve(code)),
 }));
 
-describe('Code Generation - E2E and Validation', () => {
+describe('generated consumer contract', () => {
   const testOutputPath = join(import.meta.dirname, '../test-output-codegen');
   const fixtureSchemaPath = join(import.meta.dirname, 'fixtures/test.prisma');
-
   let dmmf: DMMF.Document;
 
+  const optionsFor = (document: DMMF.Document): GeneratorOptions =>
+    ({
+      generator: { output: { value: testOutputPath } },
+      dmmf: document,
+    }) as GeneratorOptions;
+
+  const generate = async (document = dmmf) => {
+    const options = optionsFor(document);
+    await new GeneratorOrchestrator(options).generate(options);
+  };
+
   beforeAll(async () => {
-    const schemaContent = readFileSync(fixtureSchemaPath, 'utf-8');
-    dmmf = await getDMMF({ datamodel: schemaContent });
+    dmmf = await getDMMF({ datamodel: readFileSync(fixtureSchemaPath, 'utf8') });
   });
 
   afterEach(async () => {
-    if (existsSync(testOutputPath)) {
-      await rm(testOutputPath, { recursive: true, force: true });
-    }
+    await rm(testOutputPath, { recursive: true, force: true });
   });
 
   afterAll(() => {
     dmmf = undefined;
   });
 
-  describe('E2E File Generation', () => {
-    it('should generate all three files (enums.ts, types.ts, index.ts)', async () => {
-      const options: GeneratorOptions = {
-        generator: {
-          output: { value: testOutputPath },
-        },
-        dmmf,
-      } as GeneratorOptions;
+  it('writes the public generated files and direct operation exports', async () => {
+    await generate();
 
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
+    const indexPath = join(testOutputPath, 'index.ts');
+    expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
+    expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
+    expect(existsSync(indexPath)).toBe(true);
 
-      expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
-      expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
-      expect(existsSync(join(testOutputPath, 'index.ts'))).toBe(true);
-    });
-
-    it('should throw error when output path is not configured', async () => {
-      const options = {
-        generator: { output: null },
-        dmmf,
-      } as GeneratorOptions;
-
-      await expect(async () => {
-        const orchestrator = new GeneratorOrchestrator(options);
-        await orchestrator.generate(options);
-      }).rejects.toThrow('Prisma Effect Generator: output path not configured');
-    });
-
-    it('should handle empty DMMF (no models, no enums)', async () => {
-      const emptyDMMF = {
-        datamodel: {
-          models: [],
-          enums: [],
-        },
-      };
-
-      const options = {
-        generator: { output: { value: testOutputPath } },
-        dmmf: emptyDMMF,
-      } as unknown as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      // Should still generate files
-      expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
-      expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
-      expect(existsSync(join(testOutputPath, 'index.ts'))).toBe(true);
-
-      // Should have valid structure
-      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
-      expect(typesContent).toContain('export interface DB');
-    });
-
-    it('should generate valid TypeScript output', async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-
-      // Should generate schemas exported directly
-      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
-
-      // Should generate type aliases
-      expect(typesContent).toMatch(/export type \w+ = typeof \w+/);
-    });
+    // Static imports cannot target generated files that only exist after this test starts.
+    const generated = await import(`${pathToFileURL(indexPath).href}?public-contract`);
+    expect(generated).toHaveProperty('Effect4Contract');
+    expect(generated).toHaveProperty('Effect4ContractInsert');
+    expect(generated).toHaveProperty('Effect4ContractUpdate');
+    expect(generated).toHaveProperty('Role');
+    expect(generated).not.toHaveProperty('SharedProfileId');
+    expect(generated).not.toHaveProperty('SharedProfileAuditId');
   });
 
-  describe('Generated Code Structure', () => {
-    let typesContent: string;
-    let enumsContent: string;
-    let indexContent: string;
+  it('rejects a missing output directory', async () => {
+    const options = {
+      generator: { output: null },
+      dmmf,
+    } as GeneratorOptions;
 
-    beforeEach(async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
+    expect(() => new GeneratorOrchestrator(options)).toThrow(
+      'Prisma Effect Generator: output path not configured'
+    );
+  });
 
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
+  it('writes an empty public output for an empty DMMF', async () => {
+    const emptyDmmf = {
+      datamodel: { models: [], enums: [] },
+    } as unknown as DMMF.Document;
 
-      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-      enumsContent = readFileSync(join(testOutputPath, 'enums.ts'), 'utf-8');
-      indexContent = readFileSync(join(testOutputPath, 'index.ts'), 'utf-8');
-    });
+    await generate(emptyDmmf);
 
-    it('should have correct import statements', () => {
-      // types.ts imports
-      expect(typesContent).toMatch(/import \{ Schema \} from ["']effect["']/);
-      expect(typesContent).toMatch(/from ["']prisma-effect-kysely["']/);
-      // No StrictType import - consumers use type utilities from prisma-effect-kysely
+    expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
+    expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
+    expect(existsSync(join(testOutputPath, 'index.ts'))).toBe(true);
+  });
 
-      // enums.ts imports
-      expect(enumsContent).toMatch(/import \{ Schema \} from ["']effect["']/);
-    });
+  it('compiles and runs a mapped Effect 4 and native Kysely consumer', async () => {
+    await generate();
 
-    it('should generate schemas directly without underscore prefix', () => {
-      // Schemas are exported directly (e.g., User, Post)
-      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export const Post = Schema\.Struct/);
-    });
+    const consumerPath = join(testOutputPath, 'consumer.ts');
+    const smokePath = join(testOutputPath, 'smoke.ts');
+    const tsconfigPath = join(testOutputPath, 'tsconfig.json');
 
-    it('should export schemas with type aliases', () => {
-      // Pattern: export const User = Schema.Struct({...}); export type User = typeof User;
-      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
-      expect(typesContent).toMatch(/export type User = typeof User/);
-    });
+    await writeFile(
+      consumerPath,
+      `import {
+  Effect4Contract,
+  Effect4ContractInsert,
+  Effect4ContractUpdate,
+  Role,
+  type CompositeIdModelUpdate,
+  type DB,
+  type UserId,
+} from "./index.ts";
+import type { Insertable, Kysely, Selectable, Updateable } from "kysely";
 
-    it('should generate branded ID schemas for models with @id field', () => {
-      // Branded ID schemas should be generated for each model with an ID field
-      expect(typesContent).toMatch(
-        /const UserId = Schema\.UUID\.pipe\(Schema\.brand\("UserId"\)\)/
+const selectCodec = Effect4Contract;
+const insertCodec = Effect4ContractInsert;
+const updateCodec = Effect4ContractUpdate;
+const roleCodec = Role;
+void selectCodec;
+void insertCodec;
+void updateCodec;
+void roleCodec;
+
+declare const db: Kysely<DB>;
+declare const selected: Selectable<DB["effect4_contract"]>;
+declare const decoded: Effect4Contract;
+const selectedId: Effect4Contract["id"] = selected.id;
+const selectedAmount: bigint = selected.amount;
+void selectedId;
+void selectedAmount;
+declare const sharedProfile: Selectable<DB["SharedProfile"]>;
+const sharedProfileUserId: UserId = sharedProfile.user_id;
+void sharedProfileUserId;
+declare const sharedProfileAudit: Selectable<DB["SharedProfileAudit"]>;
+const auditUserId: UserId = sharedProfileAudit.user_id;
+void auditUserId;
+void decoded;
+
+const databaseInsert: Insertable<DB["effect4_contract"]> = {
+  prisma_id: "prisma-default-required",
+  db_name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata: { nested: ["json", true, null] },
+  updated_at: new Date("2025-01-02T03:04:05.000Z"),
+};
+const databaseUpdate: Updateable<DB["effect4_contract"]> = {
+  db_name: "renamed",
+  amount: 1n,
+};
+
+const insertQuery = db.insertInto("effect4_contract").values(databaseInsert).returningAll();
+const updateQuery = db.updateTable("effect4_contract").set(databaseUpdate).returningAll();
+const selectQuery = db.selectFrom("effect4_contract").selectAll();
+void insertQuery;
+void updateQuery;
+void selectQuery;
+
+// @ts-expect-error Prisma Client defaults are not database defaults.
+const missingPrismaId: Effect4ContractInsert = {
+  name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata: {},
+  updatedAt: new Date("2025-01-02T03:04:05.000Z"),
+};
+
+// @ts-expect-error Bare @updatedAt values remain required inserts.
+const missingUpdatedAt: Effect4ContractInsert = {
+  prismaId: "prisma-default-required",
+  name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata: {},
+};
+
+// @ts-expect-error Primary keys are never updateable.
+const primaryKeyUpdate: Effect4ContractUpdate = { id: "not-updateable" };
+
+// @ts-expect-error Every component of a composite primary key is absent from updates.
+const compositeKeyUpdate: CompositeIdModelUpdate = { userId: "not-updateable" };
+
+// @ts-expect-error Optional update keys reject explicit undefined.
+const explicitUndefined: Effect4ContractUpdate = { name: undefined };
+void missingPrismaId;
+void missingUpdatedAt;
+void primaryKeyUpdate;
+void compositeKeyUpdate;
+void explicitUndefined;
+`
+    );
+
+    await writeFile(
+      tsconfigPath,
+      JSON.stringify(
+        {
+          extends: '../../tsconfig.json',
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+            types: ['node'],
+          },
+          include: ['./enums.ts', './types.ts', './index.ts', './consumer.ts'],
+        },
+        null,
+        2
+      )
+    );
+
+    await writeFile(
+      smokePath,
+      `import { deepStrictEqual, equal, throws } from "node:assert/strict";
+import { Schema } from "effect";
+import { Effect4Contract, Effect4ContractInsert, Effect4ContractUpdate } from "./index.ts";
+
+const id = "123e4567-e89b-12d3-a456-426614174000";
+const createdAt = new Date("2025-01-02T03:04:05.000Z");
+const updatedAt = new Date("2025-02-03T04:05:06.000Z");
+const metadata = { nested: { values: [1, true, null] } };
+
+const physical = {
+  id,
+  prisma_id: "prisma-default-required",
+  db_name: "required name",
+  nickname: null,
+  count: 7,
+  amount: "42",
+  metadata,
+  created_at: createdAt,
+  updated_at: updatedAt,
+};
+const decoded = Schema.decodeUnknownSync(Effect4Contract)(physical);
+deepStrictEqual(decoded, {
+  id,
+  prismaId: "prisma-default-required",
+  name: "required name",
+  nickname: null,
+  count: 7,
+  amount: 42n,
+  metadata,
+  createdAt,
+  updatedAt,
+});
+equal(decoded.createdAt, createdAt);
+equal(decoded.updatedAt, updatedAt);
+
+const encoded = Schema.encodeSync(Effect4ContractInsert)({
+  prismaId: "prisma-default-required",
+  name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata,
+  updatedAt,
+});
+deepStrictEqual(encoded, {
+  prisma_id: "prisma-default-required",
+  db_name: "required name",
+  count: 7,
+  amount: "42",
+  metadata,
+  updated_at: updatedAt,
+});
+equal(encoded.updated_at, updatedAt);
+
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({ ...physical, id: "not-a-uuid" })
+);
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({ ...physical, count: 1.5 })
+);
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({
+    ...physical,
+    created_at: createdAt.toISOString(),
+  })
+);
+throws(() => Schema.decodeUnknownSync(Effect4ContractUpdate)({ db_name: undefined }));
+`
+    );
+
+    try {
+      const { stderr } = await execFileAsync(
+        './node_modules/.bin/tsc',
+        ['--noEmit', '-p', tsconfigPath],
+        { cwd: process.cwd() }
       );
-    });
-
-    it('should not export individual type aliases', () => {
-      // No longer generate UserSelect, UserInsert, etc. - consumers use type utilities
-      expect(typesContent).not.toMatch(/export type UserSelect\s*=/);
-      expect(typesContent).not.toMatch(/export type UserInsert\s*=/);
-      expect(typesContent).not.toMatch(/export type UserSelectEncoded\s*=/);
-    });
-
-    it('should generate DB interface using Type for regular tables and Encoded for join tables', () => {
-      expect(typesContent).toContain('export interface DB');
-
-      const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
-      expect(dbMatch).toBeTruthy();
-      const dbContent = dbMatch?.[1];
-
-      // Regular tables: Type preserves branded IDs and ColumnType phantoms.
-      expect(dbContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
-
-      // Join tables (start with `_`): Encoded preserves real DB column names.
-      // For schemas without join tables this matcher won't apply — but the
-      // fixture in this test suite includes implicit M2M relations, so it does.
-      expect(dbContent).toMatch(/_\w+:\s*Schema\.Schema\.Encoded<typeof \w+>;/);
-    });
-
-    it('should re-export from index', () => {
-      expect(indexContent).toMatch(/export \* from ["']\.\/types["']/);
-      expect(indexContent).toMatch(/export \* from ["']\.\/enums["']/);
-    });
-
-    it('should not export duplicate strict alias names', () => {
-      expect(typesContent).not.toMatch(/SelectStrict/);
-      expect(typesContent).not.toMatch(/InsertStrict/);
-      expect(typesContent).not.toMatch(/UpdateStrict/);
-    });
-
-    it('should generate Schema.Int branded ID for Int @id fields', () => {
-      expect(typesContent).toMatch(/const TodoId = Schema\.Int\.pipe\(Schema\.brand\("TodoId"\)\)/);
-    });
-  });
-
-  describe('TypeScript Validity', () => {
-    let typesContent: string;
-
-    beforeEach(async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-    });
-
-    it('should not use type assertions', () => {
-      // No " as TypeName" patterns
-      expect(typesContent).not.toMatch(/\)\s+as\s+[A-Z]/);
-      expect(typesContent).not.toMatch(/\w+\s+as\s+[A-Z]/);
-    });
-
-    it('should not have obvious syntax errors', () => {
-      expect(typesContent).not.toContain('undefined;');
-      // Note: 'null;' is now valid in Kysely table interfaces for optional fields (e.g., 'string | null')
-    });
-
-    it('should use proper columnType and generated helpers', () => {
-      expect(typesContent).toContain('columnType(');
-      expect(typesContent).toContain('generated(');
-    });
-
-    it('should generate consistent naming conventions', () => {
-      // Model schemas: ModelName (exported directly)
-      expect(typesContent).toMatch(/export const \w+ = Schema\.Struct/);
-
-      // Branded ID schemas: ModelNameId
-      expect(typesContent).toMatch(/export const \w+Id = Schema\.\w+\.pipe\(Schema\.brand\(/);
-
-      // Type aliases for type usage
-      expect(typesContent).toMatch(/export type \w+ = typeof \w+/);
-    });
-  });
-
-  describe('Field Mapping Support', () => {
-    let typesContent: string;
-
-    beforeEach(async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-    });
-
-    it('should use propertySignature with fromKey for @map fields', () => {
-      expect(typesContent).toMatch(/Schema\.propertySignature\([^)]+\)\.pipe\(Schema\.fromKey/);
-    });
-
-    it('should use @@map for table names in DB interface', () => {
-      // CompositeIdModel has @@map("composite_id_table")
-      // DB interface uses Schema.Schema.Type<typeof Model> to preserve phantom properties
-      expect(typesContent).toMatch(
-        /composite_id_table:\s*Schema.Schema.Type<typeof CompositeIdModel>/
-      );
-    });
-  });
-
-  describe('Enum Import Generation', () => {
-    it('should import PascalCase Schema wrappers', () => {
-      const mockDMMF = createMockDMMF({
-        enums: [
-          createMockEnum('PRODUCT_STATUS', ['ACTIVE', 'DRAFT']),
-          createMockEnum('PRODUCT_TYPE', ['PHYSICAL', 'DIGITAL']),
-        ],
-        models: [],
-      });
-
-      const generator = new EffectGenerator(mockDMMF);
-      const header = generator.generateTypesHeader(true);
-
-      // Should import PascalCase Schema wrappers (the PascalCase name IS the Schema)
-      expect(header).toContain('ProductStatus');
-      expect(header).toContain('ProductType');
-
-      // Should NOT use SCREAMING_SNAKE_CASE in imports
-      expect(header).not.toContain('PRODUCT_STATUS');
-      expect(header).not.toContain('PRODUCT_TYPE');
-    });
-  });
-
-  describe('Branded ID Schema Type Selection', () => {
-    it('should generate Schema.Int for Int @id field', () => {
-      const model = createMockModel({ name: 'Todo' });
-      const fields = [
-        createMockField({ name: 'id', type: 'Int', isId: true, hasDefaultValue: true }),
-        createMockField({ name: 'title', type: 'String' }),
-      ];
-
-      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
-      const result = generator.generateBrandedIdSchema(model, fields);
-
-      expect(result).toContain('Schema.Int');
-      expect(result).not.toContain('Schema.String');
-      expect(result).toContain('Schema.brand("TodoId")');
-    });
-
-    it('should generate Schema.BigIntFromSelf for BigInt @id field', () => {
-      const model = createMockModel({ name: 'Counter' });
-      const fields = [
-        createMockField({ name: 'id', type: 'BigInt', isId: true, hasDefaultValue: true }),
-        createMockField({ name: 'value', type: 'Int' }),
-      ];
-
-      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
-      const result = generator.generateBrandedIdSchema(model, fields);
-
-      expect(result).toContain('Schema.BigIntFromSelf');
-      expect(result).not.toContain('Schema.String');
-      expect(result).toContain('Schema.brand("CounterId")');
-    });
-
-    it('should generate Schema.UUID for UUID @id field', () => {
-      const model = createMockModel({ name: 'User' });
-      const fields = [
-        createMockField({
-          name: 'id',
-          type: 'String',
-          isId: true,
-          hasDefaultValue: true,
-          nativeType: ['Uuid', []],
-        }),
-      ];
-
-      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
-      const result = generator.generateBrandedIdSchema(model, fields);
-
-      expect(result).toContain('Schema.UUID');
-      expect(result).toContain('Schema.brand("UserId")');
-    });
-
-    it('should generate Schema.String for non-UUID string @id field', () => {
-      const model = createMockModel({ name: 'Item' });
-      const fields = [
-        createMockField({ name: 'slug', type: 'String', isId: true, hasDefaultValue: true }),
-      ];
-
-      const generator = new EffectGenerator(createMockDMMF({ models: [model] }));
-      const result = generator.generateBrandedIdSchema(model, fields);
-
-      expect(result).toContain('Schema.String');
-      expect(result).not.toContain('Schema.UUID');
-      expect(result).toContain('Schema.brand("ItemId")');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle missing output path', async () => {
-      const options = {
-        generator: { output: null },
-        dmmf,
-      } as GeneratorOptions;
-
-      await expect(async () => {
-        const orchestrator = new GeneratorOrchestrator(options);
-        await orchestrator.generate(options);
-      }).rejects.toThrow();
-    });
-
-    it('should generate valid files even with minimal DMMF', async () => {
-      const minimalDMMF = {
-        datamodel: {
-          models: [],
-          enums: [],
-        },
-      };
-
-      const options = {
-        generator: { output: { value: testOutputPath } },
-        dmmf: minimalDMMF,
-      };
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      const typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-
-      // Should have basic structure
-      expect(typesContent).toContain('import { Schema }');
-      expect(typesContent).toContain('export interface DB');
-    });
-  });
-
-  describe('Generated Code Completeness', () => {
-    let typesContent: string;
-
-    beforeEach(async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-    });
-
-    it('should export all necessary schemas for each model', () => {
-      // Schema is exported directly
-      expect(typesContent).toMatch(/export const User = Schema\.Struct/);
-      // IdSchema is exported for branded types
-      expect(typesContent).toMatch(/export const UserId = Schema\.UUID\.pipe\(Schema\.brand/);
-      // Type alias for type usage
-      expect(typesContent).toMatch(/export type User = typeof User/);
-    });
-
-    it('should include all models in DB interface', () => {
-      const dbMatch = typesContent.match(/export interface DB\s*{([^}]+)}/s);
-      expect(dbMatch).toBeTruthy();
-
-      const dbContent = dbMatch?.[1];
-
-      // Should have entries for models using Schema.Schema.Type<typeof Model> pattern
-      expect(dbContent).toMatch(/:\s*Schema\.Schema\.Type<typeof \w+>;/);
-    });
-  });
-
-  describe('Generated Code TypeScript Compilation', () => {
-    it('should generate TypeScript-valid code that compiles without errors', async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      const typesPath = join(testOutputPath, 'types.ts');
-
-      // Verify generated code has correct helper calls (generated, columnType)
-      const typesFileContent = readFileSync(typesPath, 'utf-8');
-
-      // Check that generated() and columnType() are used correctly
-      expect(typesFileContent).toContain('generated(');
-      expect(typesFileContent).toContain('columnType(');
-
-      // Check schema export pattern
-      expect(typesFileContent).toMatch(/export const \w+ = Schema\.Struct/);
-      expect(typesFileContent).toMatch(/export type \w+ = typeof \w+/);
-    }, 30000); // 30s timeout for tsc compilation
-  });
-
-  describe('Enum Type References', () => {
-    let typesContent: string;
-
-    beforeEach(async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-    });
-
-    it('should use PascalCase enum schema references', () => {
-      // Enum fields should reference the imported PascalCase schema
-      expect(typesContent).toMatch(/role:\s*Role/);
-      expect(typesContent).toMatch(/status:\s*Status/);
-    });
-
-    it('should use Schema.NullOr for optional enum fields', () => {
-      // Optional enum fields should use Schema.NullOr
-      expect(typesContent).toMatch(/optionalRole:\s*Schema\.NullOr\(Role\)/);
-      expect(typesContent).toMatch(/optionalStatus:\s*Schema\.NullOr\(Status\)/);
-    });
-
-    it('should NOT reference raw SCREAMING_SNAKE_CASE enum names', () => {
-      // Should NOT contain raw SCREAMING_SNAKE_CASE enum references
-      expect(typesContent).not.toMatch(/role:\s*ROLE/);
-      expect(typesContent).not.toMatch(/status:\s*STATUS/);
-    });
-  });
-
-  describe('Generated Field Handling', () => {
-    let typesContent: string;
-
-    beforeEach(async () => {
-      const options: GeneratorOptions = {
-        generator: { output: { value: testOutputPath } },
-        dmmf,
-      } as GeneratorOptions;
-
-      const orchestrator = new GeneratorOrchestrator(options);
-      await orchestrator.generate(options);
-
-      typesContent = readFileSync(join(testOutputPath, 'types.ts'), 'utf-8');
-    });
-
-    it('should use columnType for ID fields with @default', () => {
-      // User model has: id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-      // ID fields with @default are read-only (can't insert/update)
-      expect(typesContent).toMatch(/columnType\(.*Schema\.Never, Schema\.Never\)/);
-    });
-
-    it('should use generated() for non-ID fields with @default', () => {
-      // Fields with @default (not ID) use generated() wrapper
-      expect(typesContent).toContain('generated(');
-    });
-  });
+      expect(stderr).toBe('');
+    } catch (error) {
+      if (error && typeof error === 'object') {
+        const stdout = 'stdout' in error ? String(error.stdout) : '';
+        const stderr = 'stderr' in error ? String(error.stderr) : '';
+        throw new Error(stdout || stderr, { cause: error });
+      }
+      throw error;
+    }
+    await execFileAsync('bun', [smokePath], { cwd: process.cwd() });
+  }, 30_000);
 });

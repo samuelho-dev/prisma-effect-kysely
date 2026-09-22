@@ -12,6 +12,14 @@ coverage/
 # Generated files
 src/test-output*/
 src/__tests__/generated/
+src/__tests__/fixtures/contract/contract.json
+
+# Vendored read-only Effect v4 source (git subtree, agent reference only)
+repos/
 
 # Git
 .git/
+
+# Changesets-managed state (pre.json is rewritten by the changesets CLI;
+# reformatting it can interfere with pre-release bookkeeping)
+.changeset/pre.json

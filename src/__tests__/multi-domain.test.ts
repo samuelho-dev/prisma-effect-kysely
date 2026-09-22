@@ -1,21 +1,16 @@
 /**
  * Multi-Domain Generation Tests
  *
- * Tests the new multi-domain support feature that:
- * 1. Detects domains from schema file structure
- * 2. Scaffolds contract libraries per domain
- * 3. Generates schemas in separate domain directories
+ * Tests multi-domain support:
+ * 1. Groups Prisma 8 models by contract namespace
+ * 2. Generates schemas in separate namespace directories
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  isMultiDomainEnabled,
-  isScaffoldingEnabled,
-  parseGeneratorConfig,
-} from '../generator/config';
+import { isMultiDomainEnabled, parseGeneratorConfig } from '../generator/config';
 import { detectDomains } from '../generator/domain-detector';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
 
@@ -51,8 +46,6 @@ describe('Multi-Domain Generation', () => {
           },
           config: {
             multiFileDomains: 'true',
-            scaffoldLibraries: 'true',
-            libraryGenerator: '../node_modules/monorepo-library-generator',
           },
           binaryTargets: [],
           previewFeatures: [],
@@ -69,10 +62,7 @@ describe('Multi-Domain Generation', () => {
       const config = parseGeneratorConfig(mockOptions);
 
       expect(config.multiFileDomains).toBe('true');
-      expect(config.scaffoldLibraries).toBe('true');
-      expect(config.libraryGenerator).toBe('../node_modules/monorepo-library-generator');
       expect(isMultiDomainEnabled(config)).toBe(true);
-      expect(isScaffoldingEnabled(config)).toBe(true);
     });
 
     it('should default to single-domain mode when multiFileDomains is false', () => {
@@ -106,7 +96,6 @@ describe('Multi-Domain Generation', () => {
 
       expect(config.multiFileDomains).toBe('false');
       expect(isMultiDomainEnabled(config)).toBe(false);
-      expect(isScaffoldingEnabled(config)).toBe(false);
     });
 
     it('should handle missing config gracefully (backward compatibility)', () => {
@@ -137,7 +126,6 @@ describe('Multi-Domain Generation', () => {
       const config = parseGeneratorConfig(mockOptions);
 
       expect(config.multiFileDomains).toBe('false');
-      expect(config.scaffoldLibraries).toBe('false');
       expect(isMultiDomainEnabled(config)).toBe(false);
     });
   });
@@ -226,14 +214,18 @@ describe('Multi-Domain Generation', () => {
       expect(fs.existsSync(path.join(testOutputDir, 'user'))).toBe(false);
       expect(fs.existsSync(path.join(testOutputDir, 'product'))).toBe(false);
 
-      // Verify types.ts contains both models
+      // Verify both models expose their operation codecs and native tables.
       const typesContent = fs.readFileSync(path.join(testOutputDir, 'types.ts'), 'utf-8');
-      expect(typesContent).toContain('Schema.Schema.Type<typeof User>');
-      expect(typesContent).toContain('Schema.Schema.Type<typeof Product>');
+      for (const model of ['User', 'Product']) {
+        expect(typesContent).toContain(`export const ${model} =`);
+        expect(typesContent).toContain(`export const ${model}Insert =`);
+        expect(typesContent).toContain(`export const ${model}Update =`);
+        expect(typesContent).toContain(`export interface ${model}Table`);
+      }
     });
   });
 
-  describe('Multi-Domain Mode (Without Scaffolding)', () => {
+  describe('Multi-Domain Mode', () => {
     it('should generate schemas in separate domain directories', async () => {
       // Create mock models that would be in different domains
       const userModel = createMockModel('User', [
@@ -246,12 +238,9 @@ describe('Multi-Domain Generation', () => {
         { name: 'name', type: 'String' },
       ]);
 
-      // Create DMMF with schema location metadata (simulating Prisma 5.15+)
       const dmmf = createMockDMMF([userModel, productModel]);
-
-      // Add schema location metadata manually
-      (dmmf.datamodel.models[0] as any).schemaLocation = 'prisma/schemas/user.prisma';
-      (dmmf.datamodel.models[1] as any).schemaLocation = 'prisma/schemas/product.prisma';
+      Object.assign(dmmf.datamodel.models[0], { schema: 'user' });
+      Object.assign(dmmf.datamodel.models[1], { schema: 'product' });
 
       const mockOptions: GeneratorOptions = {
         generator: {
@@ -266,7 +255,6 @@ describe('Multi-Domain Generation', () => {
           },
           config: {
             multiFileDomains: 'true',
-            scaffoldLibraries: 'false', // No scaffolding, just generation
           },
           binaryTargets: [],
           previewFeatures: [],
@@ -291,21 +279,29 @@ describe('Multi-Domain Generation', () => {
       expect(fs.existsSync(path.join(testOutputDir, 'user/src/generated/types.ts'))).toBe(true);
       expect(fs.existsSync(path.join(testOutputDir, 'product/src/generated/types.ts'))).toBe(true);
 
-      // Verify user domain only has User model
+      // Each domain exports only its own operation codecs and native table interface.
       const userTypesContent = fs.readFileSync(
         path.join(testOutputDir, 'user/src/generated/types.ts'),
         'utf-8'
       );
-      expect(userTypesContent).toContain('Schema.Schema.Type<typeof User>');
-      expect(userTypesContent).not.toContain('Schema.Schema.Type<typeof Product>');
-
-      // Verify product domain only has Product model
       const productTypesContent = fs.readFileSync(
         path.join(testOutputDir, 'product/src/generated/types.ts'),
         'utf-8'
       );
-      expect(productTypesContent).toContain('Schema.Schema.Type<typeof Product>');
-      expect(productTypesContent).not.toContain('Schema.Schema.Type<typeof User>');
+
+      for (const model of ['User', 'Product']) {
+        const domainTypesContent = model === 'User' ? userTypesContent : productTypesContent;
+        const otherModel = model === 'User' ? 'Product' : 'User';
+
+        expect(domainTypesContent).toContain(`export const ${model} =`);
+        expect(domainTypesContent).toContain(`export const ${model}Insert =`);
+        expect(domainTypesContent).toContain(`export const ${model}Update =`);
+        expect(domainTypesContent).toContain(`export interface ${model}Table`);
+        expect(domainTypesContent).not.toContain(`export const ${otherModel} =`);
+        expect(domainTypesContent).not.toContain(`export const ${otherModel}Insert =`);
+        expect(domainTypesContent).not.toContain(`export const ${otherModel}Update =`);
+        expect(domainTypesContent).not.toContain(`export interface ${otherModel}Table`);
+      }
     });
   });
 });

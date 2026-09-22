@@ -1,0 +1,56 @@
+// use prisma-8
+namespace public {
+  native_enum ROLE {
+    USER  = "USER"
+    ADMIN = "ADMIN"
+  }
+
+  native_enum SELLERAPIKEYSTATUS {
+    ACTIVE  = "ACTIVE"
+    REVOKED = "REVOKED"
+
+    @@map("seller_api_key_status")
+  }
+
+  model User {
+    id                 Uuid                        @id @default(dbgenerated("gen_random_uuid()"))
+    /// @customType(Schema.String.pipe(Schema.brand('DisplayName')))
+    displayName        String                      @map("display_name")
+    /// @customType(Schema.String.pipe(Schema.brand('DisplayName')))
+    displayAlias       String?                     @map("display_alias")
+    amount             BigInt
+    metadata           Jsonb?
+    role               pg.enum(ROLE)
+    sellerApiKeyStatus pg.enum(SELLERAPIKEYSTATUS) @map("seller_api_key_status")
+    createdAt          Timestamptz                 @default(now()) @map("created_at")
+    products           Product[]
+    sharedProfile      SharedProfile?
+
+    @@map("user")
+  }
+
+  model Product {
+    id      Uuid @id @default(dbgenerated("gen_random_uuid()"))
+    ownerId Uuid @map("owner_id")
+    owner   User @relation(fields:[ownerId], references:[id])
+
+    @@map("product")
+  }
+
+  model SharedProfile {
+    userId Uuid @id @map("user_id")
+    user   User @relation(fields:[userId], references:[id])
+
+    @@map("shared_profile")
+  }
+
+  model UserProducts {
+    a       Uuid    @map("A")
+    b       Uuid    @map("B")
+    product Product @relation(fields:[a], references:[id])
+    user    User    @relation(fields:[b], references:[id])
+
+    @@id([a, b])
+    @@map("_user_products")
+  }
+}

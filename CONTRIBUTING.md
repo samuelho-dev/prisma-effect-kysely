@@ -6,30 +6,33 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 ### Prerequisites
 
-- **Node.js**: >= 18.0.0
-- **pnpm**: >= 8.0.0 (required - this project uses pnpm workspaces)
+- **Node.js**: >= 20.0.0
+- **Bun**: >= 1.0.0 (Bun is the only package manager for this repo)
 
 ### Setup (< 5 minutes)
 
 1. **Fork and Clone**
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/prisma-effect-kysely.git
    cd prisma-effect-kysely
    ```
 
 2. **Install Dependencies**
+
    ```bash
-   pnpm install
+   bun install
    ```
 
 3. **Run Tests**
+
    ```bash
-   pnpm test
+   bun run test
    ```
 
 4. **Build**
    ```bash
-   pnpm run build
+   bun run build
    ```
 
 That's it! You're ready to contribute.
@@ -46,6 +49,7 @@ That's it! You're ready to contribute.
 ### Making Changes
 
 1. **Create a branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -56,13 +60,15 @@ That's it! You're ready to contribute.
    - Update documentation if needed
 
 3. **Run quality checks**
+
    ```bash
-   pnpm run lint        # Check code style
-   pnpm run typecheck   # Check TypeScript types
-   pnpm run test        # Run tests
+   bun run lint        # Check code style
+   bun run typecheck   # Check TypeScript types
+   bun run test        # Run tests
    ```
 
 4. **Commit your changes**
+
    ```bash
    git add .
    git commit -m "feat: add amazing feature"
@@ -90,9 +96,10 @@ That's it! You're ready to contribute.
 - **Auto-fix**: Pre-commit hooks auto-fix most issues
 
 Run manually:
+
 ```bash
-pnpm run lint:fix    # Fix linting issues
-pnpm run format      # Format all files
+bun run lint:fix    # Fix linting issues
+bun run format      # Format all files
 ```
 
 ### Commit Messages
@@ -107,6 +114,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` Maintenance tasks
 
 **Examples:**
+
 ```bash
 feat: add support for Decimal type mapping
 fix: resolve UUID detection for Int fields
@@ -125,9 +133,9 @@ test: add edge cases for enum generation
 ### Running Tests
 
 ```bash
-pnpm test                # Run all tests
-pnpm run test:watch      # Watch mode
-pnpm run test:coverage   # Coverage report
+bun run test           # Run all tests
+bun run test:watch     # Watch mode
+bun run test:coverage  # Coverage report
 ```
 
 ### Writing Tests
@@ -151,37 +159,32 @@ describe('FeatureName', () => {
 
 ```
 src/
-├── generator/          # Generator entry point and orchestration
-│   ├── index.ts       # Prisma generator handler
-│   └── orchestrator.ts # Coordinates generation flow
-├── prisma/            # Prisma domain logic (DMMF parsing)
-│   ├── generator.ts   # Prisma data extraction
-│   ├── type.ts        # Type utilities
-│   ├── enum.ts        # Enum utilities
-│   └── relation.ts    # Relation detection
-├── effect/            # Effect Schema generation
-│   ├── generator.ts   # Effect schema orchestration
-│   ├── type.ts        # Type schema generation
-│   ├── enum.ts        # Enum schema generation
-│   └── join-table.ts  # Join table schemas
-├── kysely/            # Kysely integration
-│   ├── generator.ts   # Kysely-specific generation
-│   ├── type.ts        # Kysely type mappings
-│   └── helpers.ts     # Runtime helpers (exported)
-├── utils/             # Shared utilities
-│   ├── naming.ts      # Naming conventions
-│   ├── templates.ts   # Code formatting
-│   └── annotations.ts # Custom type annotations
-└── __tests__/         # Test files
+├── generator/          # CLI, public API, and orchestration
+│   ├── cli.ts
+│   ├── index.ts
+│   └── orchestrator.ts
+├── prisma/             # Prisma 8 contract validation and table derivation
+│   ├── contract.ts
+│   └── model.ts
+├── effect/             # Effect Schema emission
+│   ├── generator.ts
+│   ├── type.ts
+│   └── enum.ts
+├── kysely/             # Kysely integration
+│   ├── generator.ts
+│   ├── type.ts
+│   └── helpers.ts
+├── utils/              # Naming, formatting, annotations, and file writes
+└── __tests__/          # Contract fixture and behavior tests
 ```
 
-## 🔍 Architecture Principles
+## Architecture Principles
 
-1. **Domain-Driven Design**: Separate Prisma, Effect, and Kysely concerns
-2. **Zero Type Coercion**: Use exact DMMF types from Prisma
-3. **Deterministic Output**: Alphabetically sorted for consistency
-4. **Pure Functions**: No side effects in core logic
-5. **Test-Driven Development**: Write tests before implementation
+1. Validate `contract.json` at the boundary
+2. Derive output from contract codecs and physical storage metadata
+3. Keep generated output deterministic
+4. Keep derivation pure; isolate file writes in the orchestrator
+5. Test observable generated contracts
 
 ## 🐛 Reporting Bugs
 
@@ -190,7 +193,7 @@ src/
 3. **Include**:
    - Minimal reproduction case
    - Expected vs actual behavior
-   - Your environment (Node, pnpm, Prisma versions)
+   - Your environment (Node, Bun, Prisma versions)
    - Relevant schema snippet
 
 ## ✨ Requesting Features
@@ -209,15 +212,17 @@ src/
 
 ## 🔐 Security
 
-See [SECURITY.md](SECURITY.md) for reporting security vulnerabilities.
+Report security issues privately through GitHub Security Advisories when
+available. If that is not available, open a minimal issue that avoids exposing
+sensitive details publicly.
 
 ## ✅ Pull Request Checklist
 
 Before submitting your PR, ensure:
 
 - [ ] Code follows project style (ESLint/Prettier pass)
-- [ ] All tests pass (`pnpm test`)
-- [ ] TypeScript compiles (`pnpm run typecheck`)
+- [ ] All tests pass (`bun run test`)
+- [ ] TypeScript compiles (`bun run typecheck`)
 - [ ] Test coverage maintained (> 90%)
 - [ ] New features have tests
 - [ ] Breaking changes are documented
@@ -227,6 +232,7 @@ Before submitting your PR, ensure:
 ## 🎉 Recognition
 
 Contributors will be:
+
 - Listed in release notes
 - Credited in CHANGELOG.md
 - Added to GitHub contributors list
@@ -235,7 +241,7 @@ Contributors will be:
 
 - **Questions**: Open a GitHub Discussion
 - **Bugs**: Open a GitHub Issue
-- **Security**: See SECURITY.md
+- **Security**: Use GitHub Security Advisories when available
 - **Chat**: GitHub Discussions
 
 ## 📜 License

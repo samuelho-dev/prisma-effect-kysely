@@ -1,48 +1,46 @@
 import type { DMMF } from '@prisma/generator-helper';
-import type { JoinTableInfo } from '../prisma/relation.js';
+import { getModelIdBrandModel, type JoinTableInfo } from '../prisma/relation.js';
 import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 /**
- * Generate Effect Schema for an implicit many-to-many join table
- *
- * Structure:
- * - Direct export with semantic snake_case field names
- * - Maps TypeScript names to database A/B columns using Schema.fromKey
- * - Uses columnType for read-only foreign keys (can't insert/update join table rows directly)
- * - No type exports - consumers use type utilities: Selectable<JoinTable>
- *
- * Example:
- * - Database columns: A, B (Prisma requirement for implicit many-to-many)
- * - TypeScript fields: product_id, product_tag_id (semantic names)
- * - Types: columnType(ProductId, Schema.Never, Schema.Never) (read-only, branded)
+ * Generate select and insert codecs for an implicit many-to-many table.
  */
-export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document) {
+export function generateJoinTableSchema(joinTable: JoinTableInfo, dmmf: DMMF.Document) {
   const { tableName, relationName, modelA, modelB } = joinTable;
-
-  // Generate semantic snake_case field names from model names
-  // e.g., "Product" -> "product_id", "ProductTag" -> "product_tag_id"
   const columnAFieldName = `${toSnakeCase(modelA)}_id`;
   const columnBFieldName = `${toSnakeCase(modelB)}_id`;
-
-  // Reference branded ID schemas (e.g., ProductId, SellerId) generated earlier in the output
-  const modelASchemaType = `${toPascalCase(modelA)}Id`;
-  const modelBSchemaType = `${toPascalCase(modelB)}Id`;
-
-  // Use columnType for read-only FK fields (can't insert/update join table rows directly)
-  // Schema.propertySignature + Schema.fromKey maps TypeScript name to database column
-  const columnAField = `  ${columnAFieldName}: Schema.propertySignature(columnType(${modelASchemaType}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("A"))`;
-  const columnBField = `  ${columnBFieldName}: Schema.propertySignature(columnType(${modelBSchemaType}, Schema.Never, Schema.Never)).pipe(Schema.fromKey("B"))`;
-
-  // Use PascalCase for exported name (consistent with regular models)
+  const modelASchemaType = `${toPascalCase(resolveBrandModel(modelA, dmmf))}Id`;
+  const modelBSchemaType = `${toPascalCase(resolveBrandModel(modelB, dmmf))}Id`;
   const pascalName = toPascalCase(relationName);
+  const fieldsName = `${pascalName}Fields`;
+  const mapping = `{ ${JSON.stringify(columnAFieldName)}: "A", ${JSON.stringify(columnBFieldName)}: "B" }`;
 
-  // Generate schema with semantic names mapped to A/B
-  return `// ${tableName} Join Table Schema (Prisma implicit many-to-many)
-// Database columns: A (${modelA}), B (${modelB})
-// TypeScript fields: ${columnAFieldName}, ${columnBFieldName}
-export const ${pascalName} = Schema.Struct({
-${columnAField},
-${columnBField},
+  return `// ${tableName} Join Table (Prisma implicit many-to-many)
+const ${fieldsName} = DatabaseSchema.Struct({
+  ${columnAFieldName}: DatabaseSchema.Field({
+    select: ${modelASchemaType},
+    insert: ${modelASchemaType},
+  }),
+  ${columnBFieldName}: DatabaseSchema.Field({
+    select: ${modelBSchemaType},
+    insert: ${modelBSchemaType},
+  }),
 });
-export type ${pascalName} = typeof ${pascalName};`;
+
+export const ${pascalName} = DatabaseSchema.extract(${fieldsName}, "select").pipe(
+  Schema.encodeKeys(${mapping}),
+);
+export type ${pascalName} = typeof ${pascalName}.Type;
+
+export const ${pascalName}Insert = DatabaseSchema.extract(${fieldsName}, "insert").pipe(
+  Schema.encodeKeys(${mapping}),
+);
+export type ${pascalName}Insert = typeof ${pascalName}Insert.Type;`;
+}
+function resolveBrandModel(modelName: string, dmmf: DMMF.Document) {
+  const model = dmmf.datamodel.models.find((candidate) => candidate.name === modelName);
+  if (!model) {
+    throw new Error(`Model ${modelName} not found`);
+  }
+  return getModelIdBrandModel(model, dmmf.datamodel.models)?.name ?? modelName;
 }

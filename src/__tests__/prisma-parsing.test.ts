@@ -10,7 +10,7 @@ import * as PrismaEnum from '../prisma/enum';
 import { PrismaGenerator } from '../prisma/generator';
 import { buildForeignKeyMap, detectImplicitManyToMany, getModelIdField } from '../prisma/relation';
 import { extractEffectTypeOverride } from '../utils/annotations';
-import { mapFieldToEffectType } from '../effect/type';
+import { buildFieldType, mapFieldToEffectType } from '../effect/type';
 
 /**
  * Prisma Parsing & Domain Logic - Functional Behavior Tests
@@ -318,13 +318,16 @@ describe('Prisma Parsing & Domain Logic', () => {
       expect(extractEffectTypeOverride(field)).toBe('Schema.String');
     });
 
-    it('should extract piped transformations', () => {
+    it('should extract chained refinements', () => {
       const field = {
-        documentation: '/// @customType(Schema.String.pipe(Schema.email()))',
+        documentation:
+          '/// @customType(Schema.String.check(Schema.isPattern(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)))',
         name: 'email',
       } as DMMF.Field;
 
-      expect(extractEffectTypeOverride(field)).toBe('Schema.String.pipe(Schema.email())');
+      expect(extractEffectTypeOverride(field)).toBe(
+        'Schema.String.check(Schema.isPattern(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/))'
+      );
     });
 
     it('should extract custom type references (PascalCase)', () => {
@@ -338,12 +341,13 @@ describe('Prisma Parsing & Domain Logic', () => {
 
     it('should handle complex nested expressions', () => {
       const field = {
-        documentation: '/// @customType(Schema.Array(Schema.Number).pipe(Schema.itemsCount(1536)))',
+        documentation:
+          '/// @customType(Schema.Array(Schema.Number).check(Schema.isLengthBetween(1536, 1536)))',
         name: 'embedding',
       } as DMMF.Field;
 
       expect(extractEffectTypeOverride(field)).toBe(
-        'Schema.Array(Schema.Number).pipe(Schema.itemsCount(1536))'
+        'Schema.Array(Schema.Number).check(Schema.isLengthBetween(1536, 1536))'
       );
     });
 
@@ -377,11 +381,27 @@ describe('Prisma Parsing & Domain Logic', () => {
     it('should extract @customType with other annotations present', () => {
       const field = {
         documentation:
-          '/// @description A user email\n/// @customType(Schema.String.pipe(Schema.email()))\n/// @example test@example.com',
+          '/// @description A user email\n/// @customType(Schema.String.check(Schema.isPattern(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/)))\n/// @example test@example.com',
         name: 'email',
       } as DMMF.Field;
 
-      expect(extractEffectTypeOverride(field)).toBe('Schema.String.pipe(Schema.email())');
+      expect(extractEffectTypeOverride(field)).toBe(
+        'Schema.String.check(Schema.isPattern(/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/))'
+      );
+    });
+
+    it('applies list and nullable cardinality around the custom scalar schema', () => {
+      const field = createMockField({
+        name: 'coordinates',
+        type: 'Int',
+        isList: true,
+        isRequired: false,
+        documentation: '/// @customType(PositiveCoordinate)',
+      });
+
+      expect(buildFieldType(field, createMockDMMF())).toBe(
+        'Schema.NullOr(Schema.Array(PositiveCoordinate))'
+      );
     });
   });
 
@@ -593,7 +613,7 @@ describe('Prisma Parsing & Domain Logic', () => {
       expect(effectType).toBe('UserId');
     });
 
-    it('should use Schema.UUID for non-FK UUID fields', () => {
+    it('should validate non-FK UUID fields', () => {
       const idField = createMockField({
         name: 'id',
         type: 'String',
@@ -606,7 +626,7 @@ describe('Prisma Parsing & Domain Logic', () => {
 
       const effectType = mapFieldToEffectType(idField, dmmf, fkMap);
 
-      expect(effectType).toBe('Schema.UUID');
+      expect(effectType).toBe('Schema.String.check(Schema.isUUID())');
     });
 
     it('should prioritize @customType annotation over FK branded type', () => {
@@ -690,6 +710,94 @@ describe('Prisma Parsing & Domain Logic', () => {
       const effectType = mapFieldToEffectType(userIdField, dmmf, fkMap);
 
       expect(effectType).toBe('UserId');
+    });
+  });
+
+  describe('Field operation ownership', () => {
+    const model = createMockModel({ name: 'Record' });
+
+    it.each([
+      ['string literal', 'draft'],
+      ['number literal', 1],
+      ['boolean literal', false],
+      ['array literal', ['draft', 'published']],
+      ['autoincrement()', { name: 'autoincrement', args: [] }],
+      ['dbgenerated()', { name: 'dbgenerated', args: ['gen_random_uuid()'] }],
+      ['now()', { name: 'now', args: [] }],
+    ])('treats a database %s default as insert-optional', (_label, defaultValue) => {
+      const field = createMockField({
+        name: 'value',
+        hasDefaultValue: true,
+        default: defaultValue,
+      });
+
+      expect(PrismaType.getFieldOperationConfig(model, field)).toEqual({
+        insertOptional: true,
+        update: true,
+      });
+    });
+
+    it.each(['uuid', 'cuid', 'ulid', 'nanoid', 'futureDefault'])(
+      'keeps Prisma or unknown %s() defaults required on insert',
+      (name) => {
+        const field = createMockField({
+          name: 'value',
+          hasDefaultValue: true,
+          default: { name, args: [] },
+        });
+
+        expect(PrismaType.getFieldOperationConfig(model, field).insertOptional).toBe(false);
+      }
+    );
+
+    it('keeps missing defaults and bare @updatedAt required on insert', () => {
+      const field = createMockField({
+        name: 'updatedAt',
+        hasDefaultValue: true,
+        isUpdatedAt: true,
+      });
+
+      expect(PrismaType.hasDatabaseDefault(field)).toBe(false);
+      expect(PrismaType.getFieldOperationConfig(model, field).insertOptional).toBe(false);
+    });
+
+    it('allows nullable fields to be omitted but still updated', () => {
+      const field = createMockField({ name: 'nickname', isRequired: false });
+
+      expect(PrismaType.getFieldOperationConfig(model, field)).toEqual({
+        insertOptional: true,
+        update: true,
+      });
+    });
+
+    it('omits single and composite primary-key fields from updates', () => {
+      const singleId = createMockField({ name: 'id', isId: true });
+      const compositeModel = createMockModel({
+        name: 'Membership',
+        primaryKey: { name: null, fields: ['tenantId', 'userId'] },
+      });
+      const tenantId = createMockField({ name: 'tenantId' });
+      const userId = createMockField({ name: 'userId' });
+      const role = createMockField({ name: 'role' });
+
+      expect(PrismaType.getFieldOperationConfig(model, singleId).update).toBe(false);
+      expect(PrismaType.getFieldOperationConfig(compositeModel, tenantId).update).toBe(false);
+      expect(PrismaType.getFieldOperationConfig(compositeModel, userId).update).toBe(false);
+      expect(PrismaType.getFieldOperationConfig(compositeModel, role).update).toBe(true);
+    });
+
+    it('lets @updatedAt use a separate database default when present', () => {
+      const field = createMockField({
+        name: 'updatedAt',
+        hasDefaultValue: true,
+        isUpdatedAt: true,
+        default: { name: 'now', args: [] },
+      });
+
+      expect(PrismaType.getFieldOperationConfig(model, field)).toEqual({
+        insertOptional: true,
+        update: true,
+      });
     });
   });
 });

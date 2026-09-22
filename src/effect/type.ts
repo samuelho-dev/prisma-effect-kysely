@@ -32,7 +32,7 @@ export function mapFieldToEffectType(
 
   // PRIORITY 3: Handle String type with UUID detection (non-FK UUIDs)
   if (field.type === 'String' && isUuidField(field)) {
-    return 'Schema.UUID';
+    return 'Schema.String.check(Schema.isUUID())';
   }
 
   // PRIORITY 4: Handle scalar types with const assertion lookup

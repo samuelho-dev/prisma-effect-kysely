@@ -3,13 +3,7 @@ import { EffectGenerator } from '../effect/generator.js';
 import { KyselyGenerator } from '../kysely/generator.js';
 import { PrismaGenerator } from '../prisma/generator.js';
 import { FileManager } from '../utils/file-manager.js';
-import {
-  type GeneratorConfig,
-  isMultiDomainEnabled,
-  isScaffoldingEnabled,
-  parseGeneratorConfig,
-} from './config.js';
-import { logScaffoldResults, scaffoldContractLibraries } from './contract-scaffolder.js';
+import { type GeneratorConfig, isMultiDomainEnabled, parseGeneratorConfig } from './config.js';
 import { type DomainInfo, detectDomains } from './domain-detector.js';
 
 /**
@@ -33,34 +27,27 @@ export class GeneratorOrchestrator {
     this.fileManager = new FileManager(this.config.output);
     this.prismaGen = new PrismaGenerator(options.dmmf);
     this.effectGen = new EffectGenerator(options.dmmf);
-    this.kyselyGen = new KyselyGenerator(options.dmmf);
+    this.kyselyGen = new KyselyGenerator();
   }
 
   /**
    * Main generation entry point
    * Orchestrates all generation steps
    *
-   * Flow:
-   * 1. Detect domains if multi-domain mode enabled
-   * 2. Scaffold contract libraries if scaffolding enabled
-   * 3. Generate schemas (single or per-domain)
+   * 1. Group models by namespace when multi-domain mode is enabled.
+   * 2. Generate schemas in one output or split by namespace.
    */
   async generate(options: GeneratorOptions) {
-    this.logStart(options);
-
     // Check if multi-domain mode is enabled
     if (isMultiDomainEnabled(this.config)) {
       await this.generateMultiDomain(options);
     } else {
       await this.generateSingleOutput();
     }
-
-    this.logComplete();
   }
 
   /**
    * Generate schemas in single-output mode (default)
-   * All schemas in one directory
    */
   private async generateSingleOutput() {
     // Ensure output directory exists
@@ -75,17 +62,8 @@ export class GeneratorOrchestrator {
    * Separate contract libraries per domain
    */
   private async generateMultiDomain(options: GeneratorOptions) {
-    // 1. Detect domains from schema structure
-    const schemaPath = options.schemaPath;
-    const domains = detectDomains(options.dmmf, schemaPath);
+    const domains = detectDomains(options.dmmf);
 
-    // 2. Scaffold contract libraries if enabled
-    if (isScaffoldingEnabled(this.config)) {
-      const scaffoldResults = await scaffoldContractLibraries(domains, this.config);
-      logScaffoldResults(scaffoldResults);
-    }
-
-    // 3. Generate schemas for each domain
     for (const domain of domains) {
       await this.generateForDomain(domain);
     }
@@ -119,7 +97,7 @@ export class GeneratorOrchestrator {
     // Generate header with imports
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
-    // PHASE 1: Generate ALL branded ID schemas first (before any model structs)
+    // Generate branded ID schemas before codecs that reference them.
     const allBrandedIdSchemas = domain.models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -128,7 +106,7 @@ export class GeneratorOrchestrator {
       .filter((schema): schema is string => schema !== null)
       .join('\n\n');
 
-    // PHASE 2: Generate model schemas (just User = Schema.Struct({...}))
+    // Generate operation codecs for each model.
     const modelSchemas = domain.models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -140,7 +118,7 @@ export class GeneratorOrchestrator {
     const joinTableSchemas =
       domainJoinTables.length > 0 ? this.effectGen.generateJoinTableSchemas(domainJoinTables) : '';
 
-    // Generate DB interface for this domain (uses Selectable<Model> pattern)
+    // Generate native Kysely table interfaces and the DB map.
     const dbInterface = this.kyselyGen.generateDBInterface(domain.models, domainJoinTables);
 
     // Assemble content with proper spacing
@@ -181,8 +159,7 @@ export class GeneratorOrchestrator {
     // Generate header with imports
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
-    // PHASE 1: Generate ALL branded ID schemas first (before any model structs)
-    // This ensures FK references can find their target ID schemas
+    // Generate branded ID schemas before codecs that reference them.
     const allBrandedIdSchemas = models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -191,8 +168,7 @@ export class GeneratorOrchestrator {
       .filter((schema): schema is string => schema !== null)
       .join('\n\n');
 
-    // PHASE 2: Generate model schemas (just User = Schema.Struct({...}))
-    // Package's type utilities derive Insertable<User>, Selectable<User>
+    // Generate operation codecs for each model.
     const modelSchemas = models
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
@@ -204,11 +180,11 @@ export class GeneratorOrchestrator {
     const joinTableSchemas =
       joinTables.length > 0 ? this.effectGen.generateJoinTableSchemas(joinTables) : '';
 
-    // Generate DB interface with join tables (uses Selectable<Model> pattern)
+    // Generate native Kysely table interfaces and the DB map.
     const dbInterface = this.kyselyGen.generateDBInterface(models, joinTables);
 
     // Assemble content with proper spacing
-    // Order: header → branded ID schemas → model schemas → join tables → DB interface
+    // Order: imports/toolkit → branded IDs → model codecs → join codecs → tables → DB.
     let content = `${header}`;
     if (allBrandedIdSchemas) {
       content += `\n\n// ===== Branded ID Schemas =====\n${allBrandedIdSchemas}`;
@@ -228,32 +204,5 @@ export class GeneratorOrchestrator {
   private async generateIndex() {
     const content = this.kyselyGen.generateIndexFile();
     await this.fileManager.writeFile('index.ts', content);
-  }
-
-  /**
-   * Log generation start with stats
-   */
-  private logStart(options: GeneratorOptions) {
-    const _modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith('_')).length;
-    const _enumCount = options.dmmf.datamodel.enums.length;
-
-    if (isMultiDomainEnabled(this.config)) {
-      if (isScaffoldingEnabled(this.config)) {
-        // Scaffolding logic would go here if needed
-      }
-    }
-  }
-
-  /**
-   * Log generation completion
-   */
-  private logComplete() {
-    const _outputPath = this.fileManager.getOutputPath();
-
-    if (isMultiDomainEnabled(this.config)) {
-      // Multi-domain logic would go here if needed
-    } else {
-      // Single-domain logic would go here if needed
-    }
   }
 }

@@ -1,396 +1,163 @@
+import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { rm, writeFile } from 'node:fs/promises';
+import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
+import type { GeneratorOptions } from '@prisma/generator-helper';
 import prismaInternals from '@prisma/internals';
-import { describe, expect, it } from 'vitest';
-import { generateJoinTableSchema } from '../effect/join-table';
-import { detectImplicitManyToMany } from '../prisma/relation';
+import { Schema } from 'effect';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
 
 const { getDMMF } = prismaInternals;
+const runFile = promisify(execFile);
 
-/**
- * Join Table Generation - Functional Behavior Tests
- *
- * Tests verify BEHAVIOR not IMPLEMENTATION:
- * - Does generated code use semantic field names (category_id vs A)?
- * - Are field names properly mapped to Prisma's A/B columns?
- * - Do generated schemas support operational types (Select/Insert/Update)?
- * - Does the generator handle different ID types (UUID, Int)?
- *
- * Minimal string matching - focus on key generated patterns.
- * NO type coercions (as any, as unknown).
- */
+vi.mock('../utils/templates', () => ({
+  formatCode: vi.fn((code: string) => Promise.resolve(code)),
+}));
 
-describe('Join Table Generation - Functional Tests', () => {
-  describe('Semantic Field Names with A/B Mapping', () => {
-    it('should generate semantic snake_case field names mapped to database A/B columns', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
+describe('implicit many-to-many generated contract', () => {
+  const outputDir = join(import.meta.dirname, 'test-join-table-generation');
 
-        model Post {
-          id         String     @id @db.Uuid
-          categories Category[]
-        }
-
-        model Category {
-          id    String @id @db.Uuid
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Should use semantic names in TypeScript
-      expect(generated).toContain('category_id:');
-      expect(generated).toContain('post_id:');
-
-      // Should map to database A/B columns
-      expect(generated).toContain('Schema.fromKey("A")');
-      expect(generated).toContain('Schema.fromKey("B")');
-
-      // Should use propertySignature for mapping
-      expect(generated).toContain('Schema.propertySignature');
-
-      // Should NOT use raw A/B field names
-      expect(generated).not.toMatch(/\bA:\s+columnType/);
-      expect(generated).not.toMatch(/\bB:\s+columnType/);
-    });
-
-    it('should handle multi-word model names with snake_case', async () => {
-      const schema = `
+  beforeEach(async () => {
+    const dmmf = await getDMMF({
+      datamodel: `
         datasource db {
           provider = "postgresql"
         }
 
         model Product {
-          id   String      @id
+          id   String       @id @db.Uuid
           tags ProductTag[]
         }
 
         model ProductTag {
-          id       String    @id
+          id       String    @id @db.Uuid
           products Product[]
         }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Product < ProductTag alphabetically, so A = Product, B = ProductTag
-      expect(generated).toContain('product_id:');
-      expect(generated).toContain('product_tag_id:');
-      expect(generated).toContain('Schema.fromKey("A")');
-      expect(generated).toContain('Schema.fromKey("B")');
+      `,
     });
+    const options: GeneratorOptions = {
+      generator: { output: { value: outputDir } },
+      dmmf,
+    } as GeneratorOptions;
+
+    await new GeneratorOrchestrator(options).generate(options);
   });
 
-  describe('Schema Structure Generation', () => {
-    it('should generate schema directly with PascalCase export', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model Post {
-          id         String     @id @db.Uuid
-          categories Category[]
-        }
-
-        model Category {
-          id    String @id @db.Uuid
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Schema is exported directly (not internal with underscore)
-      expect(generated).toContain('export const CategoryToPost = Schema.Struct({');
-      expect(generated).toContain('export type CategoryToPost = typeof CategoryToPost;');
-    });
-
-    it('should generate type alias for schema', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model Post {
-          id         String     @id
-          categories Category[]
-        }
-
-        model Category {
-          id    String @id
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      expect(generated).toContain('export type CategoryToPost = typeof CategoryToPost;');
-    });
-
-    it('should include descriptive comment header', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model Post {
-          id         String     @id
-          categories Category[]
-        }
-
-        model Category {
-          id    String @id
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      expect(generated).toContain('// _CategoryToPost Join Table Schema');
-      expect(generated).toContain('// Database columns: A (Category), B (Post)');
-      expect(generated).toContain('// TypeScript fields: category_id, post_id');
-    });
+  afterEach(async () => {
+    if (existsSync(outputDir)) {
+      await rm(outputDir, { recursive: true, force: true });
+    }
   });
 
-  describe('Schema Exports', () => {
-    it('should export schema directly with type alias', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
+  it('maps physical columns through select and insert codecs while retaining a native A/B table', async () => {
+    // The generated module path exists only after this test's orchestration step.
+    const generated = await import(pathToFileURL(join(outputDir, 'types.ts')).href);
+    const productId = '123e4567-e89b-42d3-a456-426614174000';
+    const productTagId = '123e4567-e89b-42d3-a456-426614174001';
+    const physical = { A: productId, B: productTagId };
+    const semantic = { product_id: productId, product_tag_id: productTagId };
 
-        model Post {
-          id         String     @id
-          categories Category[]
-        }
+    expect(Schema.decodeUnknownSync(generated.ProductToProductTag)(physical)).toEqual(semantic);
+    expect(Schema.encodeSync(generated.ProductToProductTagInsert)(semantic)).toEqual(physical);
+    expect(() =>
+      Schema.decodeUnknownSync(generated.ProductToProductTagInsert)({ product_id: productId })
+    ).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(generated.ProductToProductTagInsert)({
+        product_tag_id: productTagId,
+      })
+    ).toThrow();
 
-        model Category {
-          id    String @id
-          posts Post[]
-        }
-      `;
+    const consumerPath = join(outputDir, 'join-consumer.ts');
+    const tsconfigPath = join(outputDir, 'tsconfig.json');
+    await writeFile(
+      consumerPath,
+      `import { Kysely, type Insertable, type Selectable, type Updateable } from "kysely";
+// @ts-expect-error implicit many-to-many tables expose no update codec.
+import type { ProductToProductTagUpdate } from "./types.ts";
+import type {
+  DB,
+  ProductId,
+  ProductTagId,
+  ProductToProductTag,
+  ProductToProductTagInsert,
+  ProductToProductTagTable,
+} from "./types.ts";
 
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
+type Assert<T extends true> = T;
+type TableHasOnlyPhysicalColumns = Assert<
+  Exclude<keyof ProductToProductTagTable, "A" | "B"> extends never
+    ? "A" | "B" extends keyof ProductToProductTagTable
+      ? true
+      : false
+    : false
+>;
 
-      // Should export schema directly with type alias
-      expect(generated).toContain('export const CategoryToPost = Schema.Struct({');
-      expect(generated).toContain('export type CategoryToPost = typeof CategoryToPost;');
-    });
+declare const productId: ProductId;
+declare const productTagId: ProductTagId;
+declare const db: Kysely<DB>;
 
-    it('should not export individual type aliases', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
+const semantic: ProductToProductTag = {
+  product_id: productId,
+  product_tag_id: productTagId,
+};
+const insert: ProductToProductTagInsert = semantic;
+const physicalInsert: Insertable<ProductToProductTagTable> = {
+  A: productId,
+  B: productTagId,
+};
+const physicalSelect: Selectable<ProductToProductTagTable> = {
+  A: productId,
+  B: productTagId,
+};
+const emptyUpdate: Updateable<ProductToProductTagTable> = {};
 
-        model Post {
-          id         String     @id
-          categories Category[]
-        }
+const unbrandedInsert: ProductToProductTagInsert = {
+  // @ts-expect-error product_id must retain the ProductId brand.
+  product_id: "123e4567-e89b-42d3-a456-426614174000",
+  product_tag_id: productTagId,
+};
+// @ts-expect-error product_id is required for join inserts.
+const missingProduct: ProductToProductTagInsert = { product_tag_id: productTagId };
+// @ts-expect-error product_tag_id is required for join inserts.
+const missingProductTag: ProductToProductTagInsert = { product_id: productId };
+// @ts-expect-error join-table columns are never updateable.
+db.updateTable("_ProductToProductTag").set({ A: productId });
 
-        model Category {
-          id    String @id
-          posts Post[]
-        }
-      `;
+db.insertInto("_ProductToProductTag").values(physicalInsert).returningAll();
+db.updateTable("_ProductToProductTag").set(emptyUpdate).returningAll();
+`,
+      'utf8'
+    );
+    await writeFile(
+      tsconfigPath,
+      `${JSON.stringify(
+        {
+          extends: relative(outputDir, join(import.meta.dirname, '../../tsconfig.json')),
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+          },
+          include: ['types.ts', 'join-consumer.ts'],
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
 
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // No type aliases - consumers use type utilities: Selectable<typeof CategoryToPost>
-      expect(generated).not.toContain('export type CategoryToPostSelect');
-      expect(generated).not.toContain('export type CategoryToPostSelectEncoded');
-    });
-  });
-
-  describe('Branded ID Type References', () => {
-    it('should reference branded ID schemas for UUID ID fields', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model Post {
-          id         String     @id @db.Uuid
-          categories Category[]
-        }
-
-        model Category {
-          id    String @id @db.Uuid
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Should reference branded ID schemas, not raw Schema.UUID
-      expect(generated).toContain('columnType(CategoryId, Schema.Never, Schema.Never)');
-      expect(generated).toContain('columnType(PostId, Schema.Never, Schema.Never)');
-      expect(generated).not.toContain('Schema.UUID');
-    });
-
-    it('should reference branded ID schemas for Int ID fields', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model Post {
-          id         Int        @id @default(autoincrement())
-          categories Category[]
-        }
-
-        model Category {
-          id    Int    @id @default(autoincrement())
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Should reference branded ID schemas regardless of underlying type
-      expect(generated).toContain('columnType(CategoryId, Schema.Never, Schema.Never)');
-      expect(generated).toContain('columnType(PostId, Schema.Never, Schema.Never)');
-      expect(generated).not.toContain('Schema.Number');
-    });
-
-    it('should reference branded ID schemas for mixed ID types across models', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model Post {
-          id   String @id @db.Uuid
-          tags Tag[]
-        }
-
-        model Tag {
-          id    Int   @id @default(autoincrement())
-          posts Post[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Post comes before Tag alphabetically, so A = Post, B = Tag
-      expect(generated).toContain('post_id:');
-      expect(generated).toContain('columnType(PostId, Schema.Never, Schema.Never)');
-      expect(generated).toContain('tag_id:');
-      expect(generated).toContain('columnType(TagId, Schema.Never, Schema.Never)');
-      // Should not contain raw schema types
-      expect(generated).not.toContain('Schema.UUID');
-      expect(generated).not.toContain('Schema.Number');
-    });
-
-    it('should derive branded ID name from PascalCase model name', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model UserProfile {
-          id           String         @id
-          permissions  UserPermission[]
-        }
-
-        model UserPermission {
-          id       String       @id
-          profiles UserProfile[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Branded IDs should follow PascalCase model name + "Id"
-      expect(generated).toContain('columnType(UserPermissionId, Schema.Never, Schema.Never)');
-      expect(generated).toContain('columnType(UserProfileId, Schema.Never, Schema.Never)');
-    });
-  });
-
-  describe('Read-Only Foreign Keys', () => {
-    it('should use columnType for read-only behavior on both columns', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model User {
-          id    String @id
-          roles Role[]
-        }
-
-        model Role {
-          id    String @id
-          users User[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Both columns should use columnType with Never for insert/update
-      const columnTypeMatches = generated.match(/columnType/g);
-      expect(columnTypeMatches).toHaveLength(2); // Once for A, once for B
-
-      // Should use Never for insert and update (read-only)
-      expect(generated).toContain('Schema.Never, Schema.Never');
-    });
-  });
-
-  describe('Real-world Scenarios', () => {
-    it('should handle complex M2M with compound names', async () => {
-      const schema = `
-        datasource db {
-          provider = "postgresql"
-        }
-
-        model UserProfile {
-          id           String         @id
-          permissions  UserPermission[]
-        }
-
-        model UserPermission {
-          id       String       @id
-          profiles UserProfile[]
-        }
-      `;
-
-      const dmmf = await getDMMF({ datamodel: schema });
-      const joinTables = detectImplicitManyToMany(dmmf.datamodel.models);
-      const generated = generateJoinTableSchema(joinTables[0], dmmf);
-
-      // Should generate semantic snake_case for compound words
-      expect(generated).toContain('user_permission_id:');
-      expect(generated).toContain('user_profile_id:');
-
-      // Should still map to A/B
-      expect(generated).toContain('Schema.fromKey("A")');
-      expect(generated).toContain('Schema.fromKey("B")');
-    });
+    try {
+      await runFile('./node_modules/.bin/tsc', ['--noEmit', '-p', tsconfigPath]);
+    } catch (error) {
+      if (error && typeof error === 'object') {
+        const stdout = 'stdout' in error ? String(error.stdout) : '';
+        const stderr = 'stderr' in error ? String(error.stderr) : '';
+        throw new Error(stdout || stderr, { cause: error });
+      }
+      throw error;
+    }
   });
 });

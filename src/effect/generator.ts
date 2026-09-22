@@ -1,7 +1,10 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { buildKyselyFieldType } from '../kysely/type.js';
-import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
-import { isUuidField } from '../prisma/type.js';
+import {
+  buildForeignKeyMap,
+  getModelIdBrandModel,
+  type JoinTableInfo,
+} from '../prisma/relation.js';
+import { getFieldOperationConfig, getFieldDbName, isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
@@ -26,79 +29,125 @@ export class EffectGenerator {
    * @returns The branded ID schema declaration + exported type, or null if no ID field
    */
   generateBrandedIdSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
-    const idField = fields.find((f) => f.isId);
-    if (!idField) {
+    const idField = fields.find((field) => field.isId);
+    const brandModel = getModelIdBrandModel(model, this.dmmf.datamodel.models);
+    if (!idField || brandModel?.name !== model.name) {
       return null;
     }
 
     const name = toPascalCase(model.name);
     const baseType = this.getIdBaseType(idField);
 
-    // Export Id as both value and type with same name
     return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
 export type ${name}Id = typeof ${name}Id.Type;`;
   }
 
   /**
-   * Determine the base Effect Schema type for an ID field.
-   * UUID strings → Schema.UUID, integers → Schema.Int, bigints → Schema.BigIntFromSelf, all others → Schema.String
+   * UUID strings are validated, integers use Schema.Int, bigints decode from
+   * database strings, and all other IDs remain strings.
    */
   private getIdBaseType(field: DMMF.Field) {
-    if (isUuidField(field)) return 'Schema.UUID';
+    if (isUuidField(field)) return 'Schema.String.check(Schema.isUUID())';
     if (field.type === 'Int') return 'Schema.Int';
-    if (field.type === 'BigInt') return 'Schema.BigIntFromSelf';
+    if (field.type === 'BigInt') return 'Schema.BigIntFromString';
     return 'Schema.String';
   }
 
   /**
-   * Generate the main model schema
-   * Exports as `User` directly (not `_User`)
-   * Package's type utilities derive Insertable<User>, Selectable<User>
+   * Generate select, insert, and update codecs from one shared field definition.
    */
   generateModelSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
     const fkMap = buildForeignKeyMap(model, this.dmmf.datamodel.models);
     const name = toPascalCase(model.name);
-
     const fieldDefinitions = fields
       .map((field) => {
-        // Get base Effect type
-        const baseType = buildFieldType(field, this.dmmf, fkMap);
-        // Apply Kysely helpers (columnType, generated) and @map directive
-        // Pass model.name so @id fields use the model's branded ID type
-        const fieldType = buildKyselyFieldType(baseType, field, model.name);
-        return `  ${field.name}: ${fieldType}`;
+        const valueSchema =
+          field.isId && !fkMap.has(field.name)
+            ? `${name}Id`
+            : buildFieldType(field, this.dmmf, fkMap);
+        const operation = getFieldOperationConfig(model, field);
+        const variants = [
+          `    select: ${valueSchema}`,
+          `    insert: ${operation.insertOptional ? `Schema.optionalKey(${valueSchema})` : valueSchema}`,
+        ];
+
+        if (operation.update) {
+          variants.push(`    update: Schema.optionalKey(${valueSchema})`);
+        }
+
+        return `  ${field.name}: DatabaseSchema.Field({
+${variants.join(',\n')},
+  })`;
       })
       .join(',\n');
+    const modelFields = `${name}Fields`;
+    const codecs = (['select', 'insert', 'update'] as const)
+      .map((variant) => this.generateOperationCodec(name, modelFields, model, fields, variant))
+      .join('\n\n');
 
-    return `export const ${name} = Schema.Struct({
+    return `const ${modelFields} = DatabaseSchema.Struct({
 ${fieldDefinitions}
 });
-export type ${name} = typeof ${name};`;
+
+${codecs}`;
+  }
+
+  private generateOperationCodec(
+    modelName: string,
+    modelFields: string,
+    model: DMMF.Model,
+    fields: readonly DMMF.Field[],
+    variant: 'select' | 'insert' | 'update'
+  ) {
+    const codecName =
+      variant === 'select'
+        ? modelName
+        : `${modelName}${variant === 'insert' ? 'Insert' : 'Update'}`;
+    const mappedFields = fields.filter(
+      (field) =>
+        field.dbName !== null &&
+        field.dbName !== undefined &&
+        field.dbName !== field.name &&
+        (variant !== 'update' || getFieldOperationConfig(model, field).update)
+    );
+    const extracted = `DatabaseSchema.extract(${modelFields}, "${variant}")`;
+    const codec =
+      mappedFields.length === 0
+        ? extracted
+        : `${extracted}.pipe(Schema.encodeKeys({ ${mappedFields
+            .map(
+              (field) => `${JSON.stringify(field.name)}: ${JSON.stringify(getFieldDbName(field))}`
+            )
+            .join(', ')} }))`;
+
+    return `export const ${codecName} = ${codec};
+export type ${codecName} = typeof ${codecName}.Type;`;
   }
 
   /**
-   * Generate types.ts file header
+   * Generate types.ts imports and the shared operation-schema toolkit.
    */
   generateTypesHeader(hasEnums: boolean) {
     const header = generateFileHeader();
-
-    // Import runtime helpers from prisma-effect-kysely.
-    // DateTime fields use Schema.DateFromSelf (Date ↔ Date), matching
-    // Prisma's contract that DateTime values are native Date instances.
-    // Decode through a Schema.Date contract schema at JSON wire boundaries.
     const imports = [
       `import { Schema } from "effect";`,
-      `import { columnType, generated, JsonValue } from "prisma-effect-kysely";`,
+      `import { VariantSchema } from "effect/unstable/schema";`,
+      `import type { ColumnType } from "kysely";`,
     ];
 
     if (hasEnums) {
-      // Import PascalCase enum schemas
       const enumImports = this.dmmf.datamodel.enums.map((e) => toPascalCase(e.name)).join(', ');
-
       imports.push(`import { ${enumImports} } from "./enums";`);
     }
 
-    return `${header}\n\n${imports.join('\n')}`;
+    return `${header}
+
+${imports.join('\n')}
+
+const DatabaseSchema = VariantSchema.make({
+  variants: ["select", "insert", "update"],
+  defaultVariant: "select",
+});`;
   }
 
   /**

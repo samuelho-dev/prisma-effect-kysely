@@ -6,11 +6,15 @@
     "types": ["node"]
   },
   "include": [
+    "src/cli.ts",
+    "src/contract/**/*.ts",
     "src/generator/**/*.ts",
     "src/utils/**/*.ts",
     "src/prisma/**/*.ts",
     "src/effect/**/*.ts",
-    "src/kysely/**/*.ts"
+    "src/kysely/**/*.ts",
+    "src/error/**/*.ts",
+    "src/runtime/**/*.ts"
   ],
   "exclude": [
     "jest.config.ts",

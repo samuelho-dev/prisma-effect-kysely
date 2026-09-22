@@ -26,7 +26,7 @@ describe('Enum Generation - Functional Tests', () => {
       ACTIVE = 'ACTIVE',
     }
 
-    const ProductStatusSchema = Schema.Enums(ProductStatus);
+    const ProductStatusSchema = Schema.Enum(ProductStatus);
 
     it('should allow property access on generated enum', () => {
       expect(ProductStatus.ACTIVE).toBe('ACTIVE');
@@ -97,7 +97,7 @@ describe('Enum Generation - Functional Tests', () => {
         COMPLETED = 'COMPLETED',
       }
 
-      const StatusSchema = Schema.Enums(Status);
+      const StatusSchema = Schema.Enum(Status);
 
       const TaskSchema = Schema.Struct({
         id: Schema.Number,
@@ -132,7 +132,7 @@ describe('Enum Generation - Functional Tests', () => {
         HIGH = 'HIGH',
       }
 
-      const PrioritySchema = Schema.Enums(Priority);
+      const PrioritySchema = Schema.Enum(Priority);
 
       const TaskSchema = Schema.Struct({
         name: Schema.String,
@@ -165,7 +165,7 @@ describe('Enum Generation - Functional Tests', () => {
         BUG = 'BUG',
       }
 
-      const TagSchema = Schema.Enums(Tag);
+      const TagSchema = Schema.Enum(Tag);
 
       const ItemSchema = Schema.Struct({
         tags: Schema.Array(TagSchema),
@@ -273,9 +273,9 @@ describe('Enum Generation - Functional Tests', () => {
 
       // Verify generated code contains expected structures (minimal checks)
       expect(generatedCode).toContain('export enum USER_ROLE');
-      expect(generatedCode).toContain('Schema.Enums');
-      expect(generatedCode).toContain('export const UserRole = Schema.Enums(USER_ROLE)');
-      expect(generatedCode).toContain('export type UserRole = Schema.Schema.Type<typeof UserRole>');
+      expect(generatedCode).toContain('Schema.Enum');
+      expect(generatedCode).toContain('export const UserRole = Schema.Enum(USER_ROLE)');
+      expect(generatedCode).toContain('export type UserRole = typeof UserRole.Type');
     });
 
     it('should generate valid TypeScript that can be executed', () => {
@@ -288,13 +288,10 @@ describe('Enum Generation - Functional Tests', () => {
       expect(generatedCode).toMatch(/GUEST = "GUEST"/);
     });
 
-    it('should use Schema.Enums not Schema.Literal', () => {
+    it('should use Schema.Enum not Schema.Literal', () => {
       const generatedCode = generateEnumSchema(mockEnum);
 
-      // Modern pattern: Schema.Enums
-      expect(generatedCode).toContain('Schema.Enums(USER_ROLE)');
-
-      // Old pattern should NOT exist
+      expect(generatedCode).toContain('Schema.Enum(USER_ROLE)');
       expect(generatedCode).not.toContain('Schema.Literal');
     });
 
@@ -305,8 +302,8 @@ describe('Enum Generation - Functional Tests', () => {
       expect(generatedCode).toContain('enum USER_ROLE');
 
       // PascalCase for Schema wrapper (no Schema suffix - the PascalCase name IS the Schema)
-      expect(generatedCode).toContain('export const UserRole = Schema.Enums(USER_ROLE)');
-      expect(generatedCode).toContain('export type UserRole = Schema.Schema.Type<typeof UserRole>');
+      expect(generatedCode).toContain('export const UserRole = Schema.Enum(USER_ROLE)');
+      expect(generatedCode).toContain('export type UserRole = typeof UserRole.Type');
 
       // Should NOT use snake_case for schema/type
       expect(generatedCode).not.toContain('user_role_schema');
@@ -325,8 +322,8 @@ describe('Enum Generation - Functional Tests', () => {
 
       // Verify file structure
       expect(generatedFile).toContain('import { Schema } from "effect"');
-      expect(generatedFile).toContain('export enum STATUS');
-      expect(generatedFile).toContain('export const STATUS = Schema.Enums(STATUS)');
+      expect(generatedFile).toContain('export enum STATUSValues');
+      expect(generatedFile).toContain('export const STATUS = Schema.Enum(STATUSValues)');
     });
   });
 
@@ -344,9 +341,8 @@ describe('Enum Generation - Functional Tests', () => {
 
       const generatedCode = generateEnumSchema(mockMappedEnum);
 
-      // Should still generate valid enum
-      expect(generatedCode).toContain('export enum TaskStatus');
-      expect(generatedCode).toContain('Schema.Enums(TaskStatus)');
+      expect(generatedCode).toContain('export enum TaskStatusValues');
+      expect(generatedCode).toContain('Schema.Enum(TaskStatusValues)');
     });
   });
 
@@ -369,10 +365,10 @@ describe('Enum Generation - Functional Tests', () => {
 
       // Both enums should be present (raw enum + toPascalCase Schema)
       // Note: toPascalCase('ROLE') = 'ROLE' (all-caps single words stay as-is)
-      expect(generatedFile).toContain('export enum ROLE');
-      expect(generatedFile).toContain('export enum STATUS');
-      expect(generatedFile).toContain('export const ROLE = Schema.Enums(ROLE)');
-      expect(generatedFile).toContain('export const STATUS = Schema.Enums(STATUS)');
+      expect(generatedFile).toContain('export enum ROLEValues');
+      expect(generatedFile).toContain('export enum STATUSValues');
+      expect(generatedFile).toContain('export const ROLE = Schema.Enum(ROLEValues)');
+      expect(generatedFile).toContain('export const STATUS = Schema.Enum(STATUSValues)');
     });
   });
 });

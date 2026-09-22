@@ -1,10 +1,138 @@
 # Changelog
 
-## 5.10.0
+## 8.0.0
+
+### Major Changes
+
+- 4785ca1: Cut over to generator-only Effect `4.0.0-rc.117` output with required Kysely `^0.29.6` peers. Remove the package root, runtime helpers, and legacy Prisma 7 generator protocol; Prisma 8 contract artifacts are the only generation path. Generated output owns select/insert/update codecs plus named native Kysely table interfaces with physical database keys and decoded semantic leaf values, so normal queries do not require codec wrapping. Prisma `Int` fields use `Schema.Int`, rejecting fractional, non-finite, and unsafe numeric values. Custom type annotations define only scalar refinements while the generator applies Prisma list and nullability cardinality.
+- 4785ca1: Replace the Prisma 7 generator protocol with the Prisma 8 contract CLI. Generate artifacts with `prisma contract emit`, then run `prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>`; Prisma 7 generator blocks remain supported by the 6.x release line.
+
+  Prisma-applied ID generators such as `@default(uuid())` and `@default(cuid(2))` are now insertable in Kysely because Prisma 8 contracts correctly distinguish them from database defaults.
+
+### Patch Changes
+
+- d7d81e2: Remove project scaffolding from multi-domain output, expose Prisma 8 namespace splitting through the CLI, and preserve root ID brands across shared-primary-key relation chains.
+- 3fd3102: Preserve the referenced model's branded ID for primary-key foreign keys without rebranding the inverse one-to-one primary key.
+- 1a30e2c: Upgrade the generator toolchain to Prisma 8 RC.15, Effect 4 RC.117, Kysely 0.29, TypeScript 7, Vitest 5, and the current supporting dependencies. Remove the legacy Prisma 7 generator entry so generation uses Prisma 8 contract artifacts exclusively. Kysely table leaves now use decoded semantic values without per-query codec wrapping, foreign-key primary keys retain the referenced model brand, contract enum names remain stable, and `@customType` supplies only the scalar refinement while the generator applies Prisma list and nullability cardinality.
+
+## 8.0.0-next.3
+
+### Patch Changes
+
+- d7d81e2: Remove project scaffolding from multi-domain output, expose Prisma 8 namespace splitting through the CLI, and preserve root ID brands across shared-primary-key relation chains.
+
+## 8.0.0-next.2
+
+### Patch Changes
+
+- 3fd3102: Preserve the referenced model's branded ID for primary-key foreign keys without rebranding the inverse one-to-one primary key.
+
+## 8.0.0-next.1
+
+### Major Changes
+
+- Cut over to generator-only Effect `4.0.0-rc.117` output with required Kysely `^0.29.6` peers. Remove the package root, runtime helpers, and legacy Prisma 7 generator protocol; Prisma 8 contract artifacts are the only generation path. Generated output owns select/insert/update codecs plus named native Kysely table interfaces with physical database keys and decoded semantic leaf values, so normal queries do not require codec wrapping. Prisma `Int` fields use `Schema.Int`, rejecting fractional, non-finite, and unsafe numeric values. Custom type annotations define only scalar refinements while the generator applies Prisma list and nullability cardinality.
+- Replace the Prisma 7 generator protocol with the Prisma 8 contract CLI. Generate artifacts with `prisma contract emit`, then run `prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>`; Prisma 7 generator blocks remain supported by the 6.x release line.
+
+  Prisma-applied ID generators such as `@default(uuid())` and `@default(cuid(2))` are now insertable in Kysely because Prisma 8 contracts correctly distinguish them from database defaults.
+
+### Patch Changes
+
+- 1a30e2c: Upgrade the generator toolchain to Prisma 8 RC.15, Effect 4 RC.117, Kysely 0.29, TypeScript 7, Vitest 5, and the current supporting dependencies. Remove the legacy Prisma 7 generator entry so generation uses Prisma 8 contract artifacts exclusively. Kysely table leaves now use decoded semantic values without per-query codec wrapping, foreign-key primary keys retain the referenced model brand, contract enum names remain stable, and `@customType` supplies only the scalar refinement while the generator applies Prisma list and nullability cardinality.
+
+## 8.0.0-next.0
+
+### Major Changes
+
+- 237eee2: Cut over to generator-only Effect `4.0.0-rc.117` output with required Kysely peers. Remove the package root and runtime helper exports, and replace generated helper-wrapped schemas with select/insert/update codecs plus named native Kysely table interfaces. Prisma `Int` fields now use `Schema.Int`, rejecting fractional, non-finite, and unsafe numeric values. Add first-class Prisma 8 PostgreSQL `contract.json` generation through the `prisma-effect-kysely contract` command while retaining the Prisma 7 generator protocol.
+
+## 7.0.0-next.0
+
+### Major Changes
+
+- 442e9a2: Replace the Prisma 7 generator protocol with a Prisma 8 contract CLI and programmatic `generate` API. Generate from `contract.json` using `prisma-effect-kysely --contract <path> --output <dir>`; Prisma 7 generator blocks remain supported by the 6.x release line.
+
+  Prisma-applied ID generators such as `@default(uuid())` and `@default(cuid(2))` are now insertable in Kysely because Prisma 8 contracts correctly distinguish them from database defaults.
+
+## 6.0.0-next.7
 
 ### Minor Changes
 
-- be1a22e: fix: only treat `@db.Uuid` columns as UUIDs — drop field-name inference
+- c78a5da: Generate Prisma enums as `Schema.Literals` instead of `Schema.Enum`.
+
+  `Schema.Literals` is the canonical Effect-v4 way to model a finite string set: its Type AND Encoded
+  are the string literal union, so an enum column reads/writes as a plain string (Kysely-native, no
+  `MyEnum.member` juggling) and the domain type is a literal union. `Schema.Enum` (Type == the TS enum
+  object) is reserved for interop with a pre-existing TS enum and forced enum-member values in queries.
+  The generated output no longer emits a `TypeScript enum` — just `export const X = Schema.Literals([...])`
+  and `export type X = typeof X.Type`.
+
+  BREAKING: consumers referencing the generated `XEnum` TS enum (e.g. `Status.ACTIVE`) must switch to
+  the string literal (`"ACTIVE"`).
+
+## 6.0.0-next.6
+
+### Patch Changes
+
+- Emit explicit `.js` extensions on the generated files' relative imports (`types.ts` importing
+  `./enums.js`, and the `index.ts` barrel re-exporting `./enums.js` / `./types.js`).
+
+  Without the extension, generated code only resolves under bundler-style module resolution. Under
+  `moduleResolution: "node16" | "nodenext"` (and especially with `verbatimModuleSyntax`), the bare
+  `./enums` specifier fails (TS2835), which left every imported enum schema typed as `any` and
+  collapsed `Selectable(...)` inference to `{ [x: string]: any }` across all table schemas. The
+  explicit extension is accepted by bundler/Node16/NodeNext alike, so the generated output now
+  type-checks under strict NodeNext projects.
+
+## 6.0.0-next.5
+
+### Minor Changes
+
+- c8977b5: feat: emit `XTable` (Kysely table) + bare `X` (Selectable SELECT row) per table
+
+  Each model now generates **two** schemas instead of one, following Kysely's own
+  `PersonTable` → `Person` naming convention:
+  - **`{Name}Table`** — the wrapper-laden struct (`columnType()`/`generated()`
+    intact). It drives the Kysely `DB` interface, where its `ColumnType<>`/
+    `Generated<>` brands give `.insertInto`/`.updateTable` their insert/update
+    variance. Per Kysely's rule, this table type is never a query-result type.
+  - **`{Name}`** (bare) — the SELECT row, `Selectable({Name}Table)` with the
+    wrappers stripped. This is the composable, value+type-merged schema that
+    contracts, RPC outputs, and decode boundaries bind to. It is derived once by
+    the generator, so consumers never re-wrap `Selectable(...)` themselves.
+
+  `export type {Name} = typeof {Name}.Type` (the SELECT row type). The `DB`
+  interface entry is `Schema.Schema.Type<typeof {Name}Table>` — referencing the
+  wrapper-laden table so Kysely query typing keeps working (gated by the
+  `kysely-values-type-inference` regression test).
+
+  **Why not `@effect/sql` `Model.Class`?** A type spike showed `Model.Class`
+  (which encodes insert/update variance in separate `.insert`/`.update` Effect
+  schemas) is incompatible with the Kysely `DB` interface: Kysely needs the
+  TS-level `ColumnType`/`Generated` wrappers on the table type, which `Model.Class`
+  abandons — `db.insertInto(...).values(...)` then demands generated columns. The
+  `Table` + bare-row split keeps both the Effect-schema and Kysely-query halves
+  working.
+
+  This resolves the table-vs-row name clash (bare `X` = row, `XTable` = table)
+  and eliminates per-consumer `Selectable(...)` repetition, with no `Model.Class`,
+  import aliases, namespace imports, or `*Schema` suffixes.
+
+  **Migration for consumers:** the bare `X` export flips from the wrapper-laden
+  table to the SELECT row. Replace `Selectable<X>` → `X`, `Selectable(X)` → `X`,
+  and `Insertable<X>`/`Updateable<X>` → `Insertable<typeof XTable>`/
+  `Updateable<typeof XTable>`. Join tables (no `XTable` emitted) keep
+  `Selectable<JoinTable>`.
+
+  Also: `domain-detector` replaces a `@ts-expect-error` with a
+  `'schemaLocation' in model` type guard; `JoinTableInfo[]` parameters are now
+  `readonly`.
+
+## 6.0.0-next.4
+
+### Minor Changes
+
+- 300d024: fix: only treat `@db.Uuid` columns as UUIDs — drop field-name inference
 
   `isUuidField` previously had a third detection tier that inferred UUID from the
   field _name_ (`/^id$/`, `/_id$/`, `/^.*_uuid$/`, `/^uuid$/`) for any `String`
@@ -31,153 +159,88 @@
   on a non-`@db.Uuid` column, add `/// @db.Uuid` to the field, or override its
   schema with `/// @customType(...)`.
 
-## 5.9.0
+## 6.0.0-next.3
 
-### Minor Changes
+### Patch Changes
 
-- 5f07c8f: fix: regular tables in DB interface use `Schema.Schema.Type`, join tables use `Schema.Schema.Encoded`
+- ff58e31: Fix: implicit M:N join tables now expose their physical `A`/`B` columns in the
+  Kysely `DB` interface.
 
-  5.7.0 flipped the DB interface to `Schema.Schema.Encoded` for **all** tables to fix the join-table column-name bug (`_product_tags.product_id` was decoded-name; SQL needs `A`). That was the right fix for join tables but accidentally **stripped branded IDs** for regular tables — `Schema.Schema.Encoded<typeof X>` strips `Schema.brand(...)` because brands live on the Type side.
+  Kysely uses `DB`-interface field names as literal SQL column identifiers. The
+  join-table entry was emitted as `Schema.Schema.Type<typeof JoinTable>`, whose
+  keys are the **decoded** semantic names (`product_id`, `product_tag_id`). But an
+  implicit many-to-many table's physical Postgres columns are `A`/`B` (Prisma's
+  convention), so a query like
+  `db.selectFrom('_product_tags').where('_product_tags.product_id', ...)` emitted
+  `WHERE product_id` against a table that only has `A`/`B` → runtime SQL error.
 
-  Concrete consequence: every Kysely consumer queried `result.seller_id: string` instead of `result.seller_id: string & Brand<"SellerId">`. Branded ID type safety silently disabled across the entire monorepo.
+  The join-table `DB` entry is now `Schema.Codec.Encoded<typeof JoinTable>`, whose
+  keys are the **encoded** physical columns `A`/`B` (carrying the branded
+  `columnType` values, so joins remain type-safe against the parent table's branded
+  id). The semantic-name mapping still lives only in the schema's
+  `Schema.encodeKeys`, used when decoding a raw DB row. Regular (non-join) model
+  tables are unchanged (`Schema.Schema.Type<typeof Model>`).
 
-  Fix: the two table categories need different treatment.
-  - **Regular tables**: `Schema.Schema.Type<typeof X>` — preserves branded IDs (`string & Brand<"SellerId">`) and the `ColumnType<S, I, U>` `__select__`/`__insert__`/`__update__` phantoms. Type === Encoded for column names anyway because regular tables don't use `Schema.fromKey`.
-  - **Join tables**: `Schema.Schema.Encoded<typeof X>` — only join tables use `Schema.fromKey('A')` to remap DB columns `A`/`B` to semantic names. Type would expose the decoded names that Kysely passes to SQL verbatim → "column does not exist". Encoded preserves real column names.
+## 6.0.0-next.2
 
-  Effectively: pick the side that matches the _intended consumer view_. For non-`fromKey` tables, that's the Type side (richer info, brand info preserved). For `fromKey` tables, that's the Encoded side (matches DB).
+### Patch Changes
 
-  **Migration**: regular-table consumers regain `Brand<...>` IDs immediately. Join-table consumers (`_product_tags.A`/`B` queries) unchanged from 5.7.0 — those still expose real DB column names.
+- ded938b: Warn on Effect 3 syntax in `@customType` annotations.
 
-## 5.8.0
+  `@customType(...)` expressions are emitted verbatim, so an Effect 3 expression
+  (e.g. `Schema.Number.pipe(Schema.int(), Schema.between(1, 5))` or the variadic
+  `Schema.Union(A, B)`) compiles against Effect 3 but breaks against Effect 4. The
+  generator now scans `@customType` strings at `prisma generate` time and prints a
+  warning that names the field and the v4 replacement — for filters
+  (`Schema.int()` → `Schema.check(Schema.isInt())`, `Schema.between(a, b)` →
+  `Schema.check(Schema.isBetween({ minimum, maximum }))`, etc.), variadic
+  combinators (`Schema.Union(a, b)` → `Schema.Union([a, b])`), and removed schemas
+  (`Schema.UUID`, `Schema.DateFromSelf`). It only warns; it never rewrites the
+  expression (regex-transforming arbitrary user TypeScript is unsafe).
 
-### Minor Changes
+  Also bumps the dev/test Effect pin to `4.0.0-beta.70` and documents that
+  consumers must pin the exact `6.0.0-next.x` version — a `"*"` range resolves to
+  the stable `5.x` line because npm/pnpm exclude prereleases from version ranges.
 
-- ac42853: fix: DateTime maps back to `Schema.DateFromSelf` (Date ↔ Date) — Prisma+Kysely canonical
+## 6.0.0-next.1
 
-  Reverts the 5.6.0 change that mapped `DateTime` to `DateFromInput` (a
-  `Schema.Union(DateFromSelf, Date)` with `Encoded = Date | string`).
+### Patch Changes
 
-  **Why revert**: the dual-input Union pushed the boundary problem onto
-  DA-layer consumers. Kysely's pg driver returns native `Date` instances,
-  but `Selectable<X>.created_at` typed as `Date | string` forced every DA
-  mapper that copies `result.created_at` into a contract type to either
-  narrow manually (no cast-free path) or wrap the read in
-  `Schema.decode(Selectable(X))` (heavy refactor across hundreds of sites).
+- 5722a22: Fix Insertable/Updateable semantics surfaced by validation of the Effect 4 beta line:
+  - **`Insertable` now accepts an explicit `null` for nullable columns.** A
+    `Schema.NullOr(T)` field is optional on insert and retains `null` in its type,
+    so `{ col: null }` (set the column to NULL) decodes successfully — matching SQL
+    and Kysely's `Insertable`, which permit omit / value / explicit null. Previously
+    `null` was stripped and an explicit `null` was rejected at decode.
+  - **Implicit many-to-many join-table FK columns are now insertable.** They emit
+    `columnType(Id, Id, Never)` instead of `columnType(Id, Never, Never)`: the
+    foreign keys are provided on INSERT (you supply both keys when linking a row)
+    and read-only on UPDATE (a composite-PK join row is inserted/deleted, not
+    updated). Previously `Insertable<JoinTable>` resolved to an empty `{}`, making
+    join rows impossible to insert through the generated types.
+  - **Internal robustness:** Generated-field detection is gated on the `GeneratedId`
+    annotation rather than a bare `.from` property, so a `Schema.encodeKeys(...)`
+    transform nested as a struct field (which also exposes `.from`) is no longer
+    misclassified as a generated field.
 
-  **Why DateFromSelf is correct**:
-  - **Prisma docs**: _"Prisma Client returns all DateTime values as native
-    JavaScript Date objects. ... DateTime values must be passed as Date
-    objects, not strings, to avoid runtime errors."_
-  - **Kysely docs**: idiomatic DateTime column is
-    `created_at: ColumnType<Date, string | undefined, never>` — SELECT
-    yields `Date`. _"TypeScript is a compile-time concept and cannot
-    alter runtime JavaScript types. If your TypeScript definition for a
-    column differs from the database's actual return type, the runtime
-    type will not change automatically."_
-  - **Effect Schema docs (Doc 10944)**: _"schemas should be defined such
-    that encode + decode return the original value"_ — one Type, one
-    Encoded per schema. The dual-boundary problem (DA Date ↔ Date vs
-    RPC string ↔ Date) is solved by **two schemas** (one per boundary),
-    not one Union. Doc 4312 (`@effect/sql/Model.Class`) shows this
-    canonical variant pattern (`select`/`insert`/`update` vs
-    `json`/`jsonCreate`/`jsonUpdate`).
+## 6.0.0-next.0
 
-  **For RPC/HTTP wire boundaries**: define a contract-layer schema that
-  overrides date columns with `Schema.Date` (Encoded = string) before the
-  RPC framework calls `Schema.decode`. This is the same pattern as
-  `@effect/sql`'s `json` variants — one schema per boundary.
+### Major Changes
 
-  **`DateFromInput` is still exported** from the package for consumers that
-  specifically want the dual-input behavior at a single call site. The
-  codegen just no longer auto-emits it for every DateTime column.
+- fde013c: Migrate to Effect 4 (beta).
 
-  **The Schema.Schema.Encoded fix in 5.7.0 stays** — that's still correct
-  for join-table column exposure (`_product_tags.A`/`B`).
+  **Breaking:** the `effect` peer dependency is now `^4.0.0-beta` (Effect 3 is no longer supported). Consumers must upgrade to `effect@^4.0.0-beta`.
 
-  **Migration**: most consumers benefit immediately (DA mappers stop
-  seeing `Date | string`). For RPC contracts that previously didn't have
-  a Date override (because they relied on `DateFromInput`), re-add a
-  `Schema.extend` with `Schema.Date` overrides for date columns to keep
-  wire decode working.
-
-## 5.7.0
-
-### Minor Changes
-
-- d272b99: fix: DB interface uses `Schema.Schema.Encoded` so Kysely sees real DB columns
-
-  The generated `interface DB` previously emitted
-  `<table>: Schema.Schema.Type<typeof X>`. For tables using `Schema.fromKey`
-  (Prisma implicit M:N join tables, where TS field `product_id` maps to DB
-  column `A`), the Type side has the **decoded** names. Kysely uses the TS
-  interface as the SQL contract — it does not run the Effect schema decoder.
-  So queries like `db.selectFrom('_product_tags').where('product_id', ...)`
-  generated `WHERE product_id = ...` and Postgres rejected with
-  `column _product_tags.product_id does not exist`.
-
-  Fix: emit `Schema.Schema.Encoded<typeof X>` for every DB interface entry.
-  Encoded is the on-the-wire / on-disk shape that matches Postgres. For
-  regular tables `Type === Encoded`, no behavior change. For join tables,
-  Kysely now sees `A`/`B` and emits valid SQL. Application code that wants
-  the semantic field names runs the row through `Schema.decode(X)`.
-
-  `ColumnType<S, I, U>` brand preserves `__select__`/`__insert__`/`__update__`
-  phantoms on both sides, so `Insertable<X>`/`Updateable<X>` inference is
-  unchanged.
-
-  Adds `db-interface-sql-contract.test.ts` with three regression checks:
-  1. String-grep — every DB entry uses Encoded, none use Type.
-  2. Encoded-side preserves real Postgres column names for implicit M:N.
-  3. Kysely SQL compile — emitted SQL references the real `"A"` column,
-     not the `product_id` decoded name. This catches the original bug
-     structurally without needing a live database.
-
-  **Migration**: most consumers need no changes. If a consumer overrode
-  the generated DB interface entry to expose `A`/`B` directly (workaround
-  for this bug), the override can now be removed and the generator will
-  do the right thing.
-
-## 5.6.0
-
-### Minor Changes
-
-- bf7d87c: feat: DateTime columns now map to `DateFromInput` (dual-boundary Date schema)
-
-  `DateTime` columns previously mapped to `Schema.DateFromSelf`
-  (`Encoded = Date`), which broke RPC/HTTP wire decode where JSON-parsed
-  input is a string. Now maps to a new exported `DateFromInput` schema:
-  - **Type** = `Date` (runtime — unchanged)
-  - **Encoded** = `Date | string` (was `Date`)
-
-  Defined as `Schema.Union(Schema.DateFromSelf, Schema.Date)`, so decode
-  accepts native `Date` instances (Kysely DA layer — pg driver returns Date)
-  AND ISO strings (RPC/HTTP wire layer — JSON.parse output). One primitive
-  serves both consumer boundaries; consumers no longer need parallel
-  schemas or `Schema.extend` overrides for date columns.
-
-  **Why minor (not major)**: existing public API behavior is preserved.
-  `Selectable<T>` / `Insertable<T>` / `Updateable<T>` Type sides unchanged.
-  Decode accepts MORE inputs (Date AND string), not fewer. Encode picks
-  the first union member (`DateFromSelf`, identity) so Kysely-bound
-  encode still produces Date instances — existing call sites keep working.
-
-  **Why the change**: `DateFromSelf` optimized for the in-memory Kysely
-  boundary; `Schema.Date` optimizes for the JSON wire boundary. Modern
-  apps cross both with the same generated schemas. Picking either single
-  primitive forced consumers to patch around it at one boundary.
-  `DateFromInput` accepts both encoded shapes natively. Mirrors the
-  `JsonValue` dual-boundary discipline already in this package
-  (`Schema<JsonValue, JsonValue>` is wire-safe by construction).
-
-  **Migration**: no code changes for typical consumers. If you imported
-  `Schema.DateFromSelf` directly from generated `types.ts` in a way that
-  depended on the literal symbol, switch to `DateFromInput` imported from
-  `prisma-effect-kysely`.
-
-  **Internal**: consolidated duplicated `PRISMA_TO_EFFECT_SCHEMA` /
-  `PRISMA_SCALAR_MAP` constants. `src/effect/type.ts` now imports the
-  canonical map from `src/utils/type-mappings.ts`.
+  What changed:
+  - **Runtime helpers** (`Selectable` / `Insertable` / `Updateable`) were reimplemented on Effect 4's public `Schema.Struct.fields` API instead of the removed `effect/SchemaAST` internals (Effect 4 reworked `SchemaAST`: `PropertySignature` is now 2-arg, structs are `Objects` nodes, `isTypeLiteral` is gone). Public signatures and the derived `Selectable<T>`/`Insertable<T>`/`Updateable<T>` types are unchanged.
+  - **Generated output** now emits Effect-4 schema source:
+    - `DateTime` → `Schema.Date` (still native `Date` on both sides — Effect 4's `Schema.Date` no longer coerces to string, replacing Effect 3's `Schema.DateFromSelf`).
+    - UUID fields → `Schema.String.check(Schema.isUUID())` (Effect 4 removed `Schema.UUID`).
+    - BigInt → `Schema.BigInt` (native bigint encoding; replaces `Schema.BigIntFromSelf`).
+    - Enums → `Schema.Enum(...)`; the internal native TS enum is suffixed with `Enum` when its name collides with the PascalCase const (Effect 4 forbids enum/const identifier merging).
+    - `@map` / implicit-M:N `A`/`B` column renames → struct-level `Schema.encodeKeys({ tsName: "db_name" })` (Effect 4 removed `Schema.propertySignature(...).pipe(Schema.fromKey(...))`).
+  - Scaffolded contract libraries now declare `effect: ^4.0.0-beta` as their peer dependency.
+  - Added a generator-output compile guard (`bun run test:emit`) that type-checks the emitted code against the installed Effect version.
 
 ## 5.5.0
 
@@ -1819,9 +1882,7 @@ import { agentInsertEncoded } from '@libs/types';
 insert: (rowData: agentInsertEncoded) => db.insertInto('agent').values(rowData);
 
 // Repository layer - uses Application types (Date objects)
-const input: CreateAgentInput = {
-  /* ... Date objects ... */
-};
+const input: CreateAgentInput = {/* ... Date objects ... */};
 const encoded = Schema.encode(AgentSchemas.Insertable)(input); // Encoded to ISO strings
 ```
 

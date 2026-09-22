@@ -6,8 +6,6 @@ import { generateDBInterface } from './type.js';
  * Kysely domain generator - orchestrates Kysely integration
  */
 export class KyselyGenerator {
-  constructor(private readonly _dmmf: DMMF.Document) {}
-
   /**
    * Generate DB interface for all models and join tables
    */

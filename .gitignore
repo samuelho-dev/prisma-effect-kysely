@@ -11,7 +11,9 @@ coverage/
 *.lcov
 
 # IDE
-.vscode/
+.vscode/*
+# but share the repos/ editor excludes for the vendored subtree (see AGENTS.md)
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -41,3 +43,6 @@ lerna-debug.log*
 .claude/
 .cursor/
 .opencode/
+
+# Prisma contract fixture
+src/__tests__/fixtures/contract/contract.d.ts
