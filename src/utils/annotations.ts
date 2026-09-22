@@ -1,3 +1,5 @@
+import type { DMMF } from '@prisma/generator-helper';
+
 /**
  * Extract a balanced `@customType(...)` expression from Prisma doc text.
  */
@@ -25,6 +27,15 @@ export function extractCustomType(doc: string): string | null {
   }
   return expression;
 }
+export function extractEffectTypeOverride(field: DMMF.Field) {
+  if (!field.documentation) return null;
+  try {
+    return extractCustomType(field.documentation);
+  } catch {
+    return null;
+  }
+}
+
 
 function findClosingParenthesis(value: string, start: number): number {
   let depth = 1;

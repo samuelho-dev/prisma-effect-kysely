@@ -1,12 +1,22 @@
-import type { TableModel } from '../prisma/model.js';
+import type { DMMF } from '@prisma/generator-helper';
+import type { JoinTableInfo } from '../prisma/relation.js';
 import { generateDBInterface } from './type.js';
 
+/**
+ * Kysely domain generator - orchestrates Kysely integration
+ */
 export class KyselyGenerator {
-  generateDBInterface(models: readonly TableModel[]): string {
-    return generateDBInterface(models);
+  /**
+   * Generate DB interface for all models and join tables
+   */
+  generateDBInterface(models: readonly DMMF.Model[], joinTables: JoinTableInfo[] = []) {
+    return generateDBInterface(models, joinTables);
   }
 
-  generateIndexFile(hasEnums: boolean): string {
-    return `${hasEnums ? 'export * from "./enums.js";\n' : ''}export * from "./types.js";`;
+  /**
+   * Generate index.ts re-export file
+   */
+  generateIndexFile() {
+    return `export * from "./enums";\nexport * from "./types";`;
   }
 }

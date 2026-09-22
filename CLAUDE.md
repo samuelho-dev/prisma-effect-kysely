@@ -1,9 +1,10 @@
 ---
 scope: project
-updated: 2026-09-06
+updated: 2026-09-22
 relates_to:
-  - src/kysely/helpers.ts
+  - src/prisma/type.ts
   - src/effect/generator.ts
+  - src/kysely/type.ts
   - src/generator/orchestrator.ts
 ---
 
@@ -13,7 +14,7 @@ Guidance for Claude Code when working in this repo.
 
 ## Overview
 
-CLI and library emitting Effect Schema/Kysely types from Prisma 8 `contract.json`.
+Effect 4-only Prisma generator. Generated files own their Effect database codecs and native Kysely table contracts; the package publishes no application runtime helpers.
 
 ## Commands
 
@@ -24,139 +25,123 @@ bun install
 bun run build               # tsc -p tsconfig.lib.json
 bun run test                # vitest run
 bun run test src/__tests__/<file>.test.ts
-bun run typecheck           # tsc --noEmit
+bun run typecheck           # library + spec TypeScript projects
 bun run lint
-bun run prepublishOnly      # lint + typecheck + test + build
+bun run prepublishOnly      # lint + both typechecks + test + build
 ```
 
 ## Architecture
 
-`src/generator/cli.ts` parses CLI arguments and delegates to the public
-`generate` function in `src/generator/orchestrator.ts`.
+Entry: `src/cli.ts` dispatches Prisma 8 `contract` commands and otherwise loads
+the Prisma 7 generator protocol from `src/generator/index.ts`. Both paths
+delegate to `GeneratorOrchestrator`.
 
-- `src/prisma/contract.ts` — validates Prisma 8's JSON contract boundary
-- `src/prisma/model.ts` — derives deterministic table, enum, and value-object models
-- `src/effect/generator.ts` / `type.ts` / `enum.ts` — emit Effect 4 schemas
-- `src/kysely/generator.ts` / `type.ts` — emit Kysely wrappers and the `DB` interface
-- `src/utils/annotations.ts` — scans sibling `contract.prisma` custom type docs
-- `src/utils/file-manager.ts` — formats and writes generated files
+Generators:
 
-No Prisma package is used at runtime. Prisma 8 has no generator protocol or
-implicit M2M tables; users emit `contract.json` before running this CLI.
+- `src/contract/adapter.ts` — Prisma 8 PostgreSQL contract → explicit DMMF subset
+- `src/effect/generator.ts` — branded IDs and select/insert/update codecs
+- `src/effect/enum.ts` — native TypeScript enums wrapped by `Schema.Enum`
+- `src/effect/join-table.ts` — implicit M:N select/insert codecs
+- `src/kysely/type.ts` — named native `ColumnType` table interfaces and `DB`
+- `src/kysely/generator.ts` — output assembly facade
 
-## Output
+Support: `src/utils/file-manager.ts` handles transactional generated-file
+installation, `src/utils/templates.ts` formats generated TypeScript, and
+`src/prisma/` owns DMMF parsing, field ownership, relation detection, and
+deterministic sorting. The contract adapter rejects unsupported targets/codecs
+instead of widening them.
 
-Up to three files in the configured output directory:
+## Package boundary
 
-- **enums.ts** — emitted only when enums exist; uses stored contract literals
-- **types.ts** — branded IDs, value objects, table schemas, row schemas, and `DB`
-- **index.ts** — always re-exports `types.ts`; re-exports `enums.ts` only when present
+- Required peers: exact `effect@4.0.0-rc.117` and `kysely@^0.28.9`.
+- Published API: executable plus `prisma-effect-kysely/generator` only.
+- `@prisma/generator-helper` is a runtime dependency because the published binary imports it.
+- Generated files import `effect`, `effect/unstable/schema`, and `kysely` directly. They never import `prisma-effect-kysely`.
 
-## Generated shape
+## Generated output
+
+Three files per output directory:
+
+- `enums.ts` — mapped native enum values plus `Schema.Enum` codecs
+- `types.ts` — branded IDs, operation codecs, join codecs, named table interfaces, and `DB`
+- `index.ts` — re-exports
+
+Generation order is fixed: imports/toolkit, branded IDs, model codecs, join codecs, table interfaces, then `DB`.
+
+For each model, a private `<Model>Fields = DatabaseSchema.Struct(...)` is extracted into:
+
+- `<Model>` — select codec
+- `<Model>Insert` — insert codec
+- `<Model>Update` — update codec
+
+Each export has a decoded alias using `typeof <Codec>.Type`. Do not export field containers, attach variants as properties, or introduce `Model.Class`.
+
+`Schema.encodeKeys` is applied after extraction. Decoded codec values use Prisma semantic field names; encoded values use physical `@map` column names. Update mappings exclude omitted primary-key fields.
+
+## Native Kysely contract
+
+Each model emits `<Model>Table` with physical column keys and native:
 
 ```typescript
-export const UserId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('UserId'));
-export type UserId = typeof UserId.Type;
-
-export const Role = Schema.Literals(['ADMIN', 'USER']);
-export type Role = typeof Role.Type;
-
-export const UserTable = Schema.Struct({
-  id: columnType(UserId, UserId, Schema.Never),
-  email: Schema.String,
-  role: Role,
-  createdAt: generated(Schema.Date),
-});
-
-export const User = Selectable(UserTable);
-export type User = typeof User.Type;
-
-export interface DB {
-  User: Schema.Schema.Type<typeof UserTable>;
-}
+ColumnType<
+  Schema.Codec.Encoded<typeof Model>['column'],
+  Schema.Codec.Encoded<typeof ModelInsert>['column'],
+  Exclude<Schema.Codec.Encoded<typeof ModelUpdate>['column'], undefined>
+>;
 ```
 
-Consumers use bare `User` as the SELECT row type and `Insertable<typeof UserTable>` /
-`Updateable<typeof UserTable>` from `prisma-effect-kysely` for write shapes. Branded
-IDs are imported directly. Enum values are plain strings (`"ADMIN"`), not TS enum
-members (`Role.ADMIN`).
+Primary-key updates are `never` and never index the update codec. `DB` uses physical `@@map` table names and points to named table interfaces.
 
-## Field behavior
+Raw Kysely values are intentionally encoded database values: physical keys, UUID strings, bigint strings, and native dates. Decode with the generated operation codec for semantic keys, brands, or decoded bigint values.
 
-- Non-primary-key storage defaults → `generated()`
-- A storage-defaulted single-column PK → `columnType(Id, Schema.Never, Schema.Never)`
-- Prisma-applied generators such as `uuid()` are insertable and immutable because they are not database defaults
-- Optional → `Schema.NullOr(type)`
-- Foreign keys → branded ID of the target model
-- Composite primary-key columns fall through to their field types
-- Explicit join models are ordinary tables; implicit join-table support is removed
-- Output is sorted deterministically
+## Field ownership
 
-## UUID detection
+`getFieldOperationConfig(model, field)` in `src/prisma/type.ts` is authoritative for both Effect and Kysely emitters.
 
-`pg/uuid@1` is authoritative. The contract codec controls UUID generation;
-field-name inference is never used.
+- Insert optional: nullable field or database-owned default.
+- Database-owned defaults: scalar/array literals, `autoincrement`, `dbgenerated`, or `now`.
+- Required insert: Prisma Client defaults (`uuid`, `cuid`, `ulid`, `nanoid`), unknown functions, missing default payloads, and bare `@updatedAt`.
+- Update allowed: non-primary-key fields only. Every composite `@@id` component is excluded.
+- `@updatedAt` plus a recognized database default follows that default for insert and remains updateable.
+
+Never duplicate these conditions inside an emitter.
 
 ## Type mappings
 
-| Prisma      | Effect                | Notes                                         |
-| ----------- | --------------------- | --------------------------------------------- |
-| String      | `Schema.String`       | UUID → `Schema.String.check(Schema.isUUID())` |
-| Int / Float | `Schema.Number`       |                                               |
-| BigInt      | `Schema.BigInt`       | native bigint encode (no string coercion)     |
-| Decimal     | `Schema.String`       | precision                                     |
-| Boolean     | `Schema.Boolean`      |                                               |
-| DateTime    | `Schema.Date`         | native Date both sides (Effect 4)             |
-| Json        | recursive `JsonValue` | from `prisma-effect-kysely`                   |
-| Bytes       | `Schema.Uint8Array`   |                                               |
-| Enum        | imported enum schema  | `Schema.Literals([...])` string literal union |
+| Prisma      | Effect 4                               |
+| ----------- | -------------------------------------- |
+| String      | `Schema.String`                        |
+| UUID string | `Schema.String.check(Schema.isUUID())` |
+| Int         | `Schema.Int`                           |
+| Float       | `Schema.Number`                        |
+| BigInt      | `Schema.BigIntFromString`              |
+| Decimal     | `Schema.String`                        |
+| Boolean     | `Schema.Boolean`                       |
+| DateTime    | `Schema.Date`                          |
+| Json        | `Schema.Json`                          |
+| Bytes       | `Schema.Uint8Array`                    |
+| Enum        | imported `Schema.Enum` codec           |
 
-Arrays → `Schema.Array(t)`. Nullable → `Schema.NullOr(t)`.
+Arrays use readonly `Schema.Array`. Nullable values use `Schema.NullOr`. `@customType(...)` is emitted verbatim and must use Effect 4 APIs.
 
-## Type safety principles
+## Implicit M:N join tables
 
-- Contract JSON is validated with Effect Schema at the trust boundary
-- Contract codecs and storage metadata drive all generated types
-- The runtime `Selectable`/`Insertable`/`Updateable` helpers use `as unknown as`
-  casts because dynamically rebuilt structs cannot preserve their shape statically;
-  generated output contains no casts
-- Strict TypeScript mode
+Join tables emit only `<Relation>` and `<Relation>Insert` codecs. Semantic `<model>_id` fields map through `Schema.encodeKeys` to physical `A`/`B`. Both inserts are required and branded. `<Relation>Table` exposes only `A` and `B`, both with update type `never`.
 
-## Package exports
+## UUID detection
 
-| Entry         | Contents                                                                              |
-| ------------- | ------------------------------------------------------------------------------------- |
-| `.`           | `Selectable`, `Insertable`, `Updateable`, helpers                                     |
-| `./generator` | Programmatic `generate` API                                                           |
-| `./kysely`    | `columnType`, `generated`, `JsonValue`, `Selectable`/`Insertable`/`Updateable`, types |
-| `./error`     | `NotFoundError`, `QueryError`, `DatabaseError`                                        |
-| `./runtime`   | All runtime utilities                                                                 |
+`isUuidField()` in `src/prisma/type.ts` trusts DMMF only:
 
-## Testing patterns
+1. `field.nativeType[0] === "Uuid"`
+2. `field.documentation` includes `@db.Uuid`
 
-Three-tier canonical pattern:
-
-1. Pure schema decode (`Schema.decodeUnknownSync`) for type-level coverage.
-2. **pglite + `kysely-pglite-dialect`** for data-layer integration tests —
-   default tier. See `src/__tests__/helpers/pglite-db.ts` for the
-   `Layer.effect` boilerplate and `src/__tests__/integration/` for the
-   roundtrip example. Run with `bun run test:integration`.
-3. Testcontainers Postgres only when pglite can't host the feature
-   (extensions, multi-process, etc.).
-
-Errors raised from data-layer code should be one of `NotFoundError`,
-`QueryError`, `DatabaseError` from `prisma-effect-kysely/error` so callers
-can `Effect.catchTag` cleanly.
+Never infer UUIDs from names. External identifiers ending in `_id` are often text.
 
 ## Working in this repo
 
-- `bun run fixture:emit` refreshes the committed Prisma 8 contract fixture
-- `bun run fixture:check` proves the committed contract is byte-identical to a fresh emit
-- `bun run test:emit` generates from that fixture and type-checks the output
-- `bun run test:integration` runs the pglite roundtrip
-- The CLI reads `contract.json`; no `prisma generate` or generator block exists
-- Generated headers include a timestamp and edit warning
-- Direct exports only: `XTable`, `X = Selectable(XTable)`, and `type X`
-- Effect targets `^4.0.0-beta`; inspect vendored Effect source for v4 APIs
-- `@customType(...)` strings are emitted verbatim and legacy v3 patterns only warn
-- Prisma 7 consumers remain on the 6.x release line
+- Run `bun run test` before changes; record pre-existing failures.
+- Rebuild before invoking `prisma generate` against the package binary.
+- Main fixture: `src/__tests__/fixtures/test.prisma`.
+- Generated headers contain a timestamp and `DO NOT EDIT MANUALLY` marker.
+- Generated installation replaces only owned files and preserves unrelated output files.
+- Consumer-contract tests must compile generated output and exercise codecs/query builders; do not pin helper spelling or Effect internals.

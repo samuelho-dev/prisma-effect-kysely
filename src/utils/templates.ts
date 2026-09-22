@@ -6,6 +6,7 @@ export async function formatCode(code: string) {
       parser: 'typescript',
       semi: true,
       singleQuote: true,
+      quoteProps: 'preserve',
       trailingComma: 'es5',
       tabWidth: 2,
       printWidth: 100,

@@ -1,13 +1,40 @@
-import type { EnumModel } from '../prisma/model.js';
+import type { DMMF } from '@prisma/generator-helper';
+import { getEnumValueDbName } from '../prisma/enum.js';
 import { generateFileHeader } from '../utils/codegen.js';
+import { toPascalCase } from '../utils/naming.js';
 
-export function generateEnumSchema(enumModel: EnumModel): string {
-  const literals = enumModel.values.map((value) => JSON.stringify(value)).join(', ');
-  return `export const ${enumModel.schemaName} = Schema.Literals([${literals}]);
-export type ${enumModel.schemaName} = typeof ${enumModel.schemaName}.Type;`;
+/**
+ * Generate a TypeScript enum and Effect Schema.Enum codec.
+ */
+export function generateEnumSchema(enumDef: DMMF.DatamodelEnum) {
+  const enumName = enumDef.name;
+  const pascalName = toPascalCase(enumName);
+  const nativeEnumName = enumName === pascalName ? `${enumName}Values` : enumName;
+
+  // Generate native TypeScript enum members
+  const enumMembers = enumDef.values
+    .map((v) => {
+      const value = getEnumValueDbName(v);
+      return `  ${v.name} = "${value}"`;
+    })
+    .join(',\n');
+
+  // Export PascalCase as the schema and decoded type.
+  return `export enum ${nativeEnumName} {
+${enumMembers}
 }
 
-export function generateEnumsFile(enums: readonly EnumModel[]): string {
+export const ${pascalName} = Schema.Enum(${nativeEnumName});
+export type ${pascalName} = typeof ${pascalName}.Type;`;
+}
+
+/**
+ * Generate all enum schemas as a single file content
+ */
+export function generateEnumsFile(enums: readonly DMMF.DatamodelEnum[]) {
+  const header = generateFileHeader();
+  const imports = `import { Schema } from "effect";`;
   const enumSchemas = enums.map(generateEnumSchema).join('\n\n');
-  return `${generateFileHeader()}\n\nimport { Schema } from "effect";\n\n${enumSchemas}`;
+
+  return `${header}\n\n${imports}\n\n${enumSchemas}`;
 }

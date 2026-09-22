@@ -1,169 +1,152 @@
-import { applyKyselyHelpers } from '../kysely/type.js';
-import type {
-  ContractModelSet,
-  TableField,
-  TableModel,
-  ValueObjectModel,
-} from '../prisma/model.js';
+import type { DMMF } from '@prisma/generator-helper';
+import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
+import { getFieldOperationConfig, getFieldDbName, isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
-import { baseFieldType } from './type.js';
+import { generateJoinTableSchema } from './join-table.js';
+import { buildFieldType } from './type.js';
 
-function propertyKey(name: string): string {
-  if (name === '__proto__') return `[${JSON.stringify(name)}]`;
-  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
-}
-
+/**
+ * Effect domain generator - orchestrates Effect Schema generation
+ */
 export class EffectGenerator {
-  constructor(private readonly modelSet: ContractModelSet) {}
+  constructor(private readonly dmmf: DMMF.Document) {}
 
-  generateEnums(): string {
-    return generateEnumsFile(this.modelSet.enums);
+  /**
+   * Generate enums.ts file content
+   */
+  generateEnums(enums: readonly DMMF.DatamodelEnum[]) {
+    return generateEnumsFile(enums);
   }
 
-  generateBrandedIdSchema(model: TableModel): string | null {
-    if (!model.brandedId) return null;
-
-    let baseType: string;
-    switch (model.brandedId.codecId) {
-      case 'pg/uuid@1':
-        baseType = 'Schema.String.check(Schema.isUUID())';
-        break;
-      case 'pg/int@1':
-      case 'pg/int2@1':
-      case 'pg/int4@1':
-      case 'pg/int8number@1':
-        baseType = 'Schema.Int';
-        break;
-      case 'pg/int8@1':
-      case 'pg/unboundedint@1':
-        baseType = 'Schema.BigInt';
-        break;
-      default:
-        baseType = 'Schema.String';
+  /**
+   * Generate branded ID schema for a model
+   * @returns The branded ID schema declaration + exported type, or null if no ID field
+   */
+  generateBrandedIdSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    const idField = fields.find((f) => f.isId);
+    if (!idField) {
+      return null;
     }
 
-    return `export const ${model.schemaName}Id = ${baseType}.pipe(Schema.brand("${model.schemaName}Id"));
-export type ${model.schemaName}Id = typeof ${model.schemaName}Id.Type;`;
+    const name = toPascalCase(model.name);
+    const baseType = this.getIdBaseType(idField);
+
+    // Export Id as both value and type with same name
+    return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
+export type ${name}Id = typeof ${name}Id.Type;`;
   }
 
-  generateValueObjectSchema(
-    valueObject: ValueObjectModel,
-    references: ReadonlyMap<TableField, string>
-  ): string {
-    const fields = valueObject.fields
-      .map(
-        (field) =>
-          `  ${propertyKey(field.tsName)}: ${baseFieldType(field, references.get(field) ?? null)}`
-      )
-      .join(',\n');
-    return `export const ${valueObject.schemaName} = Schema.Struct({
-${fields}
-});
-export type ${valueObject.schemaName} = typeof ${valueObject.schemaName}.Type;`;
+  /**
+   * UUID strings are validated, integers use Schema.Int, bigints decode from
+   * database strings, and all other IDs remain strings.
+   */
+  private getIdBaseType(field: DMMF.Field) {
+    if (isUuidField(field)) return 'Schema.String.check(Schema.isUUID())';
+    if (field.type === 'Int') return 'Schema.Int';
+    if (field.type === 'BigInt') return 'Schema.BigIntFromString';
+    return 'Schema.String';
   }
 
-  generateValueObjectSchemas(references: ReadonlyMap<TableField, string>): string {
-    const byName = new Map(
-      this.modelSet.valueObjects.map((valueObject) => [valueObject.name, valueObject])
-    );
-    const visiting = new Set<string>();
-    const visited = new Set<string>();
-    const ordered: ValueObjectModel[] = [];
-
-    const visit = (valueObject: ValueObjectModel): void => {
-      if (visited.has(valueObject.name)) return;
-      if (visiting.has(valueObject.name)) {
-        throw new Error(`Value object ${valueObject.name} forms a reference cycle`);
-      }
-      visiting.add(valueObject.name);
-      for (const field of valueObject.fields) {
-        const names =
-          field.kind.type === 'valueObject'
-            ? [field.kind.name]
-            : field.kind.type === 'union'
-              ? field.kind.members.flatMap((member) =>
-                  member.type === 'valueObject' ? [member.name] : []
-                )
-              : [];
-        for (const name of names) {
-          const dependency = byName.get(name);
-          if (dependency) visit(dependency);
-        }
-      }
-      visiting.delete(valueObject.name);
-      visited.add(valueObject.name);
-      ordered.push(valueObject);
-    };
-
-    for (const valueObject of this.modelSet.valueObjects) visit(valueObject);
-    return ordered
-      .map((valueObject) => this.generateValueObjectSchema(valueObject, references))
-      .join('\n\n');
-  }
-
-  generateModelSchema(
-    model: TableModel,
-    overrides: ReadonlyMap<string, string>,
-    references: ReadonlyMap<TableField, string>
-  ): string {
-    const keyMappings: Array<{ tsName: string; column: string }> = [];
-    const hasSinglePrimaryKey = model.fields.filter((field) => field.isPrimaryKey).length === 1;
-    const fieldDefinitions = model.fields
+  /**
+   * Generate select, insert, and update codecs from one shared field definition.
+   */
+  generateModelSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
+    const fkMap = buildForeignKeyMap(model, this.dmmf.datamodel.models);
+    const name = toPascalCase(model.name);
+    const fieldDefinitions = fields
       .map((field) => {
-        const ownIdType =
-          model.brandedId?.column === field.column ? `${model.schemaName}Id` : undefined;
-        const referencedType = references.get(field);
-        const override =
-          overrides.get(`${model.namespaceId}.${model.name}.${field.tsName}`) ??
-          overrides.get(`${model.name}.${field.tsName}`) ??
-          ownIdType ??
-          referencedType ??
-          null;
-        const baseType = baseFieldType(field, override);
-        const idType =
-          hasSinglePrimaryKey && field.isPrimaryKey
-            ? (ownIdType ??
-              (field.fkTarget
-                ? (referencedType ?? `${toPascalCase(field.fkTarget.idModel)}Id`)
-                : undefined))
-            : undefined;
-        const fieldType = applyKyselyHelpers(baseType, field, idType);
-        if (field.tsName !== field.column) {
-          keyMappings.push({ tsName: field.tsName, column: field.column });
+        const valueSchema = field.isId ? `${name}Id` : buildFieldType(field, this.dmmf, fkMap);
+        const operation = getFieldOperationConfig(model, field);
+        const variants = [
+          `    select: ${valueSchema}`,
+          `    insert: ${operation.insertOptional ? `Schema.optionalKey(${valueSchema})` : valueSchema}`,
+        ];
+
+        if (operation.update) {
+          variants.push(`    update: Schema.optionalKey(${valueSchema})`);
         }
-        return `  ${propertyKey(field.tsName)}: ${fieldType}`;
+
+        return `  ${field.name}: DatabaseSchema.Field({
+${variants.join(',\n')},
+  })`;
       })
       .join(',\n');
+    const modelFields = `${name}Fields`;
+    const codecs = (['select', 'insert', 'update'] as const)
+      .map((variant) => this.generateOperationCodec(name, modelFields, model, fields, variant))
+      .join('\n\n');
 
-    const encodeKeys =
-      keyMappings.length === 0
-        ? ''
-        : `.pipe(Schema.encodeKeys({ ${keyMappings
-            .map(({ tsName, column }) => `${propertyKey(tsName)}: ${JSON.stringify(column)}`)
-            .join(', ')} }))`;
-
-    return `export const ${model.schemaName}Table = Schema.Struct({
+    return `const ${modelFields} = DatabaseSchema.Struct({
 ${fieldDefinitions}
-})${encodeKeys};
-export const ${model.schemaName} = Selectable(${model.schemaName}Table);
-export type ${model.schemaName} = typeof ${model.schemaName}.Type;`;
+});
+
+${codecs}`;
   }
 
-  generateTypesHeader(imports: ReadonlyMap<string, readonly string[]>): string {
-    const importLines = [...imports.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(
-        ([specifier, names]) =>
-          `import { ${[...new Set(names)].sort().join(', ')} } from "${specifier}";`
-      );
+  private generateOperationCodec(
+    modelName: string,
+    modelFields: string,
+    model: DMMF.Model,
+    fields: readonly DMMF.Field[],
+    variant: 'select' | 'insert' | 'update'
+  ) {
+    const codecName =
+      variant === 'select'
+        ? modelName
+        : `${modelName}${variant === 'insert' ? 'Insert' : 'Update'}`;
+    const mappedFields = fields.filter(
+      (field) =>
+        field.dbName !== null &&
+        field.dbName !== undefined &&
+        field.dbName !== field.name &&
+        (variant !== 'update' || getFieldOperationConfig(model, field).update)
+    );
+    const extracted = `DatabaseSchema.extract(${modelFields}, "${variant}")`;
+    const codec =
+      mappedFields.length === 0
+        ? extracted
+        : `${extracted}.pipe(Schema.encodeKeys({ ${mappedFields
+            .map(
+              (field) => `${JSON.stringify(field.name)}: ${JSON.stringify(getFieldDbName(field))}`
+            )
+            .join(', ')} }))`;
 
-    return `${generateFileHeader()}
+    return `export const ${codecName} = ${codec};
+export type ${codecName} = typeof ${codecName}.Type;`;
+  }
 
-import { Schema } from "effect";
-import { columnType, generated, JsonValue, Selectable } from "prisma-effect-kysely";${
-      importLines.length > 0 ? `\n${importLines.join('\n')}` : ''
-    }`;
+  /**
+   * Generate types.ts imports and the shared operation-schema toolkit.
+   */
+  generateTypesHeader(hasEnums: boolean) {
+    const header = generateFileHeader();
+    const imports = [
+      `import { Schema } from "effect";`,
+      `import { VariantSchema } from "effect/unstable/schema";`,
+      `import type { ColumnType } from "kysely";`,
+    ];
+
+    if (hasEnums) {
+      const enumImports = this.dmmf.datamodel.enums.map((e) => toPascalCase(e.name)).join(', ');
+      imports.push(`import { ${enumImports} } from "./enums";`);
+    }
+
+    return `${header}
+
+${imports.join('\n')}
+
+const DatabaseSchema = VariantSchema.make({
+  variants: ["select", "insert", "update"],
+  defaultVariant: "select",
+});`;
+  }
+
+  /**
+   * Generate schemas for all join tables
+   */
+  generateJoinTableSchemas(joinTables: JoinTableInfo[]) {
+    return joinTables.map((jt) => generateJoinTableSchema(jt, this.dmmf)).join('\n\n');
   }
 }
