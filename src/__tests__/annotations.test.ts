@@ -11,10 +11,7 @@ const fixtureSource = readFileSync(
 describe('parseCustomTypeAnnotations', () => {
   it('reads the fixture model-field annotations', () => {
     expect(Object.fromEntries(parseCustomTypeAnnotations(fixtureSource))).toEqual({
-      'AnnotationTest.email': 'Schema.String.check(Schema.isMinLength(3))',
-      'AnnotationTest.age': 'Schema.Number.check(Schema.isGreaterThan(0))',
-      'AnnotationTest.coordinates':
-        'Schema.Array(Schema.Number).check(Schema.isLengthBetween(3, 3))',
+      'public.User.displayName': "Schema.String.pipe(Schema.brand('DisplayName'))",
     });
   });
 

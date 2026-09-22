@@ -1,199 +1,224 @@
 # prisma-effect-kysely
 
-CLI and library for generating Effect Schema types with Kysely-compatible column metadata from Prisma 8 contracts.
+Prisma generator for Effect 4 database codecs and native Kysely table contracts.
 
 ## Install
 
-Version 7 targets Prisma 8 contracts and Effect 4. Prisma 7 projects stay on
-the 6.x release line.
+Generated files import both peers directly:
 
-| Prisma | Effect | Install                                                                  |
-| ------ | ------ | ------------------------------------------------------------------------ |
-| 8      | 4      | `bun add --exact prisma-effect-kysely@next effect@4.0.0-beta.94`         |
-| 7      | 4      | `bun add --exact prisma-effect-kysely@6.0.0-next.7 effect@4.0.0-beta.94` |
-
-Version 7 has no runtime dependency on Prisma packages. Prisma is only needed
-by your application toolchain to emit `contract.json`.
-
-> **Pin exact prerelease versions.** `--exact` resolves the `next` tag once and
-> records the resulting version instead of a mutable range.
+```bash
+bun add prisma-effect-kysely effect@4.0.0-rc.117 kysely
+```
 
 ## Setup
 
-First emit Prisma 8's tool-facing contract, then run the generator CLI:
+```prisma
+generator effect_schemas {
+  provider = "prisma-effect-kysely"
+  output   = "./generated/effect"
+}
+```
 
 ```bash
-bunx prisma contract emit --config prisma.config.ts
-bunx prisma-effect-kysely \
-  --contract ./prisma/contract.json \
-  --source ./prisma/contract.prisma \
+bunx prisma generate
+```
+
+Prisma 8 projects generate from the emitted PostgreSQL contract instead of a
+`generator` block:
+
+```bash
+bunx prisma contract emit
+bunx prisma-effect-kysely contract \
+  --contract ./generated/prisma/contract.json \
+  --schema ./prisma/contract.prisma \
   --output ./generated/effect
 ```
 
-`--source` is optional. When omitted, the CLI scans `contract.prisma` beside
-the contract when present. Use `--multi-domain` to emit one directory per
-contract namespace.
+The schema path preserves `/// @customType(...)` expressions because Prisma 8
+does not include documentation comments in `contract.json`.
 
-## Output
+The output directory contains `enums.ts`, `types.ts`, and `index.ts`.
 
-Up to three files: `enums.ts` when enums exist, plus `types.ts` and `index.ts`.
+## Generated output
 
-`enums.ts` emits Effect-v4 finite-set schemas. No TypeScript enum is generated;
-enum values are the stored literals from the contract.
+Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Kysely receives a separate native table interface over the codecs' encoded database view.
 
 ```typescript
 import { Schema } from 'effect';
+import { VariantSchema } from 'effect/unstable/schema';
+import type { ColumnType } from 'kysely';
 
-export const Role = Schema.Literals(['ADMIN', 'GUEST', 'USER']);
-export type Role = typeof Role.Type;
-```
+const DatabaseSchema = VariantSchema.make({
+  variants: ['select', 'insert', 'update'],
+  defaultVariant: 'select',
+});
 
-`types.ts` emits a wrapper-laden table schema for Kysely and a bare row schema
-for application contracts and decode boundaries.
-
-```typescript
-import { Schema } from 'effect';
-import { columnType, generated, Selectable } from 'prisma-effect-kysely';
-import { Role } from './enums.js';
-
-// Branded ID
 export const UserId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('UserId'));
 export type UserId = typeof UserId.Type;
 
-// Kysely table schema: keeps columnType/generated wrappers
-export const UserTable = Schema.Struct({
-  id: columnType(UserId, UserId, Schema.Never),
-  email: Schema.String,
-  role: Role,
-  createdAt: generated(Schema.Date),
+const UserFields = DatabaseSchema.Struct({
+  id: DatabaseSchema.Field({
+    select: UserId,
+    insert: Schema.optionalKey(UserId),
+  }),
+  email: DatabaseSchema.Field({
+    select: Schema.String,
+    insert: Schema.String,
+    update: Schema.optionalKey(Schema.String),
+  }),
+  createdAt: DatabaseSchema.Field({
+    select: Schema.Date,
+    insert: Schema.optionalKey(Schema.Date),
+    update: Schema.optionalKey(Schema.Date),
+  }),
 });
 
-// Bare SELECT row schema
-export const User = Selectable(UserTable);
+export const User = DatabaseSchema.extract(UserFields, 'select');
 export type User = typeof User.Type;
+export const UserInsert = DatabaseSchema.extract(UserFields, 'insert');
+export type UserInsert = typeof UserInsert.Type;
+export const UserUpdate = DatabaseSchema.extract(UserFields, 'update');
+export type UserUpdate = typeof UserUpdate.Type;
 
-// Kysely DB interface
+export interface UserTable {
+  id: ColumnType<
+    Schema.Codec.Encoded<typeof User>['id'],
+    Schema.Codec.Encoded<typeof UserInsert>['id'],
+    never
+  >;
+  email: ColumnType<
+    Schema.Codec.Encoded<typeof User>['email'],
+    Schema.Codec.Encoded<typeof UserInsert>['email'],
+    Exclude<Schema.Codec.Encoded<typeof UserUpdate>['email'], undefined>
+  >;
+  createdAt: ColumnType<
+    Schema.Codec.Encoded<typeof User>['createdAt'],
+    Schema.Codec.Encoded<typeof UserInsert>['createdAt'],
+    Exclude<Schema.Codec.Encoded<typeof UserUpdate>['createdAt'], undefined>
+  >;
+}
+
 export interface DB {
-  user: Schema.Schema.Type<typeof UserTable>;
+  User: UserTable;
 }
 ```
 
-`index.ts` re-exports with explicit `.js` extensions so generated code works in
-NodeNext projects:
+For `@map`, decoded codec values keep Prisma's semantic field name while encoded values and Kysely interfaces use the physical column name. `@@map` likewise controls the `DB` table key.
+
+## Consumer usage
 
 ```typescript
-export * from './enums.js';
-export * from './types.js';
+import { Schema } from 'effect';
+import { Kysely, type Insertable, type Selectable, type Updateable } from 'kysely';
+import { User, UserInsert, UserUpdate, type DB, type UserId } from './generated/effect';
+
+const db = new Kysely<DB>({ dialect });
+
+type UserRow = Selectable<DB['User']>;
+type NewUserRow = Insertable<DB['User']>;
+type UserPatch = Updateable<DB['User']>;
+
+const row: UserRow = await db.selectFrom('User').selectAll().executeTakeFirstOrThrow();
+const user: User = Schema.decodeUnknownSync(User)(row);
+const insert: UserInsert = { email: 'user@example.com' };
+const update: UserUpdate = { email: 'next@example.com' };
 ```
 
-## Consumer Usage
+Raw Kysely rows use physical keys and encoded leaf values. Decode through an operation codec for semantic keys, branded IDs, and decoded `bigint` values.
 
-```typescript
-import type { Insertable, Updateable } from 'prisma-effect-kysely';
-import { Kysely } from 'kysely';
-import { UserTable, type DB, type User, type UserId } from './generated/index.js';
+## Field and default ownership
 
-function getUser(id: UserId): Promise<User> { ... }
+- Nullable fields and database-owned defaults are optional on insert.
+- Database-owned defaults are scalar/array literals or `autoincrement()`, `dbgenerated()`, and `now()`.
+- Prisma Client defaults (`uuid()`, `cuid()`, `ulid()`, and `nanoid()`), missing DMMF default payloads, unknown functions, and bare `@updatedAt` remain required on insert. Kysely does not run Prisma Client defaults.
+- A field with `@updatedAt` and a recognized database default is optional on insert and remains updateable.
+- Every primary-key component, including every field in a composite `@@id`, is absent from update codecs and has Kysely update type `never`.
+- Optional values use `Schema.NullOr`; omission and explicit `null` are distinct, and explicit `undefined` is rejected.
+- Relations and unsupported fields are excluded. Foreign-key scalars use the target model's branded ID schema.
 
-type UserInsert = Insertable<typeof UserTable>;
-type UserUpdate = Updateable<typeof UserTable>;
+## Type mappings
 
-const db = new Kysely<DB>({ ... });
-```
+| Prisma      | Effect 4 database codec                | Encoded database value |
+| ----------- | -------------------------------------- | ---------------------- |
+| String      | `Schema.String`                        | `string`               |
+| UUID string | `Schema.String.check(Schema.isUUID())` | `string`               |
+| Int         | `Schema.Int`                           | `number`               |
+| Float       | `Schema.Number`                        | `number`               |
+| BigInt      | `Schema.BigIntFromString`              | `string`               |
+| Decimal     | `Schema.String`                        | `string`               |
+| Boolean     | `Schema.Boolean`                       | `boolean`              |
+| DateTime    | `Schema.Date`                          | native `Date`          |
+| Json        | `Schema.Json`                          | JSON value             |
+| Bytes       | `Schema.Uint8Array`                    | `Uint8Array`           |
+| Enum        | native enum + `Schema.Enum`            | mapped enum value      |
 
-Schema names are PascalCase regardless of Prisma model name (`session_preference` → `SessionPreference`).
-Generated enum types are string literal unions; use `"ADMIN"` rather than
-`Role.ADMIN`.
+Arrays use readonly `Schema.Array(type)`. Nullable values use `Schema.NullOr(type)`. Date codecs reject ISO strings at this database boundary.
 
-## Field Behavior
+## UUID detection
 
-- Non-primary-key columns with database defaults (`now()` and literals) → `generated()`
-- A single-column primary key with a database default → `columnType(Id, Schema.Never, Schema.Never)`
-- A client-supplied or Prisma-applied primary key (for example `uuid()` or `cuid(2)`) → insertable, immutable
-- Optional fields → `Schema.NullOr(type)`
-- Foreign keys → branded ID type from the target model
-- Explicit join models are emitted as ordinary tables; Prisma 8 has no implicit M2M tables
+A string column is a UUID only when Prisma's DMMF reports `@db.Uuid`, either through `field.nativeType` or the `/// @db.Uuid` documentation marker. Field-name inference is intentionally unsupported because external text IDs such as Stripe `acct_…` and `cus_…` values are not UUIDs.
 
-## Type Mappings
+## Custom type overrides
 
-| Prisma      | Effect Schema                          |
-| ----------- | -------------------------------------- |
-| String      | `Schema.String`                        |
-| Int / Float | `Schema.Number`                        |
-| BigInt      | `Schema.BigInt`                        |
-| Decimal     | `Schema.String`                        |
-| Boolean     | `Schema.Boolean`                       |
-| DateTime    | `Schema.Date`                          |
-| Json        | recursive `JsonValue`                  |
-| Bytes       | `Schema.Uint8Array`                    |
-| Enum        | `Schema.Literals([...])`               |
-| UUID        | `Schema.String.check(Schema.isUUID())` |
-
-Arrays → `Schema.Array(t)`. Nullable → `Schema.NullOr(t)`.
-
-## UUID Detection
-
-A column is a UUID when the contract codec is `pg/uuid@1`. Prisma 8 emits this
-for its native `Uuid` type. Names such as `userId` are never used to infer a
-UUID, so text identifiers such as Stripe `acct_…` values remain strings.
-
-## Custom Type Overrides
-
-Use `@customType` in field docs to override Effect Schema:
+`@customType(...)` is emitted verbatim and must be an Effect 4 expression already in generated scope:
 
 ```prisma
 model User {
-  /// @customType(Schema.String.check(Schema.isMinLength(3)))
+  /// @customType(Schema.String.check(Schema.isPattern(/@/)))
   email String @unique
+
   /// @customType(Schema.Number.check(Schema.isGreaterThan(0)))
   age Int
+
+  /// @customType(Schema.Array(Schema.Number).check(Schema.isLengthBetween(3, 3)))
+  coordinates Int[]
 }
 ```
 
-Supported on all Prisma scalar types.
+## Implicit many-to-many tables
 
-`@customType(...)` expressions are emitted **verbatim** — they must be valid
-Effect 4 syntax. The CLI does not rewrite them, but warns during generation
-when it detects Effect 3 syntax and points at the v4 form.
-Effect 4 moved all filters under `.check(Schema.is*)` and made the variadic
-combinators take an array:
-
-| Effect 3 (`@customType`)              | Effect 4                                                               |
-| ------------------------------------- | ---------------------------------------------------------------------- |
-| `Schema.Number.pipe(Schema.int())`    | `Schema.Number.pipe(Schema.check(Schema.isInt()))`                     |
-| `Schema.positive()`                   | `Schema.check(Schema.isGreaterThan(0))`                                |
-| `Schema.between(1, 5)`                | `Schema.check(Schema.isBetween({ minimum: 1, maximum: 5 }))`           |
-| `Schema.minLength(3)`                 | `Schema.check(Schema.isMinLength(3))`                                  |
-| `Schema.Union(A, B)`                  | `Schema.Union([A, B])`                                                 |
-| `Schema.Literal('a', 'b')`            | `Schema.Literals(['a', 'b'])` (single `Schema.Literal('x')` unchanged) |
-| `Schema.UUID` / `Schema.DateFromSelf` | `Schema.String.check(Schema.isUUID())` / `Schema.Date`                 |
-
-## Relations
-
-Foreign-key columns use the target model's branded ID. Explicit join models
-are emitted like every other contract table. Implicit Prisma M2M join tables
-are not supported because Prisma 8 contracts require explicit join models.
-
-## Package Exports
-
-| Entry                            | Contents                                           |
-| -------------------------------- | -------------------------------------------------- |
-| `prisma-effect-kysely`           | Type utilities + runtime helpers                   |
-| `prisma-effect-kysely/generator` | Programmatic `generate` API                        |
-| `prisma-effect-kysely/kysely`    | `columnType`, `generated`, `JsonValue`, type utils |
-| `prisma-effect-kysely/error`     | `NotFoundError`, `QueryError`, `DatabaseError`     |
-| `prisma-effect-kysely/runtime`   | All runtime utilities                              |
+Prisma's physical `A`/`B` columns decode to semantic snake-case keys. Join tables expose select and insert codecs only; both insert fields are required and branded.
 
 ```typescript
-import { generate } from 'prisma-effect-kysely/generator';
-
-const { files } = await generate({
-  contract: './prisma/contract.json',
-  source: './prisma/contract.prisma', // optional
-  output: './generated/effect',
-  multiDomain: true, // optional
+const ProductTagsFields = DatabaseSchema.Struct({
+  product_id: DatabaseSchema.Field({ select: ProductId, insert: ProductId }),
+  product_tag_id: DatabaseSchema.Field({ select: ProductTagId, insert: ProductTagId }),
 });
+
+export const ProductTags = DatabaseSchema.extract(ProductTagsFields, 'select').pipe(
+  Schema.encodeKeys({ product_id: 'A', product_tag_id: 'B' })
+);
+export type ProductTags = typeof ProductTags.Type;
+
+export const ProductTagsInsert = DatabaseSchema.extract(ProductTagsFields, 'insert').pipe(
+  Schema.encodeKeys({ product_id: 'A', product_tag_id: 'B' })
+);
+export type ProductTagsInsert = typeof ProductTagsInsert.Type;
+
+export interface ProductTagsTable {
+  A: ColumnType<
+    Schema.Codec.Encoded<typeof ProductTags>['A'],
+    Schema.Codec.Encoded<typeof ProductTagsInsert>['A'],
+    never
+  >;
+  B: ColumnType<
+    Schema.Codec.Encoded<typeof ProductTags>['B'],
+    Schema.Codec.Encoded<typeof ProductTagsInsert>['B'],
+    never
+  >;
+}
 ```
+
+## Package exports
+
+The package is generator-only:
+
+| Entry                             | Contents                |
+| --------------------------------- | ----------------------- |
+| `prisma-effect-kysely` executable | Prisma generator binary |
+| `prisma-effect-kysely/generator`  | Generator module entry  |
+
+Generated application code never imports `prisma-effect-kysely` at runtime.
 
 ## Development
 
@@ -202,38 +227,20 @@ bun install
 bun run test
 bun run typecheck
 bun run build
-bun run prepublishOnly  # lint + typecheck + test + build
+bun run prepublishOnly
 ```
 
 ## Releasing
 
-Uses [Changesets](https://github.com/changesets/changesets). Two lines run in
-parallel:
+Uses [Changesets](https://github.com/changesets/changesets):
 
-- **Stable (`latest`)** — from `main`. Normal flow:
+```bash
+bun changeset
+git add .changeset/ && git commit -m "docs: changeset"
+git push
+```
 
-  ```bash
-  bun changeset           # add changeset
-  git add .changeset/ && git commit -m "docs: changeset"
-  git push                # CI opens a "Version Packages" PR; merging publishes
-  ```
-
-- **Pre-release (`next`)** — from the `release/next` branch, which carries
-  `.changeset/pre.json` (changesets pre mode, tag `next`). Pushing there versions
-  as `X.Y.Z-next.N` and `changeset publish` auto-routes those to the `next`
-  dist-tag (never `latest`). This is where Effect 4 support lives until Effect 4
-  is stable. When it stabilizes: run `changeset pre exit` on `release/next`,
-  merge into `main`, and the next release promotes it to `latest`.
-
-The CI workflow (`.github/workflows/release.yml`) triggers on both branches and
-uses the changesets action's `version` + `publish` inputs; `changeset publish`
-selects the dist-tag from pre mode. Requires the `NPM_TOKEN` repo secret. Do not
-enter pre mode on `main` — it blocks stable releases until you exit.
-
-Keep `.changeset/` limited to active release state: `config.json`, `pre.json`
-while the `next` branch is in pre mode, `README.md`, and any unconsumed
-changeset files. Once a version commit has moved a changeset into
-`CHANGELOG.md` and `pre.json`, remove the consumed markdown file.
+CI opens a Version Packages PR. Merging it publishes to npm, creates the git tag, and creates a GitHub release.
 
 ## License
 

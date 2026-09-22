@@ -1,148 +1,276 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { generate } from '../generator/orchestrator';
+import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
+import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
+import prismaInternals from '@prisma/internals';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
 
-// Mock prettier
+const { getDMMF } = prismaInternals;
+const execFileAsync = promisify(execFile);
+
 vi.mock('../utils/templates', () => ({
   formatCode: vi.fn((code: string) => Promise.resolve(code)),
 }));
 
-function generatedTable(source: string, name: string): string {
-  const startMarker = `export const ${name}Table = Schema.Struct({`;
-  const endMarker = `export const ${name} = Selectable(${name}Table)`;
-  const start = source.indexOf(startMarker);
-  const end = source.indexOf(endMarker);
-  if (start === -1 || end === -1) throw new Error(`Generated ${name} table was not found`);
-  return source.slice(start, end);
-}
+describe('generated consumer contract', () => {
+  const testOutputPath = join(import.meta.dirname, '../test-output-codegen');
+  const fixtureSchemaPath = join(import.meta.dirname, 'fixtures/test.prisma');
+  let dmmf: DMMF.Document;
 
-describe('contract code generation', () => {
-  const contract = join(import.meta.dirname, 'fixtures/contract/contract.json');
-  let temporaryDirectory: string;
-  let output: string;
-  let files: string[];
-  let typesContent: string;
-  let enumsContent: string;
-  let indexContent: string;
+  const optionsFor = (document: DMMF.Document): GeneratorOptions =>
+    ({
+      generator: { output: { value: testOutputPath } },
+      dmmf: document,
+    }) as GeneratorOptions;
+
+  const generate = async (document = dmmf) => {
+    const options = optionsFor(document);
+    await new GeneratorOrchestrator(options).generate(options);
+  };
 
   beforeAll(async () => {
-    temporaryDirectory = await mkdtemp(join(tmpdir(), 'prisma-effect-kysely-codegen-'));
-    output = join(temporaryDirectory, 'generated');
-    ({ files } = await generate({ contract, output }));
-    [typesContent, enumsContent, indexContent] = await Promise.all([
-      readFile(join(output, 'types.ts'), 'utf8'),
-      readFile(join(output, 'enums.ts'), 'utf8'),
-      readFile(join(output, 'index.ts'), 'utf8'),
-    ]);
+    dmmf = await getDMMF({ datamodel: readFileSync(fixtureSchemaPath, 'utf8') });
   });
 
-  afterAll(async () => {
-    await rm(temporaryDirectory, { recursive: true, force: true });
+  afterEach(async () => {
+    await rm(testOutputPath, { recursive: true, force: true });
   });
 
-  it('writes types, enums, and their barrel exports', () => {
-    expect(files).toEqual([
-      join(output, 'enums.ts'),
-      join(output, 'types.ts'),
-      join(output, 'index.ts'),
-    ]);
-    expect(indexContent).toContain('export * from "./enums.js";');
-    expect(indexContent).toContain('export * from "./types.js";');
+  afterAll(() => {
+    dmmf = undefined;
   });
 
-  it('exports compilable schema values and matching types', () => {
-    expect(typesContent).toContain('import { Schema } from "effect";');
-    expect(typesContent).toContain(
-      'import { columnType, generated, JsonValue, Selectable } from "prisma-effect-kysely";'
-    );
-    expect(typesContent).toContain('export const User = Selectable(UserTable);');
-    expect(typesContent).toContain('export type User = typeof User.Type;');
-    expect(enumsContent).toContain('export type Role = typeof Role.Type;');
+  it('writes the public generated files and direct operation exports', async () => {
+    await generate();
+
+    const indexPath = join(testOutputPath, 'index.ts');
+    expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
+    expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
+    expect(existsSync(indexPath)).toBe(true);
+
+    // Static imports cannot target generated files that only exist after this test starts.
+    const generated = await import(`${pathToFileURL(indexPath).href}?public-contract`);
+    expect(generated).toHaveProperty('Effect4Contract');
+    expect(generated).toHaveProperty('Effect4ContractInsert');
+    expect(generated).toHaveProperty('Effect4ContractUpdate');
+    expect(generated).toHaveProperty('Role');
   });
 
-  it('emits branded IDs and the correct Kysely primary-key contracts', () => {
-    expect(typesContent).toContain(
-      'export const PostId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("PostId"))'
-    );
-    expect(typesContent).toContain('export const TodoId = Schema.Int.pipe(Schema.brand("TodoId"))');
-    expect(typesContent).toContain(
-      'export const CountryId = Schema.String.pipe(Schema.brand("CountryId"))'
-    );
-    expect(typesContent).toContain('id: columnType(PostId, PostId, Schema.Never)');
-    expect(typesContent).toContain('id: columnType(TodoId, Schema.Never, Schema.Never)');
-    expect(typesContent).toContain('id: columnType(CuidRecordId, CuidRecordId, Schema.Never)');
-    expect(typesContent).toContain('code: columnType(CountryId, CountryId, Schema.Never)');
-    const bugTable = generatedTable(typesContent, 'Bug');
-    expect(bugTable).toContain('id: columnType(TaskId, TaskId, Schema.Never)');
-    expect(typesContent).not.toContain('export const BugId');
-    const postTagTable = generatedTable(typesContent, 'PostTag');
-    expect(postTagTable).toContain('postId: PostId');
-    expect(postTagTable).toContain('tagId: TagId');
-    expect(postTagTable).not.toContain('columnType(');
-  });
+  it('rejects a missing output directory', async () => {
+    const options = {
+      generator: { output: null },
+      dmmf,
+    } as GeneratorOptions;
 
-  it('emits relation brands, defaults, and value objects', () => {
-    expect(typesContent).toContain('authorId: UserId');
-    expect(typesContent).toContain('managerId: Schema.NullOr(EmployeeId)');
-    expect(typesContent).toContain('createdAt: generated(Schema.Date)');
-    expect(typesContent).toContain('status: generated(Status)');
-    expect(typesContent).toContain('address: Schema.NullOr(Address)');
-    const postTable = generatedTable(typesContent, 'Post');
-    expect(postTable).not.toMatch(/^\s+(?:author|posts):/m);
-    const addressDeclaration = 'export const Address = Schema.Struct({';
-    const allTypesDeclaration = 'export const AllTypesTable = Schema.Struct({';
-    expect(typesContent).toContain(addressDeclaration);
-    expect(typesContent).toContain(allTypesDeclaration);
-    expect(typesContent.indexOf(addressDeclaration)).toBeLessThan(
-      typesContent.indexOf(allTypesDeclaration)
+    expect(() => new GeneratorOrchestrator(options)).toThrow(
+      'Prisma Effect Generator: output path not configured'
     );
   });
 
-  it('maps scalar and collection codecs', () => {
-    expect(typesContent).toContain('jsonField: columnType(JsonValue, JsonValue, JsonValue)');
-    expect(typesContent).toContain('bigIntField: Schema.BigInt');
-    expect(typesContent).toContain('decimalField: Schema.String');
-    expect(typesContent).toContain('bytesField: Schema.Uint8Array');
-    expect(typesContent).toContain('stringArray: Schema.Array(Schema.String)');
-    expect(typesContent).toContain(
-      'optionalJson: columnType(Schema.NullOr(JsonValue), Schema.NullOr(JsonValue), Schema.NullOr(JsonValue))'
-    );
-    expect(typesContent).toContain('optionalRole: Schema.NullOr(Role)');
+  it('writes an empty public output for an empty DMMF', async () => {
+    const emptyDmmf = {
+      datamodel: { models: [], enums: [] },
+    } as unknown as DMMF.Document;
+
+    await generate(emptyDmmf);
+
+    expect(existsSync(join(testOutputPath, 'enums.ts'))).toBe(true);
+    expect(existsSync(join(testOutputPath, 'types.ts'))).toBe(true);
+    expect(existsSync(join(testOutputPath, 'index.ts'))).toBe(true);
   });
 
-  it('applies mapped keys and custom type annotations', () => {
-    expect(typesContent).toContain(
-      '.pipe(Schema.encodeKeys({ mappedDefault: "mapped_default", mappedField: "db_mapped_field" }))'
-    );
-    expect(typesContent).toContain('email: Schema.String.check(Schema.isMinLength(3))');
-    expect(typesContent).toContain(
-      'coordinates: Schema.Array(Schema.Array(Schema.Number).check(Schema.isLengthBetween(3, 3)))'
-    );
-  });
+  it('compiles and runs a mapped Effect 4 and native Kysely consumer', async () => {
+    await generate();
 
-  it('emits every physical table and no implicit join table', () => {
-    expect(typesContent).toContain('all_types: Schema.Schema.Type<typeof AllTypesTable>');
-    expect(typesContent).toContain(
-      '"audit.audit_record": Schema.Schema.Type<typeof AuditRecordTable>'
-    );
-    expect(typesContent).toContain(
-      'session_preferences: Schema.Schema.Type<typeof SessionModelPreferenceTable>'
-    );
-    expect(typesContent).toContain('post_tag: Schema.Schema.Type<typeof PostTagTable>');
-    expect(typesContent).toContain('bug: Schema.Schema.Type<typeof BugTable>');
+    const consumerPath = join(testOutputPath, 'consumer.ts');
+    const smokePath = join(testOutputPath, 'smoke.ts');
+    const tsconfigPath = join(testOutputPath, 'tsconfig.json');
 
-    const dbInterface = typesContent.slice(typesContent.indexOf('export interface DB'));
-    expect(dbInterface).not.toMatch(/^\s*_[A-Za-z0-9_]*:/m);
-  });
+    await writeFile(
+      consumerPath,
+      `import {
+  Effect4Contract,
+  Effect4ContractInsert,
+  Effect4ContractUpdate,
+  Role,
+  type CompositeIdModelUpdate,
+  type DB,
+} from "./index.ts";
+import type { Insertable, Kysely, Selectable, Updateable } from "kysely";
 
-  it('uses stored enum values', () => {
-    expect(enumsContent).toContain(
-      'export const Status = Schema.Literals(["active", "inactive", "pending"])'
+const selectCodec = Effect4Contract;
+const insertCodec = Effect4ContractInsert;
+const updateCodec = Effect4ContractUpdate;
+const roleCodec = Role;
+void selectCodec;
+void insertCodec;
+void updateCodec;
+void roleCodec;
+
+declare const db: Kysely<DB>;
+declare const selected: Selectable<DB["effect4_contract"]>;
+declare const decoded: Effect4Contract;
+void selected;
+void decoded;
+
+const databaseInsert: Insertable<DB["effect4_contract"]> = {
+  prisma_id: "prisma-default-required",
+  db_name: "required name",
+  count: 7,
+  amount: "42",
+  metadata: { nested: ["json", true, null] },
+  updated_at: new Date("2025-01-02T03:04:05.000Z"),
+};
+const databaseUpdate: Updateable<DB["effect4_contract"]> = { db_name: "renamed" };
+
+const insertQuery = db.insertInto("effect4_contract").values(databaseInsert).returningAll();
+const updateQuery = db.updateTable("effect4_contract").set(databaseUpdate).returningAll();
+const selectQuery = db.selectFrom("effect4_contract").selectAll();
+void insertQuery;
+void updateQuery;
+void selectQuery;
+
+// @ts-expect-error Prisma Client defaults are not database defaults.
+const missingPrismaId: Effect4ContractInsert = {
+  name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata: {},
+  updatedAt: new Date("2025-01-02T03:04:05.000Z"),
+};
+
+// @ts-expect-error Bare @updatedAt values remain required inserts.
+const missingUpdatedAt: Effect4ContractInsert = {
+  prismaId: "prisma-default-required",
+  name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata: {},
+};
+
+// @ts-expect-error Primary keys are never updateable.
+const primaryKeyUpdate: Effect4ContractUpdate = { id: "not-updateable" };
+
+// @ts-expect-error Every component of a composite primary key is absent from updates.
+const compositeKeyUpdate: CompositeIdModelUpdate = { userId: "not-updateable" };
+
+// @ts-expect-error Optional update keys reject explicit undefined.
+const explicitUndefined: Effect4ContractUpdate = { name: undefined };
+void missingPrismaId;
+void missingUpdatedAt;
+void primaryKeyUpdate;
+void compositeKeyUpdate;
+void explicitUndefined;
+`
     );
-    expect(enumsContent).toContain(
-      'export const Role = Schema.Literals(["ADMIN", "GUEST", "USER"])'
+
+    await writeFile(
+      tsconfigPath,
+      JSON.stringify(
+        {
+          extends: '../../tsconfig.json',
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+            types: ['node'],
+          },
+          include: ['./enums.ts', './types.ts', './index.ts', './consumer.ts'],
+        },
+        null,
+        2
+      )
     );
-  });
+
+    await writeFile(
+      smokePath,
+      `import { deepStrictEqual, equal, throws } from "node:assert/strict";
+import { Schema } from "effect";
+import { Effect4Contract, Effect4ContractInsert, Effect4ContractUpdate } from "./index.ts";
+
+const id = "123e4567-e89b-12d3-a456-426614174000";
+const createdAt = new Date("2025-01-02T03:04:05.000Z");
+const updatedAt = new Date("2025-02-03T04:05:06.000Z");
+const metadata = { nested: { values: [1, true, null] } };
+
+const physical = {
+  id,
+  prisma_id: "prisma-default-required",
+  db_name: "required name",
+  nickname: null,
+  count: 7,
+  amount: "42",
+  metadata,
+  created_at: createdAt,
+  updated_at: updatedAt,
+};
+const decoded = Schema.decodeUnknownSync(Effect4Contract)(physical);
+deepStrictEqual(decoded, {
+  id,
+  prismaId: "prisma-default-required",
+  name: "required name",
+  nickname: null,
+  count: 7,
+  amount: 42n,
+  metadata,
+  createdAt,
+  updatedAt,
+});
+equal(decoded.createdAt, createdAt);
+equal(decoded.updatedAt, updatedAt);
+
+const encoded = Schema.encodeSync(Effect4ContractInsert)({
+  prismaId: "prisma-default-required",
+  name: "required name",
+  count: 7,
+  amount: 42n,
+  metadata,
+  updatedAt,
+});
+deepStrictEqual(encoded, {
+  prisma_id: "prisma-default-required",
+  db_name: "required name",
+  count: 7,
+  amount: "42",
+  metadata,
+  updated_at: updatedAt,
+});
+equal(encoded.updated_at, updatedAt);
+
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({ ...physical, id: "not-a-uuid" })
+);
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({ ...physical, count: 1.5 })
+);
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({
+    ...physical,
+    created_at: createdAt.toISOString(),
+  })
+);
+throws(() => Schema.decodeUnknownSync(Effect4ContractUpdate)({ db_name: undefined }));
+`
+    );
+
+    try {
+      const { stderr } = await execFileAsync(
+        './node_modules/.bin/tsc',
+        ['--noEmit', '-p', tsconfigPath],
+        { cwd: process.cwd() }
+      );
+      expect(stderr).toBe('');
+    } catch (error) {
+      if (error && typeof error === 'object') {
+        const stdout = 'stdout' in error ? String(error.stdout) : '';
+        const stderr = 'stderr' in error ? String(error.stderr) : '';
+        throw new Error(stdout || stderr, { cause: error });
+      }
+      throw error;
+    }
+    await execFileAsync('bun', [smokePath], { cwd: process.cwd() });
+  }, 30_000);
 });

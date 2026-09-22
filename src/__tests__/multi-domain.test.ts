@@ -1,217 +1,451 @@
-import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { generate } from '../generator/orchestrator';
+/**
+ * Multi-Domain Generation Tests
+ *
+ * Tests the new multi-domain support feature that:
+ * 1. Detects domains from schema file structure
+ * 2. Scaffolds contract libraries per domain
+ * 3. Generates schemas in separate domain directories
+ */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  collidingNamespaceContract,
-  column,
-  cyclicNamespaceContract,
-  foreignKey,
-  makeContract,
-  model,
-  scalar,
-  twoNamespaceContract,
-  valueObject,
-} from './helpers/contract-mocks';
+  isMultiDomainEnabled,
+  isScaffoldingEnabled,
+  parseGeneratorConfig,
+} from '../generator/config';
+import { detectDomains } from '../generator/domain-detector';
+import { GeneratorOrchestrator } from '../generator/orchestrator';
 
-// Mock prettier
-vi.mock('../utils/templates', () => ({
-  formatCode: vi.fn((code: string) => Promise.resolve(code)),
-}));
+describe('Multi-Domain Generation', () => {
+  const testOutputDir = path.join(import.meta.dirname, 'test-output-multi-domain');
 
-describe('multi-domain contract generation', () => {
-  let temporaryDirectory: string;
-  let output: string;
-  let auditTypes: string;
-  let auditIndex: string;
-  let publicTypes: string;
-
-  beforeAll(async () => {
-    temporaryDirectory = await mkdtemp(join(tmpdir(), 'prisma-effect-kysely-domains-'));
-    const contract = join(temporaryDirectory, 'two-namespace.json');
-    output = join(temporaryDirectory, 'generated');
-    await writeFile(contract, JSON.stringify(twoNamespaceContract()));
-    await generate({ contract, output, multiDomain: true });
-
-    [auditTypes, auditIndex, publicTypes] = await Promise.all([
-      readFile(join(output, 'audit/types.ts'), 'utf8'),
-      readFile(join(output, 'audit/index.ts'), 'utf8'),
-      readFile(join(output, 'public/types.ts'), 'utf8'),
-    ]);
+  beforeEach(() => {
+    // Clean up test output directory
+    if (fs.existsSync(testOutputDir)) {
+      fs.rmSync(testOutputDir, { recursive: true, force: true });
+    }
   });
 
-  afterAll(async () => {
-    await rm(temporaryDirectory, { recursive: true, force: true });
+  afterEach(() => {
+    // Clean up after tests
+    if (fs.existsSync(testOutputDir)) {
+      fs.rmSync(testOutputDir, { recursive: true, force: true });
+    }
   });
 
-  it('writes one output directory per namespace', () => {
-    expect(existsSync(join(output, 'public'))).toBe(true);
-    expect(existsSync(join(output, 'audit'))).toBe(true);
-  });
-
-  it('imports cross-namespace branded IDs and enums', () => {
-    expect(auditTypes).toContain('import { UserId } from "../public/types.js";');
-    expect(auditTypes).toContain('import { Role } from "../public/enums.js";');
-    expect(publicTypes).not.toContain('../audit');
-  });
-
-  it('quotes namespace-qualified database keys', () => {
-    expect(auditTypes).toContain('"audit.audit_log": Schema.Schema.Type<typeof AuditLogTable>');
-  });
-
-  it('does not emit or re-export an absent namespace enum file', () => {
-    expect(existsSync(join(output, 'audit/enums.ts'))).toBe(false);
-    expect(auditIndex).not.toContain('enums.js');
-    expect(auditIndex).toContain('export * from "./types.js";');
-  });
-
-  it('aliases cross-namespace symbols that collide with local declarations', async () => {
-    const contract = join(temporaryDirectory, 'colliding-namespace.json');
-    const collisionOutput = join(temporaryDirectory, 'colliding-output');
-    await writeFile(contract, JSON.stringify(collidingNamespaceContract()));
-    await generate({ contract, output: collisionOutput, multiDomain: true });
-
-    const types = await readFile(join(collisionOutput, 'audit/types.ts'), 'utf8');
-    expect(types).toContain('import { UserId as PublicUserId } from "../public/types.js";');
-    expect(types).toContain('import { Role as PublicRole } from "../public/enums.js";');
-    expect(types).toContain('actorId: PublicUserId');
-    expect(types).toContain('role: PublicRole');
-  });
-
-  it('imports the inherited brand owner for cross-namespace variant references', async () => {
-    const task = model('Task', {
-      table: 'task',
-      columns: { id: column('pg/uuid@1', 'uuid') },
-      fields: { id: scalar('pg/uuid@1') },
-      primaryKey: ['id'],
-    });
-    const bug = model('Bug', {
-      table: 'bug',
-      columns: { id: column('pg/uuid@1', 'uuid') },
-      fields: {},
-      primaryKey: ['id'],
-      foreignKeys: [foreignKey('public', 'bug', 'id', 'public', 'task', 'id')],
-    });
-    const report = model('Report', {
-      table: 'report',
-      columns: {
-        id: column('pg/uuid@1', 'uuid'),
-        bugId: column('pg/uuid@1', 'uuid'),
-      },
-      fields: {
-        id: scalar('pg/uuid@1'),
-        bugId: scalar('pg/uuid@1'),
-      },
-      primaryKey: ['id'],
-      foreignKeys: [foreignKey('audit', 'report', 'bugId', 'public', 'bug', 'id')],
-    });
-    const contract = join(temporaryDirectory, 'inherited-id.json');
-    const inheritedOutput = join(temporaryDirectory, 'inherited-output');
-    await writeFile(
-      contract,
-      JSON.stringify(
-        makeContract({
-          namespaces: {
-            public: { models: [task, bug] },
-            audit: { models: [report] },
+  describe('Configuration Parsing', () => {
+    it('should parse multi-domain configuration correctly', () => {
+      const mockOptions: GeneratorOptions = {
+        generator: {
+          name: 'effectSchemas',
+          provider: {
+            value: 'prisma-effect-kysely',
+            fromEnvVar: null,
           },
-        })
-      )
-    );
-    await generate({ contract, output: inheritedOutput, multiDomain: true });
-
-    const types = await readFile(join(inheritedOutput, 'audit/types.ts'), 'utf8');
-    expect(types).toContain('import { TaskId } from "../public/types.js";');
-    expect(types).toContain('bugId: TaskId');
-    expect(types).not.toContain('BugId');
-  });
-
-  it('rejects namespace names that escape the output directory', async () => {
-    const contract = join(temporaryDirectory, 'unsafe-namespace.json');
-    await writeFile(contract, JSON.stringify(makeContract({ namespaces: { '../outside': {} } })));
-
-    await expect(
-      generate({
-        contract,
-        output: join(temporaryDirectory, 'safe-output'),
-        multiDomain: true,
-      })
-    ).rejects.toThrow('Contract namespace "../outside" is not a safe output directory name');
-  });
-
-  it('rejects namespace names that collide on case-insensitive filesystems', async () => {
-    const contract = join(temporaryDirectory, 'case-collision.json');
-    await writeFile(
-      contract,
-      JSON.stringify(makeContract({ namespaces: { Audit: {}, audit: {} } }))
-    );
-
-    await expect(
-      generate({
-        contract,
-        output: join(temporaryDirectory, 'case-collision-output'),
-        multiDomain: true,
-      })
-    ).rejects.toThrow(
-      'Contract namespaces "Audit" and "audit" share an output directory on case-insensitive filesystems'
-    );
-  });
-
-  it('removes an obsolete enum file on regeneration', async () => {
-    const contract = join(temporaryDirectory, 'enum-removal.json');
-    const regenerationOutput = join(temporaryDirectory, 'regeneration-output');
-    await writeFile(contract, JSON.stringify(twoNamespaceContract()));
-    await generate({ contract, output: regenerationOutput, multiDomain: true });
-    expect(existsSync(join(regenerationOutput, 'public/enums.ts'))).toBe(true);
-
-    const reference = (name: string) => ({
-      nullable: false,
-      type: { kind: 'valueObject' as const, name },
-    });
-    await writeFile(
-      contract,
-      JSON.stringify(
-        makeContract({
-          namespaces: {
-            public: {
-              valueObjects: [
-                valueObject('A', { b: reference('B') }),
-                valueObject('B', { a: reference('A') }),
-              ],
-            },
+          output: {
+            value: testOutputDir,
+            fromEnvVar: null,
           },
-        })
-      )
-    );
-    await expect(
-      generate({ contract, output: regenerationOutput, multiDomain: true })
-    ).rejects.toThrow('Value object A forms a reference cycle');
-    expect(existsSync(join(regenerationOutput, 'audit/types.ts'))).toBe(true);
-    expect(existsSync(join(regenerationOutput, 'public/enums.ts'))).toBe(true);
+          config: {
+            multiFileDomains: 'true',
+            scaffoldLibraries: 'true',
+            libraryGenerator: '../node_modules/monorepo-library-generator',
+          },
+          binaryTargets: [],
+          previewFeatures: [],
+          sourceFilePath: '/test/schema.prisma',
+        },
+        schemaPath: '/test/schema.prisma',
+        dmmf: createMockDMMF([]),
+        datasources: [],
+        datamodel: '',
+        version: '1.0.0',
+        otherGenerators: [],
+      };
 
-    await writeFile(contract, JSON.stringify(makeContract({ namespaces: { public: {} } })));
-    await generate({ contract, output: regenerationOutput, multiDomain: true });
-    expect(existsSync(join(regenerationOutput, 'public/enums.ts'))).toBe(false);
-    await expect(
-      readFile(join(regenerationOutput, 'public/index.ts'), 'utf8')
-    ).resolves.not.toContain('enums.js');
-    expect(existsSync(join(regenerationOutput, 'audit'))).toBe(false);
+      const config = parseGeneratorConfig(mockOptions);
+
+      expect(config.multiFileDomains).toBe('true');
+      expect(config.scaffoldLibraries).toBe('true');
+      expect(config.libraryGenerator).toBe('../node_modules/monorepo-library-generator');
+      expect(isMultiDomainEnabled(config)).toBe(true);
+      expect(isScaffoldingEnabled(config)).toBe(true);
+    });
+
+    it('should default to single-domain mode when multiFileDomains is false', () => {
+      const mockOptions: GeneratorOptions = {
+        generator: {
+          name: 'effectSchemas',
+          provider: {
+            value: 'prisma-effect-kysely',
+            fromEnvVar: null,
+          },
+          output: {
+            value: testOutputDir,
+            fromEnvVar: null,
+          },
+          config: {
+            multiFileDomains: 'false',
+          },
+          binaryTargets: [],
+          previewFeatures: [],
+          sourceFilePath: '/test/schema.prisma',
+        },
+        schemaPath: '/test/schema.prisma',
+        dmmf: createMockDMMF([]),
+        datasources: [],
+        datamodel: '',
+        version: '1.0.0',
+        otherGenerators: [],
+      };
+
+      const config = parseGeneratorConfig(mockOptions);
+
+      expect(config.multiFileDomains).toBe('false');
+      expect(isMultiDomainEnabled(config)).toBe(false);
+      expect(isScaffoldingEnabled(config)).toBe(false);
+    });
+
+    it('should handle missing config gracefully (backward compatibility)', () => {
+      const mockOptions: GeneratorOptions = {
+        generator: {
+          name: 'effectSchemas',
+          provider: {
+            value: 'prisma-effect-kysely',
+            fromEnvVar: null,
+          },
+          output: {
+            value: testOutputDir,
+            fromEnvVar: null,
+          },
+          config: {},
+          binaryTargets: [],
+          previewFeatures: [],
+          sourceFilePath: '/test/schema.prisma',
+        },
+        schemaPath: '/test/schema.prisma',
+        dmmf: createMockDMMF([]),
+        datasources: [],
+        datamodel: '',
+        version: '1.0.0',
+        otherGenerators: [],
+      };
+
+      const config = parseGeneratorConfig(mockOptions);
+
+      expect(config.multiFileDomains).toBe('false');
+      expect(config.scaffoldLibraries).toBe('false');
+      expect(isMultiDomainEnabled(config)).toBe(false);
+    });
   });
 
-  it('rejects cyclic cross-namespace branded-ID imports', async () => {
-    const contract = join(temporaryDirectory, 'cyclic-namespace.json');
-    await writeFile(contract, JSON.stringify(cyclicNamespaceContract()));
+  describe('Domain Detection', () => {
+    it('should detect domains from model groups', () => {
+      const userModel = createMockModel('User', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'email', type: 'String' },
+      ]);
 
-    await expect(
-      generate({
-        contract,
-        output: join(temporaryDirectory, 'cyclic-output'),
-        multiDomain: true,
-      })
-    ).rejects.toThrow(
-      'Cross-namespace foreign keys form an import cycle (audit ↔ public); generate without --multi-domain'
-    );
+      const productModel = createMockModel('Product', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'name', type: 'String' },
+      ]);
+
+      const dmmf = createMockDMMF([userModel, productModel]);
+
+      // With no schema location metadata, should return single "shared" domain
+      const domains = detectDomains(dmmf);
+
+      expect(domains).toHaveLength(1);
+      expect(domains[0].name).toBe('shared');
+      expect(domains[0].models).toHaveLength(2);
+    });
+
+    it('should handle empty model list', () => {
+      const dmmf = createMockDMMF([]);
+      const domains = detectDomains(dmmf);
+
+      expect(domains).toHaveLength(1);
+      expect(domains[0].name).toBe('shared');
+      expect(domains[0].models).toHaveLength(0);
+    });
+  });
+
+  describe('Single-Domain Mode (Default Behavior)', () => {
+    it('should generate all schemas in single output directory', async () => {
+      const userModel = createMockModel('User', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'email', type: 'String' },
+        { name: 'name', type: 'String' },
+      ]);
+
+      const productModel = createMockModel('Product', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'name', type: 'String' },
+        { name: 'price', type: 'Int' },
+      ]);
+
+      const mockOptions: GeneratorOptions = {
+        generator: {
+          name: 'effectSchemas',
+          provider: {
+            value: 'prisma-effect-kysely',
+            fromEnvVar: null,
+          },
+          output: {
+            value: testOutputDir,
+            fromEnvVar: null,
+          },
+          config: {
+            multiFileDomains: 'false',
+          },
+          binaryTargets: [],
+          previewFeatures: [],
+          sourceFilePath: '/test/schema.prisma',
+        },
+        schemaPath: '/test/schema.prisma',
+        dmmf: createMockDMMF([userModel, productModel]),
+        datasources: [],
+        datamodel: '',
+        version: '1.0.0',
+        otherGenerators: [],
+      };
+
+      const orchestrator = new GeneratorOrchestrator(mockOptions);
+      await orchestrator.generate(mockOptions);
+
+      // Should generate files in single output directory
+      expect(fs.existsSync(path.join(testOutputDir, 'types.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(testOutputDir, 'enums.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(testOutputDir, 'index.ts'))).toBe(true);
+
+      // Should NOT create domain subdirectories
+      expect(fs.existsSync(path.join(testOutputDir, 'user'))).toBe(false);
+      expect(fs.existsSync(path.join(testOutputDir, 'product'))).toBe(false);
+
+      // Verify both models expose their operation codecs and native tables.
+      const typesContent = fs.readFileSync(path.join(testOutputDir, 'types.ts'), 'utf-8');
+      for (const model of ['User', 'Product']) {
+        expect(typesContent).toContain(`export const ${model} =`);
+        expect(typesContent).toContain(`export const ${model}Insert =`);
+        expect(typesContent).toContain(`export const ${model}Update =`);
+        expect(typesContent).toContain(`export interface ${model}Table`);
+      }
+    });
+  });
+
+  describe('Multi-Domain Mode (Without Scaffolding)', () => {
+    it('should generate schemas in separate domain directories', async () => {
+      // Create mock models that would be in different domains
+      const userModel = createMockModel('User', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'email', type: 'String' },
+      ]);
+
+      const productModel = createMockModel('Product', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'name', type: 'String' },
+      ]);
+
+      // Create DMMF with schema location metadata (simulating Prisma 5.15+)
+      const dmmf = createMockDMMF([userModel, productModel]);
+
+      Object.assign(dmmf.datamodel.models[0], {
+        schemaLocation: 'prisma/schemas/user.prisma',
+      });
+      Object.assign(dmmf.datamodel.models[1], {
+        schemaLocation: 'prisma/schemas/product.prisma',
+      });
+
+      const mockOptions: GeneratorOptions = {
+        generator: {
+          name: 'effectSchemas',
+          provider: {
+            value: 'prisma-effect-kysely',
+            fromEnvVar: null,
+          },
+          output: {
+            value: testOutputDir,
+            fromEnvVar: null,
+          },
+          config: {
+            multiFileDomains: 'true',
+            scaffoldLibraries: 'false', // No scaffolding, just generation
+          },
+          binaryTargets: [],
+          previewFeatures: [],
+          sourceFilePath: '/test/schema.prisma',
+        },
+        schemaPath: '/test/schema.prisma',
+        dmmf,
+        datasources: [],
+        datamodel: '',
+        version: '1.0.0',
+        otherGenerators: [],
+      };
+
+      const orchestrator = new GeneratorOrchestrator(mockOptions);
+      await orchestrator.generate(mockOptions);
+
+      // Should create domain directories
+      expect(fs.existsSync(path.join(testOutputDir, 'user/src/generated'))).toBe(true);
+      expect(fs.existsSync(path.join(testOutputDir, 'product/src/generated'))).toBe(true);
+
+      // Should generate types.ts in each domain
+      expect(fs.existsSync(path.join(testOutputDir, 'user/src/generated/types.ts'))).toBe(true);
+      expect(fs.existsSync(path.join(testOutputDir, 'product/src/generated/types.ts'))).toBe(true);
+
+      // Each domain exports only its own operation codecs and native table interface.
+      const userTypesContent = fs.readFileSync(
+        path.join(testOutputDir, 'user/src/generated/types.ts'),
+        'utf-8'
+      );
+      const productTypesContent = fs.readFileSync(
+        path.join(testOutputDir, 'product/src/generated/types.ts'),
+        'utf-8'
+      );
+
+      for (const model of ['User', 'Product']) {
+        const domainTypesContent = model === 'User' ? userTypesContent : productTypesContent;
+        const otherModel = model === 'User' ? 'Product' : 'User';
+
+        expect(domainTypesContent).toContain(`export const ${model} =`);
+        expect(domainTypesContent).toContain(`export const ${model}Insert =`);
+        expect(domainTypesContent).toContain(`export const ${model}Update =`);
+        expect(domainTypesContent).toContain(`export interface ${model}Table`);
+        expect(domainTypesContent).not.toContain(`export const ${otherModel} =`);
+        expect(domainTypesContent).not.toContain(`export const ${otherModel}Insert =`);
+        expect(domainTypesContent).not.toContain(`export const ${otherModel}Update =`);
+        expect(domainTypesContent).not.toContain(`export interface ${otherModel}Table`);
+      }
+    });
+  });
+
+  describe('Multi-Domain Mode (Manual Scaffolding)', () => {
+    it('should scaffold contract libraries with the generated runtime peers', async () => {
+      const userModel = createMockModel('User', [
+        { name: 'id', type: 'String', isId: true },
+        { name: 'email', type: 'String' },
+      ]);
+      const dmmf = createMockDMMF([userModel]);
+      Object.assign(dmmf.datamodel.models[0], {
+        schemaLocation: 'prisma/schemas/user.prisma',
+      });
+
+      const mockOptions: GeneratorOptions = {
+        generator: {
+          name: 'effectSchemas',
+          provider: {
+            value: 'prisma-effect-kysely',
+            fromEnvVar: null,
+          },
+          output: {
+            value: testOutputDir,
+            fromEnvVar: null,
+          },
+          config: {
+            multiFileDomains: 'true',
+            scaffoldLibraries: 'true',
+          },
+          binaryTargets: [],
+          previewFeatures: [],
+          sourceFilePath: '/test/schema.prisma',
+        },
+        schemaPath: '/test/schema.prisma',
+        dmmf,
+        datasources: [],
+        datamodel: '',
+        version: '1.0.0',
+        otherGenerators: [],
+      };
+
+      const orchestrator = new GeneratorOrchestrator(mockOptions);
+      await orchestrator.generate(mockOptions);
+
+      const packageJson = JSON.parse(
+        fs.readFileSync(path.join(testOutputDir, 'user/package.json'), 'utf-8')
+      ) as { peerDependencies: Record<string, string> };
+
+      expect(packageJson.peerDependencies).toEqual({
+        effect: '4.0.0-rc.117',
+        kysely: '^0.28.9',
+      });
+    });
   });
 });
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+function createMockDMMF(models: DMMF.Model[]) {
+  return {
+    datamodel: {
+      models,
+      enums: [],
+      types: [],
+      indexes: [],
+    },
+    schema: {
+      inputObjectTypes: {
+        prisma: [],
+        model: undefined,
+      },
+      outputObjectTypes: {
+        prisma: [],
+        model: [],
+      },
+      enumTypes: {
+        prisma: [],
+        model: undefined,
+      },
+      fieldRefTypes: {
+        prisma: undefined,
+      },
+    },
+    mappings: {
+      modelOperations: [],
+      otherOperations: {
+        read: [],
+        write: [],
+      },
+    },
+  };
+}
+
+interface MockField {
+  name: string;
+  type: string;
+  isId?: boolean;
+  isRequired?: boolean;
+  isList?: boolean;
+}
+
+function createMockModel(name: string, mockFields: MockField[]) {
+  const fields: DMMF.Field[] = mockFields.map((f) => ({
+    name: f.name,
+    kind: 'scalar' as const,
+    isList: f.isList ?? false,
+    isRequired: f.isRequired ?? true,
+    isUnique: false,
+    isId: f.isId ?? false,
+    isReadOnly: false,
+    hasDefaultValue: false,
+    type: f.type,
+    isGenerated: false,
+    isUpdatedAt: false,
+  }));
+
+  return {
+    name,
+    dbName: null,
+    schema: null,
+    fields,
+    uniqueFields: [],
+    uniqueIndexes: [],
+    primaryKey: null,
+  } as DMMF.Model;
+}
