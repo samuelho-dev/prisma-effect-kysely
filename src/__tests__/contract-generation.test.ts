@@ -74,6 +74,15 @@ describe('Prisma 8 contract generation', () => {
     ]);
   });
 
+  it('generates one package per Prisma namespace when requested', async () => {
+    await generateFromContract({ contractPath, schemaPath, outputPath, multiDomain: true });
+
+    const generated = join(outputPath, 'public/src/generated');
+    expect(existsSync(join(generated, 'enums.ts'))).toBe(true);
+    expect(existsSync(join(generated, 'types.ts'))).toBe(true);
+    expect(existsSync(join(generated, 'index.ts'))).toBe(true);
+  });
+
   it('generates semantic codecs and physical native Kysely tables', async () => {
     await generateFromContract({ contractPath, schemaPath, outputPath });
 

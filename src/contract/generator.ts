@@ -8,6 +8,7 @@ export interface ContractGenerationOptions {
   readonly contractPath: string;
   readonly schemaPath: string;
   readonly outputPath: string;
+  readonly multiDomain?: boolean;
 }
 
 /** Generate the package's normal output from a Prisma 8 contract artifact. */
@@ -25,7 +26,9 @@ export async function generateFromContract(options: ContractGenerationOptions) {
       name: 'prisma-effect-kysely-contract',
       output: { value: outputPath, fromEnvVar: null },
       provider: { value: 'prisma-effect-kysely', fromEnvVar: null },
-      config: {},
+      config: {
+        multiFileDomains: String(options.multiDomain ?? false),
+      },
       binaryTargets: [],
       previewFeatures: [],
       sourceFilePath: schemaPath,

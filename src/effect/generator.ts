@@ -1,5 +1,9 @@
 import type { DMMF } from '@prisma/generator-helper';
-import { buildForeignKeyMap, type JoinTableInfo } from '../prisma/relation.js';
+import {
+  buildForeignKeyMap,
+  getModelIdBrandModel,
+  type JoinTableInfo,
+} from '../prisma/relation.js';
 import { getFieldOperationConfig, getFieldDbName, isUuidField } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
@@ -25,15 +29,15 @@ export class EffectGenerator {
    * @returns The branded ID schema declaration + exported type, or null if no ID field
    */
   generateBrandedIdSchema(model: DMMF.Model, fields: readonly DMMF.Field[]) {
-    const idField = fields.find((f) => f.isId);
-    if (!idField) {
+    const idField = fields.find((field) => field.isId);
+    const brandModel = getModelIdBrandModel(model, this.dmmf.datamodel.models);
+    if (!idField || brandModel?.name !== model.name) {
       return null;
     }
 
     const name = toPascalCase(model.name);
     const baseType = this.getIdBaseType(idField);
 
-    // Export Id as both value and type with same name
     return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
 export type ${name}Id = typeof ${name}Id.Type;`;
   }

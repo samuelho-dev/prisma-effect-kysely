@@ -64,6 +64,46 @@ export function getModelIdField(model: DMMF.Model) {
 
   throw new Error(`Model ${model.name} has no ID field (@id or @@id required)`);
 }
+/**
+ * Resolve the model that owns a single-field ID brand through shared primary keys.
+ */
+export function getModelIdBrandModel(
+  model: DMMF.Model,
+  models: readonly DMMF.Model[],
+  seen: ReadonlySet<string> = new Set()
+): DMMF.Model | null {
+  const idField = model.fields.find((field) => field.isId);
+  if (!idField) {
+    return null;
+  }
+
+  if (seen.has(model.name)) {
+    throw new Error(`Cyclic shared primary key relation involving ${model.name}`);
+  }
+
+  const relation = model.fields.find(
+    (field) =>
+      field.kind === 'object' &&
+      field.relationFromFields?.length === 1 &&
+      field.relationFromFields[0] === idField.name
+  );
+  if (!relation || relation.type === model.name) {
+    return model;
+  }
+
+  const targetModel = models.find((candidate) => candidate.name === relation.type);
+  const targetIdField = targetModel?.fields.find((field) => field.isId);
+  if (
+    !targetModel ||
+    !targetIdField ||
+    relation.relationToFields?.length !== 1 ||
+    relation.relationToFields[0] !== targetIdField.name
+  ) {
+    return model;
+  }
+
+  return getModelIdBrandModel(targetModel, models, new Set([...seen, model.name]));
+}
 
 /**
  * Build FK field → target model mapping for a model
@@ -96,6 +136,9 @@ export function getModelIdField(model: DMMF.Model) {
  */
 export function buildForeignKeyMap(model: DMMF.Model, models?: readonly DMMF.Model[]) {
   const fkMap = new Map<string, string>();
+  if (!models) {
+    return fkMap;
+  }
 
   // Find all relation fields (kind === "object")
   const relationFields = model.fields.filter((f) => f.kind === 'object');
@@ -103,39 +146,28 @@ export function buildForeignKeyMap(model: DMMF.Model, models?: readonly DMMF.Mod
   for (const relation of relationFields) {
     if (relation.relationFromFields && relation.relationFromFields.length > 0) {
       // Check if this FK references the target model's ID field
-      const targetModel = models?.find((m) => m.name === relation.type);
+      const targetModel = models.find((m) => m.name === relation.type);
       if (!targetModel) {
         // Can't verify - skip this FK to be safe
         continue;
       }
 
-      // Get target model's ID field name
-      let targetIdFieldName: string | undefined;
-      const idField = targetModel.fields.find((f) => f.isId === true);
-      if (idField) {
-        targetIdFieldName = idField.name;
-      } else if (targetModel.primaryKey && targetModel.primaryKey.fields.length > 0) {
-        targetIdFieldName = targetModel.primaryKey.fields[0];
-      }
-
-      if (!targetIdFieldName) {
-        // Target model has no ID field - skip
+      const targetIdField = targetModel.fields.find((field) => field.isId);
+      if (
+        !targetIdField ||
+        relation.relationToFields?.length !== 1 ||
+        relation.relationToFields[0] !== targetIdField.name
+      ) {
         continue;
       }
 
-      // Check if relationToFields references the ID field
-      const refersToIdField =
-        relation.relationToFields?.length === 1 &&
-        relation.relationToFields[0] === targetIdFieldName;
-
-      if (!refersToIdField) {
-        // FK points to non-ID field (e.g., enum) - don't use branded ID
+      const brandModel = getModelIdBrandModel(targetModel, models);
+      if (!brandModel) {
         continue;
       }
 
-      // Map each FK field to the target model
       for (const fkFieldName of relation.relationFromFields) {
-        fkMap.set(fkFieldName, relation.type); // relation.type is the target model name
+        fkMap.set(fkFieldName, brandModel.name);
       }
     }
   }
