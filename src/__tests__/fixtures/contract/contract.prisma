@@ -1,28 +1,29 @@
+// use prisma-8
 namespace public {
   native_enum ROLE {
-    USER
-    ADMIN
+    USER  = "USER"
+    ADMIN = "ADMIN"
   }
+
   native_enum SELLERAPIKEYSTATUS {
-    ACTIVE
-    REVOKED
-+
+    ACTIVE  = "ACTIVE"
+    REVOKED = "REVOKED"
+
     @@map("seller_api_key_status")
   }
 
-
   model User {
-    id          Uuid        @id @default(dbgenerated("gen_random_uuid()"))
+    id                 Uuid                        @id @default(dbgenerated("gen_random_uuid()"))
     /// @customType(Schema.String.pipe(Schema.brand('DisplayName')))
-    displayName String      @map("display_name")
+    displayName        String                      @map("display_name")
     /// @customType(Schema.String.pipe(Schema.brand('DisplayName')))
-    displayAlias String?     @map("display_alias")
-    amount      BigInt
-    metadata    Jsonb?
-    role        pg.enum(ROLE)
+    displayAlias       String?                     @map("display_alias")
+    amount             BigInt
+    metadata           Jsonb?
+    role               pg.enum(ROLE)
     sellerApiKeyStatus pg.enum(SELLERAPIKEYSTATUS) @map("seller_api_key_status")
-    createdAt   Timestamptz @default(now()) @map("created_at")
-    products    Product[]
+    createdAt          Timestamptz                 @default(now()) @map("created_at")
+    products           Product[]
 
     @@map("user")
   }
@@ -30,7 +31,7 @@ namespace public {
   model Product {
     id      Uuid @id @default(dbgenerated("gen_random_uuid()"))
     ownerId Uuid @map("owner_id")
-    owner   User @relation(fields: [ownerId], references: [id])
+    owner   User @relation(fields:[ownerId], references:[id])
 
     @@map("product")
   }
@@ -38,8 +39,8 @@ namespace public {
   model UserProducts {
     a       Uuid    @map("A")
     b       Uuid    @map("B")
-    product Product @relation(fields: [a], references: [id])
-    user    User    @relation(fields: [b], references: [id])
+    product Product @relation(fields:[a], references:[id])
+    user    User    @relation(fields:[b], references:[id])
 
     @@id([a, b])
     @@map("_user_products")

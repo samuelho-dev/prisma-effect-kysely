@@ -145,18 +145,18 @@ A string column is a UUID only when Prisma's DMMF reports `@db.Uuid`, either thr
 
 ```prisma
 model User {
-  /// @customType(EmailAddress)
+  /// @customType(Schema.String.pipe(Schema.brand('EmailAddress')))
   email String @unique
 
-  /// @customType(PositiveInt)
+  /// @customType(Schema.Number.pipe(Schema.brand('PositiveInt')))
   age Int
 
-  /// @customType(Coordinate)
+  /// @customType(Schema.Number.pipe(Schema.brand('Coordinate')))
   coordinates Int[]
 }
 ```
 
-For example, `String? @customType(EmailAddress)` emits `Schema.NullOr(EmailAddress)`, while `String[] @customType(EmailAddress)` emits `Schema.Array(EmailAddress)`. Do not put `Schema.NullOr` or `Schema.Array` in the annotation.
+For example, `String? @customType(Schema.String.pipe(Schema.brand('EmailAddress')))` emits `Schema.NullOr(Schema.String.pipe(Schema.brand('EmailAddress')))`, while `Int[] @customType(Schema.Number.pipe(Schema.brand('Coordinate')))` emits `Schema.Array(Schema.Number.pipe(Schema.brand('Coordinate')))`. Do not put `Schema.NullOr` or `Schema.Array` in the annotation.
 
 ## Implicit many-to-many tables
 

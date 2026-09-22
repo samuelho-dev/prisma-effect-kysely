@@ -2,79 +2,245 @@
   "schemaVersion": "1",
   "targetFamily": "sql",
   "target": "postgres",
+  "profileHash": "3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2",
+  "roots": {
+    "_user_products": {
+      "model": "UserProducts",
+      "namespace": "public"
+    },
+    "product": {
+      "model": "Product",
+      "namespace": "public"
+    },
+    "user": {
+      "model": "User",
+      "namespace": "public"
+    }
+  },
   "domain": {
     "namespaces": {
       "public": {
         "models": {
-          "User": {
-            "fields": {
-              "id": { "nullable": false, "type": { "codecId": "pg/uuid@1", "kind": "scalar" } },
-              "displayName": { "nullable": false, "type": { "codecId": "pg/text@1", "kind": "scalar" } },
-              "displayAlias": { "nullable": true, "type": { "codecId": "pg/text@1", "kind": "scalar" } },
-              "amount": { "nullable": false, "type": { "codecId": "pg/int8@1", "kind": "scalar" } },
-              "metadata": { "nullable": true, "type": { "codecId": "pg/jsonb@1", "kind": "scalar" } },
-              "role": { "nullable": false, "type": { "codecId": "pg/enum@1", "kind": "scalar", "typeParams": { "typeName": "ROLE" } } },
-              "sellerApiKeyStatus": { "nullable": false, "type": { "codecId": "pg/enum@1", "kind": "scalar", "typeParams": { "typeName": "seller_api_key_status" } } },
-              "createdAt": { "nullable": false, "type": { "codecId": "pg/timestamptz-temporal@1", "kind": "scalar" } }
-            },
-            "relations": {},
-            "storage": {
-              "fields": {
-                "id": { "column": "id" },
-                "displayName": { "column": "display_name" },
-                "displayAlias": { "column": "display_alias" },
-                "amount": { "column": "amount" },
-                "metadata": { "column": "metadata" },
-                "role": { "column": "role" },
-                "sellerApiKeyStatus": { "column": "seller_api_key_status" },
-                "createdAt": { "column": "created_at" }
-              },
-              "namespaceId": "public",
-              "table": "user"
-            }
-          },
           "Product": {
             "fields": {
-              "id": { "nullable": false, "type": { "codecId": "pg/uuid@1", "kind": "scalar" } },
-              "ownerId": { "nullable": false, "type": { "codecId": "pg/uuid@1", "kind": "scalar" } }
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "ownerId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
             },
             "relations": {
               "owner": {
                 "cardinality": "N:1",
-                "on": { "localFields": ["ownerId"], "targetFields": ["id"] },
-                "to": { "model": "User", "namespace": "public" }
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "ownerId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
               "fields": {
-                "id": { "column": "id" },
-                "ownerId": { "column": "owner_id" }
+                "id": {
+                  "column": "id"
+                },
+                "ownerId": {
+                  "column": "owner_id"
+                }
               },
               "namespaceId": "public",
               "table": "product"
             }
           },
-          "UserProducts": {
+          "User": {
             "fields": {
-              "a": { "nullable": false, "type": { "codecId": "pg/uuid@1", "kind": "scalar" } },
-              "b": { "nullable": false, "type": { "codecId": "pg/uuid@1", "kind": "scalar" } }
+              "amount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int8@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "kind": "scalar"
+                }
+              },
+              "displayAlias": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "displayName": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "metadata": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
+              "role": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "ROLE"
+                  }
+                }
+              },
+              "sellerApiKeyStatus": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "seller_api_key_status"
+                  }
+                }
+              }
             },
             "relations": {
-              "product": {
-                "cardinality": "N:1",
-                "on": { "localFields": ["a"], "targetFields": ["id"] },
-                "to": { "model": "Product", "namespace": "public" }
-              },
-              "user": {
-                "cardinality": "N:1",
-                "on": { "localFields": ["b"], "targetFields": ["id"] },
-                "to": { "model": "User", "namespace": "public" }
+              "products": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "ownerId"
+                  ]
+                },
+                "to": {
+                  "model": "Product",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
               "fields": {
-                "a": { "column": "A" },
-                "b": { "column": "B" }
+                "amount": {
+                  "column": "amount"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "displayAlias": {
+                  "column": "display_alias"
+                },
+                "displayName": {
+                  "column": "display_name"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "metadata": {
+                  "column": "metadata"
+                },
+                "role": {
+                  "column": "role"
+                },
+                "sellerApiKeyStatus": {
+                  "column": "seller_api_key_status"
+                }
+              },
+              "namespaceId": "public",
+              "table": "user"
+            }
+          },
+          "UserProducts": {
+            "fields": {
+              "a": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "b": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "product": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "a"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Product",
+                  "namespace": "public"
+                }
+              },
+              "user": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "b"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "a": {
+                  "column": "A"
+                },
+                "b": {
+                  "column": "B"
+                }
               },
               "namespaceId": "public",
               "table": "_user_products"
@@ -89,40 +255,274 @@
       "public": {
         "entries": {
           "native_enum": {
-            "ROLE": { "members": ["USER", "ADMIN"] },
-            "seller_api_key_status": { "members": ["ACTIVE", "REVOKED"] }
+            "ROLE": {
+              "kind": "postgres-enum",
+              "members": [
+                "USER",
+                "ADMIN"
+              ],
+              "typeName": "ROLE"
+            },
+            "seller_api_key_status": {
+              "kind": "postgres-enum",
+              "members": [
+                "ACTIVE",
+                "REVOKED"
+              ],
+              "typeName": "seller_api_key_status"
+            }
           },
           "table": {
-            "user": {
+            "_user_products": {
               "columns": {
-                "id": { "codecId": "pg/uuid@1", "default": { "expression": "gen_random_uuid()", "kind": "function" }, "nativeType": "uuid", "nullable": false },
-                "display_name": { "codecId": "pg/text@1", "nativeType": "text", "nullable": false },
-                "display_alias": { "codecId": "pg/text@1", "nativeType": "text", "nullable": true },
-                "amount": { "codecId": "pg/int8@1", "nativeType": "int8", "nullable": false },
-                "metadata": { "codecId": "pg/jsonb@1", "nativeType": "jsonb", "nullable": true },
-                "role": { "codecId": "pg/enum@1", "nativeType": "ROLE", "nullable": false, "typeParams": { "typeName": "ROLE" }, "valueSet": { "entityName": "ROLE" } },
-                "seller_api_key_status": { "codecId": "pg/enum@1", "nativeType": "seller_api_key_status", "nullable": false, "typeParams": { "typeName": "seller_api_key_status" }, "valueSet": { "entityName": "SELLERAPIKEYSTATUS" } },
-                "created_at": { "codecId": "pg/timestamptz-temporal@1", "default": { "expression": "now()", "kind": "function" }, "nativeType": "timestamptz", "nullable": false }
+                "A": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "B": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                }
               },
-              "primaryKey": { "columns": ["id"], "name": "user_pkey" }
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "A"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "_user_products"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "product"
+                  }
+                },
+                {
+                  "source": {
+                    "columns": [
+                      "B"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "_user_products"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "A"
+                  ],
+                  "name": "_user_products_A_idx_b3f15882",
+                  "prefix": "_user_products_A_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "B"
+                  ],
+                  "name": "_user_products_B_idx_605fc892",
+                  "prefix": "_user_products_B_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "A",
+                  "B"
+                ]
+              },
+              "uniques": []
             },
             "product": {
               "columns": {
-                "id": { "codecId": "pg/uuid@1", "default": { "expression": "gen_random_uuid()", "kind": "function" }, "nativeType": "uuid", "nullable": false },
-                "owner_id": { "codecId": "pg/uuid@1", "nativeType": "uuid", "nullable": false }
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "owner_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                }
               },
-              "primaryKey": { "columns": ["id"], "name": "product_pkey" }
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "owner_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "product"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "owner_id"
+                  ],
+                  "name": "product_owner_id_idx_ade9f347",
+                  "prefix": "product_owner_id_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
             },
-            "_user_products": {
+            "user": {
               "columns": {
-                "A": { "codecId": "pg/uuid@1", "nativeType": "uuid", "nullable": false },
-                "B": { "codecId": "pg/uuid@1", "nativeType": "uuid", "nullable": false }
+                "amount": {
+                  "codecId": "pg/int8@1",
+                  "nativeType": "int8",
+                  "nullable": false
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-temporal@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "display_alias": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "display_name": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "metadata": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
+                },
+                "role": {
+                  "codecId": "pg/enum@1",
+                  "nativeType": "ROLE",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "ROLE"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "ROLE",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "seller_api_key_status": {
+                  "codecId": "pg/enum@1",
+                  "nativeType": "seller_api_key_status",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "seller_api_key_status"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "SELLERAPIKEYSTATUS",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                }
               },
-              "primaryKey": { "columns": ["A", "B"], "name": "_user_products_AB_pkey" }
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            }
+          },
+          "valueSet": {
+            "ROLE": {
+              "kind": "valueSet",
+              "values": [
+                "USER",
+                "ADMIN"
+              ]
+            },
+            "SELLERAPIKEYSTATUS": {
+              "kind": "valueSet",
+              "values": [
+                "ACTIVE",
+                "REVOKED"
+              ]
             }
           }
-        }
+        },
+        "id": "public",
+        "kind": "postgres-schema"
       }
+    },
+    "storageHash": "d822081a58f9e6f03afdc28b4807fae0f3a4f90e45b8f11f0b067dbb0e22e5b0"
+  },
+  "capabilities": {
+    "postgres": {
+      "distinctOn": true,
+      "jsonAgg": true,
+      "lateral": true,
+      "limit": true,
+      "orderBy": true,
+      "returning": true
+    },
+    "sql": {
+      "checkConstraint": true,
+      "defaultInInsert": true,
+      "enums": true,
+      "lateral": true,
+      "returning": true,
+      "scalarList": true
     }
+  },
+  "extensions": {},
+  "meta": {},
+  "_generated": {
+    "warning": "⚠️  GENERATED FILE - DO NOT EDIT",
+    "message": "This file is automatically generated by \"prisma contract emit\".",
+    "regenerate": "To regenerate, run: prisma contract emit"
   }
 }
