@@ -62,6 +62,25 @@ describe('generated consumer contract', () => {
     expect(generated).not.toHaveProperty('SharedProfileAuditId');
   });
 
+  it('writes reproducible generated files', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      await generate();
+      const firstTypes = readFileSync(join(testOutputPath, 'types.ts'), 'utf8');
+      const firstEnums = readFileSync(join(testOutputPath, 'enums.ts'), 'utf8');
+
+      await rm(testOutputPath, { recursive: true, force: true });
+      vi.setSystemTime(new Date('2026-06-01T00:00:00.000Z'));
+      await generate();
+
+      expect(readFileSync(join(testOutputPath, 'types.ts'), 'utf8')).toBe(firstTypes);
+      expect(readFileSync(join(testOutputPath, 'enums.ts'), 'utf8')).toBe(firstEnums);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('rejects a missing output directory', async () => {
     const options = {
       generator: { output: null },
