@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.1
+
+### Patch Changes
+
+- a32794b: Remove wall-clock timestamps from generated file headers so repeated generation produces byte-identical output.
+
 ## 8.0.0
 
 ### Major Changes
