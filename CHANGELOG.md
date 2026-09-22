@@ -1,5 +1,18 @@
 # Changelog
 
+## 8.0.0-next.1
+
+### Major Changes
+
+- Cut over to generator-only Effect `4.0.0-rc.117` output with required Kysely `^0.29.6` peers. Remove the package root, runtime helpers, and legacy Prisma 7 generator protocol; Prisma 8 contract artifacts are the only generation path. Generated output owns select/insert/update codecs plus named native Kysely table interfaces with physical database keys and decoded semantic leaf values, so normal queries do not require codec wrapping. Prisma `Int` fields use `Schema.Int`, rejecting fractional, non-finite, and unsafe numeric values. Custom type annotations define only scalar refinements while the generator applies Prisma list and nullability cardinality.
+- Replace the Prisma 7 generator protocol with the Prisma 8 contract CLI. Generate artifacts with `prisma contract emit`, then run `prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>`; Prisma 7 generator blocks remain supported by the 6.x release line.
+
+  Prisma-applied ID generators such as `@default(uuid())` and `@default(cuid(2))` are now insertable in Kysely because Prisma 8 contracts correctly distinguish them from database defaults.
+
+### Patch Changes
+
+- 1a30e2c: Upgrade the generator toolchain to Prisma 8 RC.15, Effect 4 RC.117, Kysely 0.29, TypeScript 7, Vitest 5, and the current supporting dependencies. Remove the legacy Prisma 7 generator entry so generation uses Prisma 8 contract artifacts exclusively. Kysely table leaves now use decoded semantic values without per-query codec wrapping, foreign-key primary keys retain the referenced model brand, contract enum names remain stable, and `@customType` supplies only the scalar refinement while the generator applies Prisma list and nullability cardinality.
+
 ## 8.0.0-next.0
 
 ### Major Changes
@@ -1842,9 +1855,7 @@ import { agentInsertEncoded } from '@libs/types';
 insert: (rowData: agentInsertEncoded) => db.insertInto('agent').values(rowData);
 
 // Repository layer - uses Application types (Date objects)
-const input: CreateAgentInput = {
-  /* ... Date objects ... */
-};
+const input: CreateAgentInput = {/* ... Date objects ... */};
 const encoded = Schema.encode(AgentSchemas.Insertable)(input); // Encoded to ISO strings
 ```
 
