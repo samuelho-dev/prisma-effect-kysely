@@ -2,9 +2,10 @@
   "mode": "pre",
   "tag": "next",
   "initialVersions": {
-    "prisma-effect-kysely": "6.0.0"
+    "prisma-effect-kysely": "7.0.0"
   },
   "changesets": [
+    "effect-4-generator-cutover",
     "prisma-8-contract-cutover"
   ]
 }
