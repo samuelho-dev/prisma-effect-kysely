@@ -1,9 +1,7 @@
 /**
  * Generator Configuration
- *
- * Defines configuration options for prisma-effect-kysely generator
- * with support for multi-domain organization and library scaffolding.
- * Uses Effect Schema for strict validation.
+ * Defines configuration options for prisma-effect-kysely generation,
+ * with optional output grouping by Prisma namespace.
  */
 
 import type { GeneratorOptions } from '@prisma/generator-helper';
@@ -24,24 +22,9 @@ const GeneratorConfigSchema = Schema.Struct({
   output: Schema.String,
 
   /**
-   * Enable multi-domain detection from schema file structure
+   * Split generated output by Prisma namespace.
    */
   multiFileDomains: BooleanString,
-
-  /**
-   * Automatically scaffold contract libraries for detected domains
-   */
-  scaffoldLibraries: BooleanString,
-
-  /**
-   * Path to monorepo-library-generator for library scaffolding
-   */
-  libraryGenerator: Schema.optional(Schema.String),
-
-  /**
-   * Preview features to enable
-   */
-  previewFeatures: Schema.Array(Schema.String),
 });
 
 /**
@@ -64,14 +47,10 @@ export function parseGeneratorConfig(options: GeneratorOptions) {
     );
   }
 
-  // Extract configuration values
   const config = generator.config || {};
   const rawConfig = {
     output,
     multiFileDomains: getStringValue(config, 'multiFileDomains') ?? 'false',
-    scaffoldLibraries: getStringValue(config, 'scaffoldLibraries') ?? 'false',
-    libraryGenerator: getStringValue(config, 'libraryGenerator'),
-    previewFeatures: getArrayValue(config, 'previewFeatures'),
   };
 
   // Validate with Effect Schema - throws on invalid input
@@ -90,38 +69,8 @@ function getStringValue(config: { [key: string]: string | string[] | undefined }
 }
 
 /**
- * Extract array value from config
- */
-function getArrayValue(config: { [key: string]: string | string[] | undefined }, key: string) {
-  const value = config[key];
-  if (!value) return [];
-
-  if (Array.isArray(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return value.split(',').map((v) => v.trim());
-    }
-  }
-
-  return [];
-}
-
-/**
  * Check if multi-domain mode is enabled
  */
 export function isMultiDomainEnabled(config: GeneratorConfig) {
   return config.multiFileDomains === 'true';
-}
-
-/**
- * Check if library scaffolding is enabled
- */
-export function isScaffoldingEnabled(config: GeneratorConfig) {
-  return config.scaffoldLibraries === 'true' && isMultiDomainEnabled(config);
 }

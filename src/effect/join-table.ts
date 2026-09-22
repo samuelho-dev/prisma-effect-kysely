@@ -1,16 +1,16 @@
 import type { DMMF } from '@prisma/generator-helper';
-import type { JoinTableInfo } from '../prisma/relation.js';
+import { getModelIdBrandModel, type JoinTableInfo } from '../prisma/relation.js';
 import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 /**
  * Generate select and insert codecs for an implicit many-to-many table.
  */
-export function generateJoinTableSchema(joinTable: JoinTableInfo, _dmmf: DMMF.Document) {
+export function generateJoinTableSchema(joinTable: JoinTableInfo, dmmf: DMMF.Document) {
   const { tableName, relationName, modelA, modelB } = joinTable;
   const columnAFieldName = `${toSnakeCase(modelA)}_id`;
   const columnBFieldName = `${toSnakeCase(modelB)}_id`;
-  const modelASchemaType = `${toPascalCase(modelA)}Id`;
-  const modelBSchemaType = `${toPascalCase(modelB)}Id`;
+  const modelASchemaType = `${toPascalCase(resolveBrandModel(modelA, dmmf))}Id`;
+  const modelBSchemaType = `${toPascalCase(resolveBrandModel(modelB, dmmf))}Id`;
   const pascalName = toPascalCase(relationName);
   const fieldsName = `${pascalName}Fields`;
   const mapping = `{ ${JSON.stringify(columnAFieldName)}: "A", ${JSON.stringify(columnBFieldName)}: "B" }`;
@@ -36,4 +36,11 @@ export const ${pascalName}Insert = DatabaseSchema.extract(${fieldsName}, "insert
   Schema.encodeKeys(${mapping}),
 );
 export type ${pascalName}Insert = typeof ${pascalName}Insert.Type;`;
+}
+function resolveBrandModel(modelName: string, dmmf: DMMF.Document) {
+  const model = dmmf.datamodel.models.find((candidate) => candidate.name === modelName);
+  if (!model) {
+    throw new Error(`Model ${modelName} not found`);
+  }
+  return getModelIdBrandModel(model, dmmf.datamodel.models)?.name ?? modelName;
 }

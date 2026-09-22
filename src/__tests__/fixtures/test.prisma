@@ -154,8 +154,14 @@ model Profile {
 }
 
 model SharedProfile {
-  userId String @id @db.Uuid @map("user_id")
-  user   User   @relation(fields: [userId], references: [id])
+  userId String              @id @db.Uuid @map("user_id")
+  user   User                @relation(fields: [userId], references: [id])
+  audit  SharedProfileAudit?
+}
+
+model SharedProfileAudit {
+  userId  String        @id @db.Uuid @map("user_id")
+  profile SharedProfile @relation(fields: [userId], references: [userId])
 }
 
 // One-to-Many relation

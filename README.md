@@ -26,6 +26,8 @@ The schema path preserves `/// @customType(...)` expressions because Prisma 8 do
 
 The output directory contains `enums.ts`, `types.ts`, and `index.ts`.
 
+Pass `--multi-domain` to split generated output into one directory per Prisma namespace. It does not scaffold libraries or projects.
+
 ## Generated output
 
 Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Kysely receives a separate native table interface with physical database keys and decoded semantic leaf types.

@@ -3,13 +3,7 @@ import { EffectGenerator } from '../effect/generator.js';
 import { KyselyGenerator } from '../kysely/generator.js';
 import { PrismaGenerator } from '../prisma/generator.js';
 import { FileManager } from '../utils/file-manager.js';
-import {
-  type GeneratorConfig,
-  isMultiDomainEnabled,
-  isScaffoldingEnabled,
-  parseGeneratorConfig,
-} from './config.js';
-import { logScaffoldResults, scaffoldContractLibraries } from './contract-scaffolder.js';
+import { type GeneratorConfig, isMultiDomainEnabled, parseGeneratorConfig } from './config.js';
 import { type DomainInfo, detectDomains } from './domain-detector.js';
 
 /**
@@ -40,27 +34,20 @@ export class GeneratorOrchestrator {
    * Main generation entry point
    * Orchestrates all generation steps
    *
-   * Flow:
-   * 1. Detect domains if multi-domain mode enabled
-   * 2. Scaffold contract libraries if scaffolding enabled
-   * 3. Generate schemas (single or per-domain)
+   * 1. Group models by namespace when multi-domain mode is enabled.
+   * 2. Generate schemas in one output or split by namespace.
    */
   async generate(options: GeneratorOptions) {
-    this.logStart(options);
-
     // Check if multi-domain mode is enabled
     if (isMultiDomainEnabled(this.config)) {
       await this.generateMultiDomain(options);
     } else {
       await this.generateSingleOutput();
     }
-
-    this.logComplete();
   }
 
   /**
    * Generate schemas in single-output mode (default)
-   * All schemas in one directory
    */
   private async generateSingleOutput() {
     // Ensure output directory exists
@@ -75,17 +62,8 @@ export class GeneratorOrchestrator {
    * Separate contract libraries per domain
    */
   private async generateMultiDomain(options: GeneratorOptions) {
-    // 1. Detect domains from schema structure
-    const schemaPath = options.schemaPath;
-    const domains = detectDomains(options.dmmf, schemaPath);
+    const domains = detectDomains(options.dmmf);
 
-    // 2. Scaffold contract libraries if enabled
-    if (isScaffoldingEnabled(this.config)) {
-      const scaffoldResults = await scaffoldContractLibraries(domains, this.config);
-      logScaffoldResults(scaffoldResults);
-    }
-
-    // 3. Generate schemas for each domain
     for (const domain of domains) {
       await this.generateForDomain(domain);
     }
@@ -226,32 +204,5 @@ export class GeneratorOrchestrator {
   private async generateIndex() {
     const content = this.kyselyGen.generateIndexFile();
     await this.fileManager.writeFile('index.ts', content);
-  }
-
-  /**
-   * Log generation start with stats
-   */
-  private logStart(options: GeneratorOptions) {
-    const _modelCount = options.dmmf.datamodel.models.filter((m) => !m.name.startsWith('_')).length;
-    const _enumCount = options.dmmf.datamodel.enums.length;
-
-    if (isMultiDomainEnabled(this.config)) {
-      if (isScaffoldingEnabled(this.config)) {
-        // Scaffolding logic would go here if needed
-      }
-    }
-  }
-
-  /**
-   * Log generation completion
-   */
-  private logComplete() {
-    const _outputPath = this.fileManager.getOutputPath();
-
-    if (isMultiDomainEnabled(this.config)) {
-      // Multi-domain logic would go here if needed
-    } else {
-      // Single-domain logic would go here if needed
-    }
   }
 }

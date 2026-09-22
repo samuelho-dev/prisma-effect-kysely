@@ -58,6 +58,8 @@ describe('generated consumer contract', () => {
     expect(generated).toHaveProperty('Effect4ContractInsert');
     expect(generated).toHaveProperty('Effect4ContractUpdate');
     expect(generated).toHaveProperty('Role');
+    expect(generated).not.toHaveProperty('SharedProfileId');
+    expect(generated).not.toHaveProperty('SharedProfileAuditId');
   });
 
   it('rejects a missing output directory', async () => {
@@ -122,6 +124,9 @@ void selectedAmount;
 declare const sharedProfile: Selectable<DB["SharedProfile"]>;
 const sharedProfileUserId: UserId = sharedProfile.user_id;
 void sharedProfileUserId;
+declare const sharedProfileAudit: Selectable<DB["SharedProfileAudit"]>;
+const auditUserId: UserId = sharedProfileAudit.user_id;
+void auditUserId;
 void decoded;
 
 const databaseInsert: Insertable<DB["effect4_contract"]> = {

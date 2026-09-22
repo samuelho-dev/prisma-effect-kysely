@@ -1,21 +1,16 @@
 /**
  * Multi-Domain Generation Tests
  *
- * Tests the new multi-domain support feature that:
- * 1. Detects domains from schema file structure
- * 2. Scaffolds contract libraries per domain
- * 3. Generates schemas in separate domain directories
+ * Tests multi-domain support:
+ * 1. Groups Prisma 8 models by contract namespace
+ * 2. Generates schemas in separate namespace directories
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  isMultiDomainEnabled,
-  isScaffoldingEnabled,
-  parseGeneratorConfig,
-} from '../generator/config';
+import { isMultiDomainEnabled, parseGeneratorConfig } from '../generator/config';
 import { detectDomains } from '../generator/domain-detector';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
 
@@ -51,8 +46,6 @@ describe('Multi-Domain Generation', () => {
           },
           config: {
             multiFileDomains: 'true',
-            scaffoldLibraries: 'true',
-            libraryGenerator: '../node_modules/monorepo-library-generator',
           },
           binaryTargets: [],
           previewFeatures: [],
@@ -69,10 +62,7 @@ describe('Multi-Domain Generation', () => {
       const config = parseGeneratorConfig(mockOptions);
 
       expect(config.multiFileDomains).toBe('true');
-      expect(config.scaffoldLibraries).toBe('true');
-      expect(config.libraryGenerator).toBe('../node_modules/monorepo-library-generator');
       expect(isMultiDomainEnabled(config)).toBe(true);
-      expect(isScaffoldingEnabled(config)).toBe(true);
     });
 
     it('should default to single-domain mode when multiFileDomains is false', () => {
@@ -106,7 +96,6 @@ describe('Multi-Domain Generation', () => {
 
       expect(config.multiFileDomains).toBe('false');
       expect(isMultiDomainEnabled(config)).toBe(false);
-      expect(isScaffoldingEnabled(config)).toBe(false);
     });
 
     it('should handle missing config gracefully (backward compatibility)', () => {
@@ -137,7 +126,6 @@ describe('Multi-Domain Generation', () => {
       const config = parseGeneratorConfig(mockOptions);
 
       expect(config.multiFileDomains).toBe('false');
-      expect(config.scaffoldLibraries).toBe('false');
       expect(isMultiDomainEnabled(config)).toBe(false);
     });
   });
@@ -237,7 +225,7 @@ describe('Multi-Domain Generation', () => {
     });
   });
 
-  describe('Multi-Domain Mode (Without Scaffolding)', () => {
+  describe('Multi-Domain Mode', () => {
     it('should generate schemas in separate domain directories', async () => {
       // Create mock models that would be in different domains
       const userModel = createMockModel('User', [
@@ -250,15 +238,9 @@ describe('Multi-Domain Generation', () => {
         { name: 'name', type: 'String' },
       ]);
 
-      // Create DMMF with schema location metadata (simulating Prisma 5.15+)
       const dmmf = createMockDMMF([userModel, productModel]);
-
-      Object.assign(dmmf.datamodel.models[0], {
-        schemaLocation: 'prisma/schemas/user.prisma',
-      });
-      Object.assign(dmmf.datamodel.models[1], {
-        schemaLocation: 'prisma/schemas/product.prisma',
-      });
+      Object.assign(dmmf.datamodel.models[0], { schema: 'user' });
+      Object.assign(dmmf.datamodel.models[1], { schema: 'product' });
 
       const mockOptions: GeneratorOptions = {
         generator: {
@@ -273,7 +255,6 @@ describe('Multi-Domain Generation', () => {
           },
           config: {
             multiFileDomains: 'true',
-            scaffoldLibraries: 'false', // No scaffolding, just generation
           },
           binaryTargets: [],
           previewFeatures: [],
@@ -321,58 +302,6 @@ describe('Multi-Domain Generation', () => {
         expect(domainTypesContent).not.toContain(`export const ${otherModel}Update =`);
         expect(domainTypesContent).not.toContain(`export interface ${otherModel}Table`);
       }
-    });
-  });
-
-  describe('Multi-Domain Mode (Manual Scaffolding)', () => {
-    it('should scaffold contract libraries with the generated runtime peers', async () => {
-      const userModel = createMockModel('User', [
-        { name: 'id', type: 'String', isId: true },
-        { name: 'email', type: 'String' },
-      ]);
-      const dmmf = createMockDMMF([userModel]);
-      Object.assign(dmmf.datamodel.models[0], {
-        schemaLocation: 'prisma/schemas/user.prisma',
-      });
-
-      const mockOptions: GeneratorOptions = {
-        generator: {
-          name: 'effectSchemas',
-          provider: {
-            value: 'prisma-effect-kysely',
-            fromEnvVar: null,
-          },
-          output: {
-            value: testOutputDir,
-            fromEnvVar: null,
-          },
-          config: {
-            multiFileDomains: 'true',
-            scaffoldLibraries: 'true',
-          },
-          binaryTargets: [],
-          previewFeatures: [],
-          sourceFilePath: '/test/schema.prisma',
-        },
-        schemaPath: '/test/schema.prisma',
-        dmmf,
-        datasources: [],
-        datamodel: '',
-        version: '1.0.0',
-        otherGenerators: [],
-      };
-
-      const orchestrator = new GeneratorOrchestrator(mockOptions);
-      await orchestrator.generate(mockOptions);
-
-      const packageJson = JSON.parse(
-        fs.readFileSync(path.join(testOutputDir, 'user/package.json'), 'utf-8')
-      ) as { peerDependencies: Record<string, string> };
-
-      expect(packageJson.peerDependencies).toEqual({
-        effect: '4.0.0-rc.117',
-        kysely: '^0.29.6',
-      });
     });
   });
 });
