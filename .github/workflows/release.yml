@@ -52,11 +52,11 @@ jobs:
       #   and pushes the matching git tags. `prepublishOnly` runs the lint/
       #   typecheck/test/build gate on the underlying `npm publish`.
       - name: Version or Publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          version: bun run changeset:version
-          publish: bun run release
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version-script: bun run changeset:version
+          publish-script: bun run release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
