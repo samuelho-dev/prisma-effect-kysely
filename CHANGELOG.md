@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.0-next.3
+
+### Patch Changes
+
+- d7d81e2: Remove project scaffolding from multi-domain output, expose Prisma 8 namespace splitting through the CLI, and preserve root ID brands across shared-primary-key relation chains.
+
 ## 8.0.0-next.2
 
 ### Patch Changes

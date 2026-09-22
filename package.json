@@ -1,6 +1,6 @@
 {
   "name": "prisma-effect-kysely",
-  "version": "8.0.0-next.2",
+  "version": "8.0.0-next.3",
   "description": "Generate Effect Schema codecs and Kysely types from Prisma 8 contracts",
   "license": "MIT",
   "author": "Samuel Ho",
