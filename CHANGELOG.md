@@ -4,8 +4,8 @@
 
 ### Major Changes
 
-- Cut over to generator-only Effect `4.0.0-rc.117` output with required Kysely `^0.29.6` peers. Remove the package root, runtime helpers, and legacy Prisma 7 generator protocol; Prisma 8 PostgreSQL `contract.json` is the only generation input. Generated output owns select/insert/update codecs plus named native Kysely table interfaces with physical database keys and decoded semantic leaf values, so normal queries do not require codec wrapping. Prisma `Int` fields use `Schema.Int`, rejecting fractional, non-finite, and unsafe numeric values. Custom type annotations define only scalar refinements while the generator applies Prisma list and nullability cardinality.
-- Replace the Prisma 7 generator protocol with a Prisma 8 contract CLI and programmatic `generate` API. Generate from `contract.json` using `prisma-effect-kysely --contract <path> --output <dir>`; Prisma 7 generator blocks remain supported by the 6.x release line.
+- Cut over to generator-only Effect `4.0.0-rc.117` output with required Kysely `^0.29.6` peers. Remove the package root, runtime helpers, and legacy Prisma 7 generator protocol; Prisma 8 contract artifacts are the only generation path. Generated output owns select/insert/update codecs plus named native Kysely table interfaces with physical database keys and decoded semantic leaf values, so normal queries do not require codec wrapping. Prisma `Int` fields use `Schema.Int`, rejecting fractional, non-finite, and unsafe numeric values. Custom type annotations define only scalar refinements while the generator applies Prisma list and nullability cardinality.
+- Replace the Prisma 7 generator protocol with the Prisma 8 contract CLI. Generate artifacts with `prisma contract emit`, then run `prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>`; Prisma 7 generator blocks remain supported by the 6.x release line.
 
   Prisma-applied ID generators such as `@default(uuid())` and `@default(cuid(2))` are now insertable in Kysely because Prisma 8 contracts correctly distinguish them from database defaults.
 
