@@ -160,7 +160,7 @@ function manualScaffold(domain: DomainInfo, config: GeneratorConfig) {
     dependencies: {},
     peerDependencies: {
       effect: '4.0.0-rc.117',
-      kysely: '^0.28.9',
+      kysely: '^0.29.6',
     },
   };
 

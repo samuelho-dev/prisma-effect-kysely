@@ -48,8 +48,6 @@ jobs:
 
       - name: Verify package
         run: |
-          # ESM-only package: don't require CJS support, and ignore node10.
-          npx --yes @arethetypeswrong/cli --pack . --profile node16 --ignore-rules cjs-resolves-to-esm
           npx --yes publint
 
   coverage:

@@ -265,7 +265,6 @@ export function contractToDmmf(contractJson: string, schemaSource = ''): DMMF.Do
   };
 }
 
-
 function logicalFieldForColumn(model: ContractModel, column: string, modelName: string) {
   for (const [fieldName, storage] of Object.entries(model.storage.fields)) {
     if (storage.column === column) return fieldName;
@@ -297,7 +296,10 @@ function fieldToDmmfType(field: ContractField, column: ContractColumn) {
     case 'pg/enum@1': {
       const logicalName = column.valueSet?.entityName;
       const storageName = column.typeParams?.typeName?.split('.').at(-1);
-      const typeName = logicalName && /[a-z]/.test(logicalName) ? logicalName : storageName;
+      const typeName =
+        logicalName && /[a-z]/.test(logicalName)
+          ? logicalName
+          : (storageName?.toUpperCase() ?? logicalName);
       if (!typeName) throw new Error('Enum field has no typeName');
       return { kind: 'enum', type: typeName, nativeType: null } as const;
     }

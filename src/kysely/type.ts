@@ -7,21 +7,22 @@ import {
   getModelDbName,
   sortFields,
 } from '../prisma/type.js';
-import { toPascalCase } from '../utils/naming.js';
+import { toPascalCase, toSnakeCase } from '../utils/naming.js';
 
 function generateModelTableInterface(model: DMMF.Model) {
   const modelName = toPascalCase(model.name);
   const fields = sortFields(filterSchemaFields(model.fields))
     .map((field) => {
       const columnName = JSON.stringify(getFieldDbName(field));
+      const fieldName = JSON.stringify(field.name);
       const operation = getFieldOperationConfig(model, field);
       const updateType = operation.update
-        ? `Exclude<Schema.Codec.Encoded<typeof ${modelName}Update>[${columnName}], undefined>`
+        ? `Exclude<typeof ${modelName}Update.Type[${fieldName}], undefined>`
         : 'never';
 
       return `  ${columnName}: ColumnType<
-    Schema.Codec.Encoded<typeof ${modelName}>[${columnName}],
-    Schema.Codec.Encoded<typeof ${modelName}Insert>[${columnName}],
+    typeof ${modelName}.Type[${fieldName}],
+    typeof ${modelName}Insert.Type[${fieldName}],
     ${updateType}
   >;`;
     })
@@ -34,11 +35,16 @@ ${fields}
 
 function generateJoinTableInterface(joinTable: JoinTableInfo) {
   const name = toPascalCase(joinTable.relationName);
-  const fields = ['A', 'B']
+  const fields = (
+    [
+      ['A', `${toSnakeCase(joinTable.modelA)}_id`],
+      ['B', `${toSnakeCase(joinTable.modelB)}_id`],
+    ] as const
+  )
     .map(
-      (columnName) => `  "${columnName}": ColumnType<
-    Schema.Codec.Encoded<typeof ${name}>["${columnName}"],
-    Schema.Codec.Encoded<typeof ${name}Insert>["${columnName}"],
+      ([columnName, fieldName]) => `  ${JSON.stringify(columnName)}: ColumnType<
+    typeof ${name}.Type[${JSON.stringify(fieldName)}],
+    typeof ${name}Insert.Type[${JSON.stringify(fieldName)}],
     never
   >;`
     )

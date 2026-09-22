@@ -57,7 +57,10 @@ export type ${name}Id = typeof ${name}Id.Type;`;
     const name = toPascalCase(model.name);
     const fieldDefinitions = fields
       .map((field) => {
-        const valueSchema = field.isId ? `${name}Id` : buildFieldType(field, this.dmmf, fkMap);
+        const valueSchema =
+          field.isId && !fkMap.has(field.name)
+            ? `${name}Id`
+            : buildFieldType(field, this.dmmf, fkMap);
         const operation = getFieldOperationConfig(model, field);
         const variants = [
           `    select: ${valueSchema}`,

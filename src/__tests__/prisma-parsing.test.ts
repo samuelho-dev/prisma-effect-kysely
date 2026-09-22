@@ -390,18 +390,17 @@ describe('Prisma Parsing & Domain Logic', () => {
       );
     });
 
-    it('uses @customType as the complete field schema expression', () => {
+    it('applies list and nullable cardinality around the custom scalar schema', () => {
       const field = createMockField({
         name: 'coordinates',
         type: 'Int',
         isList: true,
         isRequired: false,
-        documentation:
-          '/// @customType(Schema.Array(Schema.Number).check(Schema.isLengthBetween(3, 3)))',
+        documentation: '/// @customType(PositiveCoordinate)',
       });
 
       expect(buildFieldType(field, createMockDMMF())).toBe(
-        'Schema.Array(Schema.Number).check(Schema.isLengthBetween(3, 3))'
+        'Schema.NullOr(Schema.Array(PositiveCoordinate))'
       );
     });
   });
