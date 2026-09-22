@@ -1,6 +1,6 @@
 # Changelog
 
-## 7.0.0-next.1
+## 8.0.0-next.0
 
 ### Major Changes
 
