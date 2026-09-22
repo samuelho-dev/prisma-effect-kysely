@@ -12,6 +12,10 @@
       "model": "Product",
       "namespace": "public"
     },
+    "shared_profile": {
+      "model": "SharedProfile",
+      "namespace": "public"
+    },
     "user": {
       "model": "User",
       "namespace": "public"
@@ -67,6 +71,44 @@
               },
               "namespaceId": "public",
               "table": "product"
+            }
+          },
+          "SharedProfile": {
+            "fields": {
+              "userId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "user": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "userId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "User",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "userId": {
+                  "column": "user_id"
+                }
+              },
+              "namespaceId": "public",
+              "table": "shared_profile"
             }
           },
           "User": {
@@ -147,6 +189,22 @@
                 },
                 "to": {
                   "model": "Product",
+                  "namespace": "public"
+                }
+              },
+              "sharedProfile": {
+                "cardinality": "1:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "userId"
+                  ]
+                },
+                "to": {
+                  "model": "SharedProfile",
                   "namespace": "public"
                 }
               }
@@ -398,6 +456,40 @@
               },
               "uniques": []
             },
+            "shared_profile": {
+              "columns": {
+                "user_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "source": {
+                    "columns": [
+                      "user_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "shared_profile"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "user"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "user_id"
+                ]
+              },
+              "uniques": []
+            },
             "user": {
               "columns": {
                 "amount": {
@@ -498,7 +590,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "d822081a58f9e6f03afdc28b4807fae0f3a4f90e45b8f11f0b067dbb0e22e5b0"
+    "storageHash": "c3262294cd8fa477bdb018e2de20b076a2e7656dac7563d6a636b13504198549"
   },
   "capabilities": {
     "postgres": {

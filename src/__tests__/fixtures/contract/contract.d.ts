@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'d822081a58f9e6f03afdc28b4807fae0f3a4f90e45b8f11f0b067dbb0e22e5b0'>;
+  StorageHashBase<'c3262294cd8fa477bdb018e2de20b076a2e7656dac7563d6a636b13504198549'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -245,6 +245,7 @@ export type FieldOutputTypes = {
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly ownerId: CodecTypes['pg/uuid@1']['output'];
     };
+    readonly SharedProfile: { readonly userId: CodecTypes['pg/uuid@1']['output'] };
     readonly User: {
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly displayName: CodecTypes['pg/text@1']['output'];
@@ -267,6 +268,7 @@ export type FieldInputTypes = {
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly ownerId: CodecTypes['pg/uuid@1']['input'];
     };
+    readonly SharedProfile: { readonly userId: CodecTypes['pg/uuid@1']['input'] };
     readonly User: {
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly displayName: CodecTypes['pg/text@1']['input'];
@@ -293,6 +295,7 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly owner_id: CodecTypes['pg/uuid@1']['output'];
     };
+    readonly shared_profile: { readonly user_id: CodecTypes['pg/uuid@1']['output'] };
     readonly user: {
       readonly amount: CodecTypes['pg/int8@1']['output'];
       readonly created_at: CodecTypes['pg/timestamptz-temporal@1']['output'];
@@ -315,6 +318,7 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly owner_id: CodecTypes['pg/uuid@1']['input'];
     };
+    readonly shared_profile: { readonly user_id: CodecTypes['pg/uuid@1']['input'] };
     readonly user: {
       readonly amount: CodecTypes['pg/int8@1']['input'];
       readonly created_at: CodecTypes['pg/timestamptz-temporal@1']['input'];
@@ -339,13 +343,19 @@ export namespace Models {
     sellerApiKeyStatus: 'ACTIVE' | 'REVOKED';
     createdAt: CodecTypes['pg/timestamptz-temporal@1']['output'];
     products: public_Product[];
-    readonly [RelationKeys]?: 'products';
+    sharedProfile: public_SharedProfile | null;
+    readonly [RelationKeys]?: 'products' | 'sharedProfile';
   };
   export type public_Product = {
     id: CodecTypes['pg/uuid@1']['output'];
     ownerId: CodecTypes['pg/uuid@1']['output'];
     owner: public_User;
     readonly [RelationKeys]?: 'owner';
+  };
+  export type public_SharedProfile = {
+    userId: CodecTypes['pg/uuid@1']['output'];
+    user: public_User;
+    readonly [RelationKeys]?: 'user';
   };
   export type public_UserProducts = {
     a: CodecTypes['pg/uuid@1']['output'];
@@ -360,6 +370,7 @@ export declare const models: {
   public: {
     User: Models.public_User;
     Product: Models.public_Product;
+    SharedProfile: Models.public_SharedProfile;
     UserProducts: Models.public_UserProducts;
   };
 };
@@ -480,6 +491,32 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly shared_profile: {
+              columns: {
+                readonly user_id: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['user_id'] };
+              uniques: readonly [];
+              indexes: readonly [];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'shared_profile';
+                    readonly columns: readonly ['user_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'user';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly user: {
               columns: {
                 readonly id: {
@@ -558,6 +595,10 @@ type ContractBase = Omit<
   readonly roots: {
     readonly user: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
     readonly product: { readonly namespace: 'public' & NamespaceId; readonly model: 'Product' };
+    readonly shared_profile: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'SharedProfile';
+    };
     readonly _user_products: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'UserProducts';
@@ -596,6 +637,30 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly ownerId: { readonly column: 'owner_id' };
               };
+            };
+          };
+          readonly SharedProfile: {
+            readonly fields: {
+              readonly userId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+            };
+            readonly relations: {
+              readonly user: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['userId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'shared_profile';
+              readonly namespaceId: 'public';
+              readonly fields: { readonly userId: { readonly column: 'user_id' } };
             };
           };
           readonly User: {
@@ -654,6 +719,18 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['ownerId'];
+                };
+              };
+              readonly sharedProfile: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'SharedProfile';
+                };
+                readonly cardinality: '1:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['userId'];
                 };
               };
             };
