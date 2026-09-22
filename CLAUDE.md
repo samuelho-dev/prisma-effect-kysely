@@ -30,11 +30,11 @@ bun run lint
 bun run prepublishOnly      # lint + both typechecks + test + build
 ```
 
+Build and typecheck scripts invoke TypeScript 7 through `@typescript/native`. The unscoped TypeScript 6 package is an API-only compatibility dependency for typescript-eslint; TypeScript 7.0 has no programmatic compiler API.
+
 ## Architecture
 
-Entry: `src/cli.ts` dispatches Prisma 8 `contract` commands and otherwise loads
-the Prisma 7 generator protocol from `src/generator/index.ts`. Both paths
-delegate to `GeneratorOrchestrator`.
+Entry: `src/cli.ts` accepts Prisma 8 `contract` generation and delegates to `GeneratorOrchestrator`.
 
 Generators:
 
@@ -53,9 +53,9 @@ instead of widening them.
 
 ## Package boundary
 
-- Required peers: exact `effect@4.0.0-rc.117` and `kysely@^0.28.9`.
-- Published API: executable plus `prisma-effect-kysely/generator` only.
-- `@prisma/generator-helper` is a runtime dependency because the published binary imports it.
+- Required peers: exact `effect@4.0.0-rc.117` and `kysely@^0.29.6`.
+- Published API: `prisma-effect-kysely` contract generator executable only.
+- Prisma 8 emits the PostgreSQL contract; `@prisma/generator-helper` remains development-only for the normalized internal model types and tests.
 - Generated files import `effect`, `effect/unstable/schema`, and `kysely` directly. They never import `prisma-effect-kysely`.
 
 ## Generated output
@@ -84,15 +84,15 @@ Each model emits `<Model>Table` with physical column keys and native:
 
 ```typescript
 ColumnType<
-  Schema.Codec.Encoded<typeof Model>['column'],
-  Schema.Codec.Encoded<typeof ModelInsert>['column'],
-  Exclude<Schema.Codec.Encoded<typeof ModelUpdate>['column'], undefined>
+  typeof Model.Type['semanticField'],
+  typeof ModelInsert.Type['semanticField'],
+  Exclude<typeof ModelUpdate.Type['semanticField'], undefined>
 >;
 ```
 
 Primary-key updates are `never` and never index the update codec. `DB` uses physical `@@map` table names and points to named table interfaces.
 
-Raw Kysely values are intentionally encoded database values: physical keys, UUID strings, bigint strings, and native dates. Decode with the generated operation codec for semantic keys, brands, or decoded bigint values.
+Kysely interfaces retain physical table and column keys while their leaf values use decoded semantic types. Database drivers serialize native inputs such as `bigint`; generated codecs remain available for validation and semantic/physical key conversion, not routine query wrapping.
 
 ## Field ownership
 
@@ -122,7 +122,7 @@ Never duplicate these conditions inside an emitter.
 | Bytes       | `Schema.Uint8Array`                    |
 | Enum        | imported `Schema.Enum` codec           |
 
-Arrays use readonly `Schema.Array`. Nullable values use `Schema.NullOr`. `@customType(...)` is emitted verbatim and must use Effect 4 APIs.
+Arrays use readonly `Schema.Array`. Nullable values use `Schema.NullOr`. `@customType(...)` defines only the scalar refinement; the generator applies `isList` and `isRequired` cardinality around it.
 
 ## Implicit M:N join tables
 
@@ -140,7 +140,7 @@ Never infer UUIDs from names. External identifiers ending in `_id` are often tex
 ## Working in this repo
 
 - Run `bun run test` before changes; record pre-existing failures.
-- Rebuild before invoking `prisma generate` against the package binary.
+- Rebuild before invoking the package CLI against a Prisma 8 contract artifact.
 - Main fixture: `src/__tests__/fixtures/test.prisma`.
 - Generated headers contain a timestamp and `DO NOT EDIT MANUALLY` marker.
 - Generated installation replaces only owned files and preserves unrelated output files.

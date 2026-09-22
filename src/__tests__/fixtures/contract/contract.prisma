@@ -3,14 +3,24 @@ namespace public {
     USER
     ADMIN
   }
+  native_enum SELLERAPIKEYSTATUS {
+    ACTIVE
+    REVOKED
++
+    @@map("seller_api_key_status")
+  }
+
 
   model User {
     id          Uuid        @id @default(dbgenerated("gen_random_uuid()"))
     /// @customType(Schema.String.pipe(Schema.brand('DisplayName')))
     displayName String      @map("display_name")
+    /// @customType(Schema.String.pipe(Schema.brand('DisplayName')))
+    displayAlias String?     @map("display_alias")
     amount      BigInt
     metadata    Jsonb?
     role        pg.enum(ROLE)
+    sellerApiKeyStatus pg.enum(SELLERAPIKEYSTATUS) @map("seller_api_key_status")
     createdAt   Timestamptz @default(now()) @map("created_at")
     products    Product[]
 

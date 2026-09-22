@@ -7,24 +7,12 @@ Prisma generator for Effect 4 database codecs and native Kysely table contracts.
 Generated files import both peers directly:
 
 ```bash
-bun add prisma-effect-kysely effect@4.0.0-rc.117 kysely
+bun add prisma-effect-kysely effect@4.0.0-rc.117 kysely@^0.29.6
 ```
 
 ## Setup
 
-```prisma
-generator effect_schemas {
-  provider = "prisma-effect-kysely"
-  output   = "./generated/effect"
-}
-```
-
-```bash
-bunx prisma generate
-```
-
-Prisma 8 projects generate from the emitted PostgreSQL contract instead of a
-`generator` block:
+Generate from Prisma 8's emitted PostgreSQL contract:
 
 ```bash
 bunx prisma contract emit
@@ -34,14 +22,13 @@ bunx prisma-effect-kysely contract \
   --output ./generated/effect
 ```
 
-The schema path preserves `/// @customType(...)` expressions because Prisma 8
-does not include documentation comments in `contract.json`.
+The schema path preserves `/// @customType(...)` expressions because Prisma 8 does not include documentation comments in `contract.json`.
 
 The output directory contains `enums.ts`, `types.ts`, and `index.ts`.
 
 ## Generated output
 
-Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Kysely receives a separate native table interface over the codecs' encoded database view.
+Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Kysely receives a separate native table interface with physical database keys and decoded semantic leaf types.
 
 ```typescript
 import { Schema } from 'effect';
@@ -81,20 +68,16 @@ export const UserUpdate = DatabaseSchema.extract(UserFields, 'update');
 export type UserUpdate = typeof UserUpdate.Type;
 
 export interface UserTable {
-  id: ColumnType<
-    Schema.Codec.Encoded<typeof User>['id'],
-    Schema.Codec.Encoded<typeof UserInsert>['id'],
-    never
-  >;
+  id: ColumnType<typeof User.Type['id'], typeof UserInsert.Type['id'], never>;
   email: ColumnType<
-    Schema.Codec.Encoded<typeof User>['email'],
-    Schema.Codec.Encoded<typeof UserInsert>['email'],
-    Exclude<Schema.Codec.Encoded<typeof UserUpdate>['email'], undefined>
+    typeof User.Type['email'],
+    typeof UserInsert.Type['email'],
+    Exclude<typeof UserUpdate.Type['email'], undefined>
   >;
   createdAt: ColumnType<
-    Schema.Codec.Encoded<typeof User>['createdAt'],
-    Schema.Codec.Encoded<typeof UserInsert>['createdAt'],
-    Exclude<Schema.Codec.Encoded<typeof UserUpdate>['createdAt'], undefined>
+    typeof User.Type['createdAt'],
+    typeof UserInsert.Type['createdAt'],
+    Exclude<typeof UserUpdate.Type['createdAt'], undefined>
   >;
 }
 
@@ -108,9 +91,8 @@ For `@map`, decoded codec values keep Prisma's semantic field name while encoded
 ## Consumer usage
 
 ```typescript
-import { Schema } from 'effect';
 import { Kysely, type Insertable, type Selectable, type Updateable } from 'kysely';
-import { User, UserInsert, UserUpdate, type DB, type UserId } from './generated/effect';
+import type { DB } from './generated/effect';
 
 const db = new Kysely<DB>({ dialect });
 
@@ -119,12 +101,11 @@ type NewUserRow = Insertable<DB['User']>;
 type UserPatch = Updateable<DB['User']>;
 
 const row: UserRow = await db.selectFrom('User').selectAll().executeTakeFirstOrThrow();
-const user: User = Schema.decodeUnknownSync(User)(row);
-const insert: UserInsert = { email: 'user@example.com' };
-const update: UserUpdate = { email: 'next@example.com' };
+const insert: NewUserRow = { email: 'user@example.com' };
+const update: UserPatch = { email: 'next@example.com' };
 ```
 
-Raw Kysely rows use physical keys and encoded leaf values. Decode through an operation codec for semantic keys, branded IDs, and decoded `bigint` values.
+Kysely rows retain physical database keys but use decoded semantic leaf values, including branded IDs and `bigint`. The database driver handles wire serialization; generated codecs are available for validation and semantic/physical key conversion, not required around every query.
 
 ## Field and default ownership
 
@@ -160,20 +141,22 @@ A string column is a UUID only when Prisma's DMMF reports `@db.Uuid`, either thr
 
 ## Custom type overrides
 
-`@customType(...)` is emitted verbatim and must be an Effect 4 expression already in generated scope:
+`@customType(...)` defines only the scalar refinement and must be an Effect 4 expression already in generated scope. The generator applies Prisma list and nullability metadata around it:
 
 ```prisma
 model User {
-  /// @customType(Schema.String.check(Schema.isPattern(/@/)))
+  /// @customType(EmailAddress)
   email String @unique
 
-  /// @customType(Schema.Number.check(Schema.isGreaterThan(0)))
+  /// @customType(PositiveInt)
   age Int
 
-  /// @customType(Schema.Array(Schema.Number).check(Schema.isLengthBetween(3, 3)))
+  /// @customType(Coordinate)
   coordinates Int[]
 }
 ```
+
+For example, `String? @customType(EmailAddress)` emits `Schema.NullOr(EmailAddress)`, while `String[] @customType(EmailAddress)` emits `Schema.Array(EmailAddress)`. Do not put `Schema.NullOr` or `Schema.Array` in the annotation.
 
 ## Implicit many-to-many tables
 
@@ -197,13 +180,13 @@ export type ProductTagsInsert = typeof ProductTagsInsert.Type;
 
 export interface ProductTagsTable {
   A: ColumnType<
-    Schema.Codec.Encoded<typeof ProductTags>['A'],
-    Schema.Codec.Encoded<typeof ProductTagsInsert>['A'],
+    typeof ProductTags.Type['product_id'],
+    typeof ProductTagsInsert.Type['product_id'],
     never
   >;
   B: ColumnType<
-    Schema.Codec.Encoded<typeof ProductTags>['B'],
-    Schema.Codec.Encoded<typeof ProductTagsInsert>['B'],
+    typeof ProductTags.Type['product_tag_id'],
+    typeof ProductTagsInsert.Type['product_tag_id'],
     never
   >;
 }
@@ -211,14 +194,7 @@ export interface ProductTagsTable {
 
 ## Package exports
 
-The package is generator-only:
-
-| Entry                             | Contents                |
-| --------------------------------- | ----------------------- |
-| `prisma-effect-kysely` executable | Prisma generator binary |
-| `prisma-effect-kysely/generator`  | Generator module entry  |
-
-Generated application code never imports `prisma-effect-kysely` at runtime.
+The package exposes the `prisma-effect-kysely` contract generator executable. Generated application code never imports `prisma-effect-kysely` at runtime.
 
 ## Development
 
@@ -229,6 +205,8 @@ bun run typecheck
 bun run build
 bun run prepublishOnly
 ```
+
+Type checking and builds run TypeScript 7.0.2 through `@typescript/native`. The unscoped `typescript` 6 dependency supplies the compiler API required by typescript-eslint because TypeScript 7.0 intentionally ships no programmatic API; it is not the active compiler.
 
 ## Releasing
 

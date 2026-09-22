@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 import { parseArgs } from 'node:util';
+const usage =
+  'Usage: prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>';
 
 const command = process.argv[2];
 const help = command === '--help' || command === '-h';
 
 if (help) {
-  console.log(
-    'Usage: prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>'
-  );
+  console.log(usage);
 } else if (command === 'contract') {
   const { values } = parseArgs({
     args: process.argv.slice(3),
@@ -21,9 +21,7 @@ if (help) {
   });
 
   if (!(values.contract && values.schema && values.output)) {
-    throw new Error(
-      'Usage: prisma-effect-kysely contract --contract <contract.json> --schema <contract.prisma> --output <directory>'
-    );
+    throw new Error(usage);
   }
 
   const { generateFromContract } = await import('./contract/generator.js');
@@ -33,5 +31,5 @@ if (help) {
     outputPath: values.output,
   });
 } else {
-  await import('./generator/index.js');
+  throw new Error(usage);
 }

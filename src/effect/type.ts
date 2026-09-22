@@ -64,11 +64,6 @@ export function buildFieldType(
   dmmf: DMMF.Document,
   fkMap?: Map<string, string>
 ) {
-  const override = extractEffectTypeOverride(field);
-  if (override) {
-    return override;
-  }
-
   let baseType = mapFieldToEffectType(field, dmmf, fkMap);
 
   // Handle arrays

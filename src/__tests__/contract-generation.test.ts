@@ -35,6 +35,11 @@ describe('Prisma 8 contract generation', () => {
       dbName: 'display_name',
       documentation: "@customType(Schema.String.pipe(Schema.brand('DisplayName')))",
     });
+    expect(user?.fields.find((field) => field.name === 'displayAlias')).toMatchObject({
+      dbName: 'display_alias',
+      documentation: "@customType(Schema.String.pipe(Schema.brand('DisplayName')))",
+      isRequired: false,
+    });
     expect(user?.fields.find((field) => field.name === 'id')).toMatchObject({
       isId: true,
       hasDefaultValue: true,
@@ -54,6 +59,14 @@ describe('Prisma 8 contract generation', () => {
           { name: 'ADMIN', dbName: 'ADMIN' },
         ],
       },
+      {
+        name: 'SELLER_API_KEY_STATUS',
+        dbName: 'seller_api_key_status',
+        values: [
+          { name: 'ACTIVE', dbName: 'ACTIVE' },
+          { name: 'REVOKED', dbName: 'REVOKED' },
+        ],
+      },
     ]);
   });
 
@@ -71,32 +84,40 @@ describe('Prisma 8 contract generation', () => {
     const physical = {
       id,
       display_name: 'Sam',
+      display_alias: null,
       amount: '42',
       metadata: { source: 'contract' },
       role: 'USER',
+      seller_api_key_status: 'ACTIVE',
       created_at: createdAt,
     };
 
     expect(Schema.decodeUnknownSync(generated.User)(physical)).toEqual({
       id,
       displayName: 'Sam',
+      displayAlias: null,
       amount: 42n,
       metadata: { source: 'contract' },
       role: 'USER',
+      sellerApiKeyStatus: 'ACTIVE',
       createdAt,
     });
     expect(
       Schema.encodeUnknownSync(generated.UserInsert)({
         displayName: 'Sam',
+        displayAlias: null,
         amount: 42n,
         metadata: null,
         role: 'ADMIN',
+        sellerApiKeyStatus: 'REVOKED',
       })
     ).toEqual({
       display_name: 'Sam',
+      display_alias: null,
       amount: '42',
       metadata: null,
       role: 'ADMIN',
+      seller_api_key_status: 'REVOKED',
     });
     expect(Schema.decodeUnknownSync(generated.UserProducts)({ A: productId, B: id })).toEqual({
       product_id: productId,

@@ -10,9 +10,11 @@
             "fields": {
               "id": { "nullable": false, "type": { "codecId": "pg/uuid@1", "kind": "scalar" } },
               "displayName": { "nullable": false, "type": { "codecId": "pg/text@1", "kind": "scalar" } },
+              "displayAlias": { "nullable": true, "type": { "codecId": "pg/text@1", "kind": "scalar" } },
               "amount": { "nullable": false, "type": { "codecId": "pg/int8@1", "kind": "scalar" } },
               "metadata": { "nullable": true, "type": { "codecId": "pg/jsonb@1", "kind": "scalar" } },
               "role": { "nullable": false, "type": { "codecId": "pg/enum@1", "kind": "scalar", "typeParams": { "typeName": "ROLE" } } },
+              "sellerApiKeyStatus": { "nullable": false, "type": { "codecId": "pg/enum@1", "kind": "scalar", "typeParams": { "typeName": "seller_api_key_status" } } },
               "createdAt": { "nullable": false, "type": { "codecId": "pg/timestamptz-temporal@1", "kind": "scalar" } }
             },
             "relations": {},
@@ -20,9 +22,11 @@
               "fields": {
                 "id": { "column": "id" },
                 "displayName": { "column": "display_name" },
+                "displayAlias": { "column": "display_alias" },
                 "amount": { "column": "amount" },
                 "metadata": { "column": "metadata" },
                 "role": { "column": "role" },
+                "sellerApiKeyStatus": { "column": "seller_api_key_status" },
                 "createdAt": { "column": "created_at" }
               },
               "namespaceId": "public",
@@ -85,16 +89,19 @@
       "public": {
         "entries": {
           "native_enum": {
-            "ROLE": { "members": ["USER", "ADMIN"] }
+            "ROLE": { "members": ["USER", "ADMIN"] },
+            "seller_api_key_status": { "members": ["ACTIVE", "REVOKED"] }
           },
           "table": {
             "user": {
               "columns": {
                 "id": { "codecId": "pg/uuid@1", "default": { "expression": "gen_random_uuid()", "kind": "function" }, "nativeType": "uuid", "nullable": false },
                 "display_name": { "codecId": "pg/text@1", "nativeType": "text", "nullable": false },
+                "display_alias": { "codecId": "pg/text@1", "nativeType": "text", "nullable": true },
                 "amount": { "codecId": "pg/int8@1", "nativeType": "int8", "nullable": false },
                 "metadata": { "codecId": "pg/jsonb@1", "nativeType": "jsonb", "nullable": true },
                 "role": { "codecId": "pg/enum@1", "nativeType": "ROLE", "nullable": false, "typeParams": { "typeName": "ROLE" }, "valueSet": { "entityName": "ROLE" } },
+                "seller_api_key_status": { "codecId": "pg/enum@1", "nativeType": "seller_api_key_status", "nullable": false, "typeParams": { "typeName": "seller_api_key_status" }, "valueSet": { "entityName": "SELLERAPIKEYSTATUS" } },
                 "created_at": { "codecId": "pg/timestamptz-temporal@1", "default": { "expression": "now()", "kind": "function" }, "nativeType": "timestamptz", "nullable": false }
               },
               "primaryKey": { "columns": ["id"], "name": "user_pkey" }

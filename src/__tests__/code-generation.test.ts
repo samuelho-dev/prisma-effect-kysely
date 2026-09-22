@@ -99,6 +99,7 @@ describe('generated consumer contract', () => {
   Role,
   type CompositeIdModelUpdate,
   type DB,
+  type UserId,
 } from "./index.ts";
 import type { Insertable, Kysely, Selectable, Updateable } from "kysely";
 
@@ -114,18 +115,27 @@ void roleCodec;
 declare const db: Kysely<DB>;
 declare const selected: Selectable<DB["effect4_contract"]>;
 declare const decoded: Effect4Contract;
-void selected;
+const selectedId: Effect4Contract["id"] = selected.id;
+const selectedAmount: bigint = selected.amount;
+void selectedId;
+void selectedAmount;
+declare const sharedProfile: Selectable<DB["SharedProfile"]>;
+const sharedProfileUserId: UserId = sharedProfile.user_id;
+void sharedProfileUserId;
 void decoded;
 
 const databaseInsert: Insertable<DB["effect4_contract"]> = {
   prisma_id: "prisma-default-required",
   db_name: "required name",
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata: { nested: ["json", true, null] },
   updated_at: new Date("2025-01-02T03:04:05.000Z"),
 };
-const databaseUpdate: Updateable<DB["effect4_contract"]> = { db_name: "renamed" };
+const databaseUpdate: Updateable<DB["effect4_contract"]> = {
+  db_name: "renamed",
+  amount: 1n,
+};
 
 const insertQuery = db.insertInto("effect4_contract").values(databaseInsert).returningAll();
 const updateQuery = db.updateTable("effect4_contract").set(databaseUpdate).returningAll();

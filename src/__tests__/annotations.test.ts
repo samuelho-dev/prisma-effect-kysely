@@ -12,6 +12,7 @@ describe('parseCustomTypeAnnotations', () => {
   it('reads the fixture model-field annotations', () => {
     expect(Object.fromEntries(parseCustomTypeAnnotations(fixtureSource))).toEqual({
       'public.User.displayName': "Schema.String.pipe(Schema.brand('DisplayName'))",
+      'public.User.displayAlias': "Schema.String.pipe(Schema.brand('DisplayName'))",
     });
   });
 
