@@ -6,6 +6,7 @@ import { Schema } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractToDmmf } from '../contract/adapter';
 import { generateFromContract } from '../contract/generator';
+import { buildForeignKeyMap } from '../prisma/relation';
 
 vi.mock('../utils/templates', () => ({
   formatCode: vi.fn((code: string) => Promise.resolve(code)),
@@ -28,6 +29,7 @@ describe('Prisma 8 contract generation', () => {
     );
     const user = dmmf.datamodel.models.find((model) => model.name === 'User');
     const product = dmmf.datamodel.models.find((model) => model.name === 'Product');
+    const sharedProfile = dmmf.datamodel.models.find((model) => model.name === 'SharedProfile');
 
     expect(user?.dbName).toBe('user');
     expect(user?.primaryKey?.fields).toEqual(['id']);
@@ -49,6 +51,8 @@ describe('Prisma 8 contract generation', () => {
       dbName: 'owner_id',
       type: 'String',
     });
+    expect(buildForeignKeyMap(user!, dmmf.datamodel.models).has('id')).toBe(false);
+    expect(buildForeignKeyMap(sharedProfile!, dmmf.datamodel.models).get('userId')).toBe('User');
     expect(dmmf.datamodel.models.some((model) => model.name === 'UserProducts')).toBe(false);
     expect(dmmf.datamodel.enums).toEqual([
       {

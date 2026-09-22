@@ -389,7 +389,7 @@ function validateJoinTable(join: ModelDraft, models: ReadonlyMap<string, ModelDr
 }
 
 function relationField(name: string, relation: Relation): DMMF.Field {
-  const ownsForeignKey = relation.cardinality !== '1:N';
+  const ownsForeignKey = relation.cardinality === 'N:1';
   return {
     kind: 'object',
     name,
