@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.0-next.2
+
+### Patch Changes
+
+- 3fd3102: Preserve the referenced model's branded ID for primary-key foreign keys without rebranding the inverse one-to-one primary key.
+
 ## 8.0.0-next.1
 
 ### Major Changes
