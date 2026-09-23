@@ -1,5 +1,11 @@
 # Changelog
 
+## 9.0.0
+
+### Major Changes
+
+- 922aab3: Generate Prisma `BigInt` fields as native `bigint` values with `Schema.BigInt` across Effect codecs and Kysely table types, including nullable fields, arrays, mapped columns, and Prisma 8 contract inputs.
+
 ## 8.0.5
 
 ### Patch Changes
