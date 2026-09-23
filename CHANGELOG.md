@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.3
+
+### Patch Changes
+
+- 3546f7f: Disambiguate implicit many-to-many schema and table exports when a relation name collides with an explicit Prisma model.
+
 ## 8.0.2
 
 ### Patch Changes
