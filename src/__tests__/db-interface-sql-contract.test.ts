@@ -83,7 +83,8 @@ describe('DB interface SQL contract', () => {
     await Promise.all([
       fs.writeFile(
         consumerPath,
-        `import {
+        `import { Schema } from "effect";
+import {
   DummyDriver,
   Kysely,
   PostgresAdapter,
@@ -91,12 +92,13 @@ describe('DB interface SQL contract', () => {
   PostgresQueryCompiler,
 } from "kysely";
 import type { ColumnType } from "kysely";
-import type {
-  AccountTable,
-  AuditUserTable,
-  DB,
-  ProjectLabelsTable,
-  PublicUserTable,
+import {
+  AccountId,
+  type AccountTable,
+  type AuditUserTable,
+  type DB,
+  type ProjectLabelsTable,
+  type PublicUserTable,
 } from "./types.ts";
 
 type Assert<T extends true> = T;
@@ -114,6 +116,7 @@ type CollidingTablesAreQualified = Assert<"user" extends keyof DB ? false : true
 type AccountSequenceUsesPgEncoding = Assert<
   DB["account_records"]["sequence_value"] extends ColumnType<string, string, string> ? true : false
 >;
+const accountId = Schema.decodeUnknownSync(AccountId)("88064e82-8bee-4776-8e7f-1e993a2d3b5f");
 
 const db = new Kysely<DB>({
   dialect: {
@@ -133,7 +136,7 @@ export const sql = {
   accountInsert: db
     .insertInto("account_records")
     .values({
-      id: "88064e82-8bee-4776-8e7f-1e993a2d3b5f",
+      id: accountId,
       display_name: "Alicia",
       sequence_value: "1",
     })

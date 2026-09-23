@@ -124,6 +124,8 @@ describe('generated consumer contract', () => {
   type CompositeIdModelUpdate,
   type DB,
   type Effect4ContractId,
+  type ProductId,
+  type UserId,
 } from "./index.ts";
 import type { Insertable, Kysely, Selectable, Updateable } from "kysely";
 
@@ -152,11 +154,26 @@ void selectedAmount;
 void decodedId;
 void decodedAmount;
 declare const sharedProfile: Selectable<DB["SharedProfile"]>;
-const sharedProfileUserId: string = sharedProfile.user_id;
+const sharedProfileUserId: UserId = sharedProfile.user_id;
 void sharedProfileUserId;
 declare const sharedProfileAudit: Selectable<DB["SharedProfileAudit"]>;
-const auditUserId: string = sharedProfileAudit.user_id;
+const auditUserId: UserId = sharedProfileAudit.user_id;
 void auditUserId;
+declare const selectedUser: Selectable<DB["User"]>;
+declare const selectedProduct: Selectable<DB["Product"]>;
+declare const selectedPost: Selectable<DB["Post"]>;
+const selectedUserId: UserId = selectedUser.id;
+const selectedProductId: ProductId = selectedProduct.id;
+const selectedAuthorId: UserId = selectedPost.authorId;
+declare const selectedAnnotation: Selectable<DB["AnnotationTest"]>;
+const selectedCustomBrand: UserId = selectedAnnotation.userId;
+// @ts-expect-error Product IDs must not cross the User ID boundary.
+const mismatchedUserId: UserId = selectedProduct.id;
+void selectedUserId;
+void selectedProductId;
+void selectedAuthorId;
+void selectedCustomBrand;
+void mismatchedUserId;
 
 const databaseInsert: Insertable<DB["effect4_contract"]> = {
   prisma_id: "prisma-default-required",

@@ -37,7 +37,7 @@ an `Enum` suffix, such as `StatusEnum.ACTIVE`, while `Status` remains the codec.
 
 ## Generated output
 
-Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Codec `Type` values use Prisma's semantic field names with driver-native leaves; codec `Encoded` values use physical database keys with those same leaves. Kysely receives a separate native table interface using the encoded values.
+Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Codec `Type` values use Prisma's semantic field names with driver-native leaves; codec `Encoded` values use physical database keys with those same leaves. Kysely table interfaces emit the physical keys explicitly while indexing the semantic `Type` leaves so ID and custom brands survive.
 
 ```typescript
 import { Schema } from 'effect';
@@ -72,11 +72,11 @@ export const UserUpdate = DatabaseSchema.extract(UserFields, 'update');
 export type UserUpdate = typeof UserUpdate.Type;
 
 export interface UserTable {
-  id: ColumnType<(typeof User.Encoded)['id'], (typeof UserInsert.Encoded)['id'], never>;
+  id: ColumnType<(typeof User.Type)['id'], (typeof UserInsert.Type)['id'], never>;
   email: ColumnType<
-    (typeof User.Encoded)['email'],
-    (typeof UserInsert.Encoded)['email'],
-    Exclude<(typeof UserUpdate.Encoded)['email'], undefined>
+    (typeof User.Type)['email'],
+    (typeof UserInsert.Type)['email'],
+    Exclude<(typeof UserUpdate.Type)['email'], undefined>
   >;
 }
 
@@ -108,10 +108,10 @@ const insert: NewUserRow = { email: 'user@example.com' };
 const update: UserPatch = { email: 'next@example.com' };
 ```
 
-Kysely rows retain physical database keys and driver-native leaves. PostgreSQL
-`BigInt` is a string in Kysely and in generated codec `Type`/`Encoded` values.
-The generated codecs can validate values and map `@map` keys, but they do not
-coerce scalar values before or after a query.
+Kysely rows retain physical database keys, driver-native leaves, and generated
+ID/custom brands. PostgreSQL `BigInt` is a string in Kysely and in generated
+codec `Type`/`Encoded` values. Generated codecs validate values and map `@map`
+keys, but they do not coerce scalar values before or after a query.
 
 ```typescript
 await db.insertInto('User').values(insert).execute();

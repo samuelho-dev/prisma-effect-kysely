@@ -86,13 +86,14 @@ omitted primary-key fields.
 
 ## Native Kysely contract
 
-Each model emits `<Model>Table` with physical column keys and native:
+Each model emits `<Model>Table` with physical column keys and branded,
+driver-native leaves from the semantic operation types:
 
 ```typescript
 ColumnType<
-  (typeof Model.Encoded)['physical_column'],
-  (typeof ModelInsert.Encoded)['physical_column'],
-  Exclude<(typeof ModelUpdate.Encoded)['physical_column'], undefined>
+  (typeof Model.Type)['semanticField'],
+  (typeof ModelInsert.Type)['semanticField'],
+  Exclude<(typeof ModelUpdate.Type)['semanticField'], undefined>
 >;
 ```
 
@@ -101,10 +102,10 @@ Primary-key updates are `never` and never index the update codec. `DB` uses phys
 Single-output generation schema-qualifies only duplicate physical table keys as
 `<namespace>.<table>`; unique and multi-domain table keys remain bare.
 
-Kysely interfaces retain physical table and column keys with driver-native
-leaves. PostgreSQL `BigInt` is `string` in Kysely and in generated codec
-`Type`/`Encoded` values. Generated codecs validate values and map keys but do
-not coerce scalar values before or after a query.
+Kysely interfaces retain physical table and column keys, driver-native leaves,
+and generated ID/custom brands. PostgreSQL `BigInt` is `string` in Kysely and
+in generated codec `Type`/`Encoded` values. Generated codecs validate values
+and map keys but do not coerce scalar values before or after a query.
 
 ## Field ownership
 

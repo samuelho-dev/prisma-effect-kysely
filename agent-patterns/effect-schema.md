@@ -108,17 +108,18 @@ const DatabaseSchema = VariantSchema.make({
 
 export interface UserTable {
   created_at: ColumnType<
-    (typeof User.Encoded)['created_at'],
-    (typeof UserInsert.Encoded)['created_at'],
-    Exclude<(typeof UserUpdate.Encoded)['created_at'], undefined>
+    (typeof User.Type)['createdAt'],
+    (typeof UserInsert.Type)['createdAt'],
+    Exclude<(typeof UserUpdate.Type)['createdAt'], undefined>
   >;
 }
 ```
 
 The codec `Type` is the semantic model shape with Prisma field names; its
 `Encoded` shape uses physical column names. Both expose PostgreSQL driver-native
-leaves. Kysely uses `Encoded`; generated codecs validate values and map keys but
-do not coerce scalar values.
+leaves. Kysely interfaces emit physical keys explicitly but index semantic
+`Type` leaves so generated ID/custom brands survive. Generated codecs validate
+values and map keys but do not coerce scalar values.
 
 Prisma `*-temporal` contract identifiers are adapted to PostgreSQL driver-native
 leaves: date/time are strings, timestamp/timestamptz are `Date`, and interval

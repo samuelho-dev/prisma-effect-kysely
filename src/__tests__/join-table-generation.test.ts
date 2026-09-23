@@ -113,6 +113,10 @@ const physicalSelect: Selectable<ProductToProductTagTable> = {
   A: productId,
   B: productTagId,
 };
+const selectedProductId: ProductId = physicalSelect.A;
+const selectedProductTagId: ProductTagId = physicalSelect.B;
+void selectedProductId;
+void selectedProductTagId;
 const emptyUpdate: Updateable<ProductToProductTagTable> = {};
 
 const unbrandedInsert: ProductToProductTagInsert = {
