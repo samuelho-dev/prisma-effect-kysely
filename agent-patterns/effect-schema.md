@@ -54,11 +54,12 @@ Schema.String.check(Schema.isUUID()); // was Schema.UUID
 
 ## Scalar notes
 
-`String`, `Number`, `Boolean`, `Uint8Array`; UUID =
+`String`, `Number`, `Boolean`, `BigInt`, `Uint8Array`; UUID =
 `Schema.String.check(Schema.isUUID())`. Generated database code uses
-`Schema.String` for PostgreSQL `BigInt`, leaving it a `string`.
-`Schema.Date` uses native `Date` on both sides (`DateFromSelf` was removed; use
-`DateFromString` only when a string codec is wanted).
+`Schema.BigInt` for PostgreSQL `BigInt`, preserving the repository driver's
+native `bigint` leaf. `Schema.Date` uses native `Date` on both sides
+(`DateFromSelf` was removed; use `DateFromString` only when a string codec is
+wanted).
 
 ## Branding & key renaming
 

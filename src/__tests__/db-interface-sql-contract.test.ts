@@ -114,7 +114,7 @@ type AuditUserTableIsSchemaMapped = Assert<
 >;
 type CollidingTablesAreQualified = Assert<"user" extends keyof DB ? false : true>;
 type AccountSequenceUsesPgEncoding = Assert<
-  DB["account_records"]["sequence_value"] extends ColumnType<string, string, string> ? true : false
+  DB["account_records"]["sequence_value"] extends ColumnType<bigint, bigint, bigint> ? true : false
 >;
 const accountId = Schema.decodeUnknownSync(AccountId)("88064e82-8bee-4776-8e7f-1e993a2d3b5f");
 
@@ -138,7 +138,7 @@ export const sql = {
     .values({
       id: accountId,
       display_name: "Alicia",
-      sequence_value: "1",
+      sequence_value: 1n,
     })
     .compile().sql,
   publicUser: db.selectFrom("public.user").select("id").compile().sql,
@@ -172,7 +172,7 @@ console.log(JSON.stringify(sql));
     await fs.rm(outputDir, { recursive: true, force: true });
   });
 
-  it('compiles mapped native tables with encoded BigInt rows and inserts', async () => {
+  it('compiles mapped native tables with driver-native bigint rows and inserts', async () => {
     try {
       await execFileAsync('./node_modules/.bin/tsc', ['--noEmit', '-p', tsconfigPath], {
         cwd: process.cwd(),

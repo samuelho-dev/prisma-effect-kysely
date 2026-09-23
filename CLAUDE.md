@@ -103,9 +103,9 @@ Single-output generation schema-qualifies only duplicate physical table keys as
 `<namespace>.<table>`; unique and multi-domain table keys remain bare.
 
 Kysely interfaces retain physical table and column keys, driver-native leaves,
-and generated ID/custom brands. PostgreSQL `BigInt` is `string` in Kysely and
-in generated codec `Type`/`Encoded` values. Generated codecs validate values
-and map keys but do not coerce scalar values before or after a query.
+and generated ID/custom brands. PostgreSQL `BigInt` is native `bigint` in
+Kysely and generated codec `Type`/`Encoded` values. Generated codecs validate
+values and map keys but do not coerce scalar values before or after a query.
 
 ## Field ownership
 
@@ -127,7 +127,7 @@ Never duplicate these conditions inside an emitter.
 | UUID string               | `Schema.String.check(Schema.isUUID())` / `string` |
 | Int                       | `Schema.Int` / `number`                           |
 | Float                     | `Schema.Number` / `number`                        |
-| BigInt                    | `Schema.String` / `string`                        |
+| BigInt                    | `Schema.BigInt` / `bigint`                        |
 | Decimal                   | `Schema.String` / `string`                        |
 | Boolean                   | `Schema.Boolean` / `boolean`                      |
 | PostgreSQL date           | `Schema.String` / `string`                        |

@@ -426,8 +426,9 @@ function fieldToDmmfType(
       return { kind: 'scalar', type: 'Int', nativeType: null } as const;
     case 'pg/int8@1':
     case 'pg/unboundedint@1':
-    case 'pg/int8number@1':
       return { kind: 'scalar', type: 'BigInt', nativeType: null } as const;
+    case 'pg/int8number@1':
+      return { kind: 'scalar', type: 'Int', nativeType: null } as const;
     case 'sql/float@1':
     case 'pg/float@1':
     case 'pg/float4@1':

@@ -170,7 +170,7 @@ describe('Prisma 8 contract generation', () => {
       ['status', 'enum', 'Status'],
       ['amount', 'scalar', 'Decimal'],
       ['char', 'scalar', 'String'],
-      ['safeBigInt', 'scalar', 'BigInt'],
+      ['safeBigInt', 'scalar', 'Int'],
       ['bytes', 'scalar', 'Bytes'],
       ['date', 'scalar', 'String'],
       ['timestamp', 'scalar', 'DateTime'],
@@ -333,7 +333,7 @@ describe('Prisma 8 contract generation', () => {
       id,
       display_name: 'Sam',
       display_alias: null,
-      amount: '42',
+      amount: 42n,
       metadata: { source: 'contract' },
       role: 'USER',
       seller_api_key_status: 'ACTIVE',
@@ -345,7 +345,7 @@ describe('Prisma 8 contract generation', () => {
       id,
       displayName: 'Sam',
       displayAlias: null,
-      amount: '42',
+      amount: 42n,
       metadata: { source: 'contract' },
       role: 'USER',
       sellerApiKeyStatus: 'ACTIVE',
@@ -356,7 +356,7 @@ describe('Prisma 8 contract generation', () => {
       Schema.encodeUnknownSync(generated.UserInsert)({
         displayName: 'Sam',
         displayAlias: null,
-        amount: '42',
+        amount: 42n,
         metadata: null,
         role: 'ADMIN',
         sellerApiKeyStatus: 'REVOKED',
@@ -364,11 +364,12 @@ describe('Prisma 8 contract generation', () => {
     ).toEqual({
       display_name: 'Sam',
       display_alias: null,
-      amount: '42',
+      amount: 42n,
       metadata: null,
       role: 'ADMIN',
       seller_api_key_status: 'REVOKED',
     });
+    expect(() => Schema.decodeUnknownSync(generated.User)({ ...physical, amount: '42' })).toThrow();
     expect(Schema.decodeUnknownSync(generated.UserProducts)({ A: productId, B: id })).toEqual({
       a: productId,
       b: id,

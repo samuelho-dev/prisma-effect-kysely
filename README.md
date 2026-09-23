@@ -109,7 +109,7 @@ const update: UserPatch = { email: 'next@example.com' };
 ```
 
 Kysely rows retain physical database keys, driver-native leaves, and generated
-ID/custom brands. PostgreSQL `BigInt` is a string in Kysely and in generated
+ID/custom brands. PostgreSQL `BigInt` is native `bigint` in Kysely and generated
 codec `Type`/`Encoded` values. Generated codecs validate values and map `@map`
 keys, but they do not coerce scalar values before or after a query.
 
@@ -135,7 +135,7 @@ await db.insertInto('User').values(insert).execute();
 | UUID string               | `Schema.String.check(Schema.isUUID())` / `string` |
 | Int                       | `Schema.Int` / `number`                           |
 | Float                     | `Schema.Number` / `number`                        |
-| BigInt                    | `Schema.String` / `string`                        |
+| BigInt                    | `Schema.BigInt` / `bigint`                        |
 | Decimal                   | `Schema.String` / `string`                        |
 | PostgreSQL date           | `Schema.String` / `string`                        |
 | PostgreSQL time           | `Schema.String` / `string`                        |

@@ -121,6 +121,7 @@ describe('generated consumer contract', () => {
   RoleEnum,
   Status,
   StatusEnum,
+  type AllTypes,
   type CompositeIdModelUpdate,
   type DB,
   type Effect4ContractId,
@@ -146,13 +147,20 @@ declare const db: Kysely<DB>;
 declare const selected: Selectable<DB["effect4_contract"]>;
 declare const decoded: Effect4Contract;
 const selectedId: string = selected.id;
-const selectedAmount: string = selected.amount;
+const selectedAmount: bigint = selected.amount;
 const decodedId: Effect4ContractId = decoded.id;
-const decodedAmount: string = decoded.amount;
+const decodedAmount: bigint = decoded.amount;
 void selectedId;
 void selectedAmount;
 void decodedId;
 void decodedAmount;
+declare const allTypes: Selectable<DB["AllTypes"]>;
+const selectedBigInt: bigint = allTypes.bigIntField;
+const selectedOptionalBigInt: bigint | null = allTypes.optionalBigInt;
+const selectedBigIntArray: readonly bigint[] = allTypes.bigIntArray;
+void selectedBigInt;
+void selectedOptionalBigInt;
+void selectedBigIntArray;
 declare const sharedProfile: Selectable<DB["SharedProfile"]>;
 const sharedProfileUserId: UserId = sharedProfile.user_id;
 void sharedProfileUserId;
@@ -179,13 +187,13 @@ const databaseInsert: Insertable<DB["effect4_contract"]> = {
   prisma_id: "prisma-default-required",
   db_name: "required name",
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata: { nested: ["json", true, null] },
   updated_at: new Date("2025-01-02T03:04:05.000Z"),
 };
 const databaseUpdate: Updateable<DB["effect4_contract"]> = {
   db_name: "renamed",
-  amount: "1",
+  amount: 1n,
 };
 
 const insertQuery = db.insertInto("effect4_contract").values(databaseInsert).returningAll();
@@ -199,7 +207,7 @@ void selectQuery;
 const missingPrismaId: Effect4ContractInsert = {
   name: "required name",
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata: {},
   updatedAt: new Date("2025-01-02T03:04:05.000Z"),
 };
@@ -209,7 +217,7 @@ const missingUpdatedAt: Effect4ContractInsert = {
   prismaId: "prisma-default-required",
   name: "required name",
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata: {},
 };
 
@@ -263,7 +271,7 @@ const physical = {
   db_name: "required name",
   nickname: null,
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata,
   created_at: createdAt,
   updated_at: updatedAt,
@@ -275,7 +283,7 @@ deepStrictEqual(decoded, {
   name: "required name",
   nickname: null,
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata,
   createdAt,
   updatedAt,
@@ -287,7 +295,7 @@ const encoded = Schema.encodeSync(Effect4ContractInsert)({
   prismaId: "prisma-default-required",
   name: "required name",
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata,
   updatedAt,
 });
@@ -295,7 +303,7 @@ deepStrictEqual(encoded, {
   prisma_id: "prisma-default-required",
   db_name: "required name",
   count: 7,
-  amount: "42",
+  amount: 42n,
   metadata,
   updated_at: updatedAt,
 });
@@ -310,6 +318,9 @@ throws(() =>
 );
 throws(() =>
   Schema.decodeUnknownSync(Effect4Contract)({ ...physical, count: 1.5 })
+);
+throws(() =>
+  Schema.decodeUnknownSync(Effect4Contract)({ ...physical, amount: "42" })
 );
 throws(() =>
   Schema.decodeUnknownSync(Effect4Contract)({
