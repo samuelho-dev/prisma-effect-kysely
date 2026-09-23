@@ -7,15 +7,20 @@ import type { PrismaEnumDefinition } from '../prisma/enum';
 import { createMockDMMF, createMockField, createMockModel } from './helpers/dmmf-mocks';
 
 describe('enum generation', () => {
-  it('validates and encodes raw stored literals', () => {
-    const status = Schema.Literals(['active', 'inactive'] as const);
+  enum Status {
+    ACTIVE = 'active',
+    INACTIVE = 'inactive',
+  }
 
-    expect(Schema.decodeUnknownSync(status)('active')).toBe('active');
-    expect(Schema.encodeSync(status)('inactive')).toBe('inactive');
+  it('validates and encodes named stored values', () => {
+    const status = Schema.Enum(Status);
+
+    expect(Schema.decodeUnknownSync(status)(Status.ACTIVE)).toBe('active');
+    expect(Schema.encodeSync(status)(Status.INACTIVE)).toBe('inactive');
     expect(() => Schema.decodeUnknownSync(status)('ACTIVE')).toThrow();
   });
 
-  it('emits stored string and integer literals without TypeScript enum wrappers', () => {
+  it('emits named string and integer members with stored values', () => {
     const status = {
       name: 'TaskStatus',
       values: [
@@ -32,16 +37,26 @@ describe('enum generation', () => {
     } satisfies PrismaEnumDefinition;
 
     expect(generateEnumSchema(status)).toBe(
-      `export const TaskStatus = Schema.Literals(["todo_db", "done_db"]);
+      `export enum TaskStatusEnum {
+  TODO = "todo_db",
+  DONE = "done_db"
+}
+
+export const TaskStatus = Schema.Enum(TaskStatusEnum);
 export type TaskStatus = typeof TaskStatus.Type;`
     );
     expect(generateEnumSchema(priority)).toBe(
-      `export const Priority = Schema.Literals([1, 2]);
+      `export enum PriorityEnum {
+  LOW = 1,
+  HIGH = 2
+}
+
+export const Priority = Schema.Enum(PriorityEnum);
 export type Priority = typeof Priority.Type;`
     );
   });
 
-  it('writes schemas, not enum wrappers', () => {
+  it('exports named members alongside the schema', () => {
     const generated = generateEnumsFile([
       {
         name: 'STATUS',
@@ -50,8 +65,8 @@ export type Priority = typeof Priority.Type;`
       },
     ]);
 
-    expect(generated).toContain('export const STATUS = Schema.Literals(["ACTIVE"])');
-    expect(generated).not.toContain('export enum');
+    expect(generated).toContain('export enum STATUSEnum');
+    expect(generated).toContain('export const STATUS = Schema.Enum(STATUSEnum)');
   });
 });
 

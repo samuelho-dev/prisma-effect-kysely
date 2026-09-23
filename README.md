@@ -31,6 +31,10 @@ Pass `--multi-domain` to write those three files for each Prisma namespace at
 `types.ts` declares every ID brand it references. It does not scaffold libraries
 or projects.
 
+Each Prisma enum emits a native TypeScript enum for named application values and
+a PascalCase Effect codec. If both names would collide, the TypeScript enum gets
+an `Enum` suffix, such as `StatusEnum.ACTIVE`, while `Status` remains the codec.
+
 ## Generated output
 
 Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Codec `Type` values use Prisma's semantic field names with driver-native leaves; codec `Encoded` values use physical database keys with those same leaves. Kysely receives a separate native table interface using the encoded values.
@@ -140,7 +144,7 @@ await db.insertInto('User').values(insert).execute();
 | PostgreSQL interval       | `{ months, days, micros }`                        |
 | Json                      | `Schema.Json` / JSON value                        |
 | Bytes                     | `Schema.Uint8Array` / `Uint8Array`                |
-| Enum                      | `Schema.Literals([...])` / stored enum literal    |
+| Enum                      | `Schema.Enum(...)` / named stored enum member     |
 
 Incoming Prisma `*-temporal` contract identifiers map directly to PostgreSQL
 driver-native values: date/time are strings, timestamp/timestamptz are `Date`,

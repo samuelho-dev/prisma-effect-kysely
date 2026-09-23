@@ -4,17 +4,21 @@ import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 
 /**
- * Generate an Effect Schema codec from the stored values of a Prisma enum.
+ * Generate named enum members and their Effect codec.
  */
 export function generateEnumSchema(enumDef: PrismaEnumDefinition) {
-  const enumName = toPascalCase(enumDef.name);
-  const values = enumDef.values
-    .map(getEnumValueDbName)
-    .map((value) => JSON.stringify(value))
-    .join(', ');
+  const schemaName = toPascalCase(enumDef.name);
+  const enumName = enumDef.name === schemaName ? `${schemaName}Enum` : enumDef.name;
+  const members = enumDef.values
+    .map((value) => `  ${value.name} = ${JSON.stringify(getEnumValueDbName(value))}`)
+    .join(',\n');
 
-  return `export const ${enumName} = Schema.Literals([${values}]);
-export type ${enumName} = typeof ${enumName}.Type;`;
+  return `export enum ${enumName} {
+${members}
+}
+
+export const ${schemaName} = Schema.Enum(${enumName});
+export type ${schemaName} = typeof ${schemaName}.Type;`;
 }
 
 /**

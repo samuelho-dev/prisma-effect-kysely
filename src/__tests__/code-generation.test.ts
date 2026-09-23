@@ -118,7 +118,9 @@ describe('generated consumer contract', () => {
   Effect4ContractInsert,
   Effect4ContractUpdate,
   Role,
+  RoleEnum,
   Status,
+  StatusEnum,
   type CompositeIdModelUpdate,
   type DB,
   type Effect4ContractId,
@@ -129,14 +131,15 @@ const selectCodec = Effect4Contract;
 const insertCodec = Effect4ContractInsert;
 const updateCodec = Effect4ContractUpdate;
 const roleCodec = Role;
-const rawStatus: Status = "active";
+const namedRole: Role = RoleEnum.ADMIN;
+const rawStatus: Status = StatusEnum.ACTIVE;
 const storedStatus: "active" | "inactive" | "pending" = rawStatus;
+void namedRole;
 void storedStatus;
 void selectCodec;
 void insertCodec;
 void updateCodec;
 void roleCodec;
-
 declare const db: Kysely<DB>;
 declare const selected: Selectable<DB["effect4_contract"]>;
 declare const decoded: Effect4Contract;
@@ -230,7 +233,7 @@ void explicitUndefined;
       smokePath,
       `import { deepStrictEqual, equal, throws } from "node:assert/strict";
 import { Schema } from "effect";
-import { Effect4Contract, Effect4ContractInsert, Effect4ContractUpdate, Status } from "./index.ts";
+import { Effect4Contract, Effect4ContractInsert, Effect4ContractUpdate, Status, StatusEnum } from "./index.ts";
 
 const id = "123e4567-e89b-12d3-a456-426614174000";
 const createdAt = new Date("2025-01-02T03:04:05.000Z");
@@ -280,7 +283,8 @@ deepStrictEqual(encoded, {
   updated_at: updatedAt,
 });
 equal(encoded.updated_at, updatedAt);
-equal(Schema.decodeUnknownSync(Status)("active"), "active");
+equal(StatusEnum.ACTIVE, "active");
+equal(Schema.decodeUnknownSync(Status)(StatusEnum.ACTIVE), "active");
 throws(() => Schema.decodeUnknownSync(Status)("ACTIVE"));
 
 

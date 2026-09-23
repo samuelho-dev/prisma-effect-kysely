@@ -40,7 +40,7 @@ Generators:
 
 - `src/contract/adapter.ts` — Prisma 8 PostgreSQL contract → explicit DMMF subset
 - `src/effect/generator.ts` — branded IDs and select/insert/update codecs
-- `src/effect/enum.ts` — stored-value `Schema.Literals` enum codecs
+- `src/effect/enum.ts` — named stored-value enums and `Schema.Enum` codecs
 - `src/kysely/type.ts` — named native `ColumnType` table interfaces and `DB`
 - `src/kysely/generator.ts` — output assembly facade
 
@@ -60,7 +60,7 @@ instead of widening them.
 
 Three files per output directory:
 
-- `enums.ts` — stored-value enum unions generated with `Schema.Literals`
+- `enums.ts` — named TypeScript enum members and their `Schema.Enum` codecs
 - `types.ts` — branded IDs, operation codecs, named table interfaces, and `DB`
 - `index.ts` — re-exports
 
@@ -136,7 +136,7 @@ Never duplicate these conditions inside an emitter.
 | PostgreSQL interval       | `{ months, days, micros }`                        |
 | Json                      | `Schema.Json` / JSON value                        |
 | Bytes                     | `Schema.Uint8Array` / `Uint8Array`                |
-| Enum                      | `Schema.Literals([...])` / stored enum literal    |
+| Enum                      | `Schema.Enum(...)` / named stored enum member     |
 
 Incoming Prisma `*-temporal` contract identifiers map directly to PostgreSQL
 driver-native values: date/time are strings, timestamp/timestamptz are `Date`,
