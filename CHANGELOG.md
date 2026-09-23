@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.2
+
+### Patch Changes
+
+- 297dd69: Fix Prisma 8 domain enums, PostgreSQL driver-native codec values, namespace-safe generation, encoded Kysely table types, explicit join models, and multi-domain output.
+
 ## 8.0.1
 
 ### Patch Changes
