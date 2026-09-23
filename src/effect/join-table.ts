@@ -6,13 +6,12 @@ import { toPascalCase, toSnakeCase } from '../utils/naming.js';
  * Generate select and insert codecs for an implicit many-to-many table.
  */
 export function generateJoinTableSchema(joinTable: JoinTableInfo, dmmf: DMMF.Document) {
-  const { tableName, relationName, modelA, modelB } = joinTable;
+  const { tableName, generatedName, modelA, modelB } = joinTable;
   const columnAFieldName = `${toSnakeCase(modelA)}_id`;
   const columnBFieldName = `${toSnakeCase(modelB)}_id`;
   const modelASchemaType = `${toPascalCase(resolveBrandModel(modelA, dmmf))}Id`;
   const modelBSchemaType = `${toPascalCase(resolveBrandModel(modelB, dmmf))}Id`;
-  const pascalName = toPascalCase(relationName);
-  const fieldsName = `${pascalName}Fields`;
+  const fieldsName = `${generatedName}Fields`;
   const mapping = `{ ${JSON.stringify(columnAFieldName)}: "A", ${JSON.stringify(columnBFieldName)}: "B" }`;
 
   return `// ${tableName} Join Table (Prisma implicit many-to-many)
@@ -27,15 +26,15 @@ const ${fieldsName} = DatabaseSchema.Struct({
   }),
 });
 
-export const ${pascalName} = DatabaseSchema.extract(${fieldsName}, "select").pipe(
+export const ${generatedName} = DatabaseSchema.extract(${fieldsName}, "select").pipe(
   Schema.encodeKeys(${mapping}),
 );
-export type ${pascalName} = typeof ${pascalName}.Type;
+export type ${generatedName} = typeof ${generatedName}.Type;
 
-export const ${pascalName}Insert = DatabaseSchema.extract(${fieldsName}, "insert").pipe(
+export const ${generatedName}Insert = DatabaseSchema.extract(${fieldsName}, "insert").pipe(
   Schema.encodeKeys(${mapping}),
 );
-export type ${pascalName}Insert = typeof ${pascalName}Insert.Type;`;
+export type ${generatedName}Insert = typeof ${generatedName}Insert.Type;`;
 }
 function resolveBrandModel(modelName: string, dmmf: DMMF.Document) {
   const model = dmmf.datamodel.models.find((candidate) => candidate.name === modelName);
