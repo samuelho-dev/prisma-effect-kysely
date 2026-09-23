@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.0.5
+
+### Patch Changes
+
+- a89b09d: Restore generated ID and custom brands in native Kysely table select, insert, and update types while retaining physical database keys and driver-native scalar values.
+
 ## 8.0.4
 
 ### Patch Changes
