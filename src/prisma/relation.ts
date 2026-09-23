@@ -1,4 +1,5 @@
 import type { DMMF } from '@prisma/generator-helper';
+import { toPascalCase } from '../utils/naming.js';
 import { isUuidField } from './type.js';
 
 /**
@@ -9,6 +10,8 @@ export interface JoinTableInfo {
   tableName: string;
   /** Relation name without underscore (e.g., "CategoryToPost") */
   relationName: string;
+  /** Collision-safe exported TypeScript symbol stem. */
+  generatedName: string;
   /** First model name (alphabetically) */
   modelA: string;
   /** Second model name (alphabetically) */
@@ -202,7 +205,7 @@ export function detectImplicitManyToMany(models: readonly DMMF.Model[]) {
     }
   }
 
-  return Array.from(joinTables.values());
+  return assignGeneratedNames(models, Array.from(joinTables.values()));
 }
 
 function shouldProcessField(field: DMMF.Field, model: DMMF.Model, models: readonly DMMF.Model[]) {
@@ -239,6 +242,7 @@ function createJoinTableInfo(
   return {
     tableName: `_${relationName}`,
     relationName,
+    generatedName: toPascalCase(relationName),
     modelA: modelNames[0],
     modelB: modelNames[1],
     columnAType: modelAIdField.type,
@@ -246,6 +250,41 @@ function createJoinTableInfo(
     columnAIsUuid: isUuidField(modelAIdField),
     columnBIsUuid: isUuidField(modelBIdField),
   };
+}
+
+function assignGeneratedNames(
+  models: readonly DMMF.Model[],
+  joinTables: readonly JoinTableInfo[]
+): JoinTableInfo[] {
+  const usedNames = new Set(
+    models.flatMap((model) => {
+      const name = toPascalCase(model.name);
+      return [name, `${name}Fields`, `${name}Insert`, `${name}Update`, `${name}Table`, `${name}Id`];
+    })
+  );
+
+  return joinTables.map((joinTable) => {
+    let generatedName = toPascalCase(joinTable.relationName);
+    while (
+      [
+        generatedName,
+        `${generatedName}Fields`,
+        `${generatedName}Insert`,
+        `${generatedName}Table`,
+      ].some((name) => usedNames.has(name))
+    ) {
+      generatedName += 'Join';
+    }
+    for (const name of [
+      generatedName,
+      `${generatedName}Fields`,
+      `${generatedName}Insert`,
+      `${generatedName}Table`,
+    ]) {
+      usedNames.add(name);
+    }
+    return { ...joinTable, generatedName };
+  });
 }
 
 function isValidImplicitRelation(field: DMMF.Field, relatedModel: DMMF.Model) {

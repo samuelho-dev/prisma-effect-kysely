@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
@@ -159,5 +159,61 @@ db.updateTable("_ProductToProductTag").set(emptyUpdate).returningAll();
       }
       throw error;
     }
+  });
+
+  it('disambiguates implicit join exports from explicit model names', async () => {
+    const dmmf = await getDMMF({
+      datamodel: `
+        datasource db {
+          provider = "postgresql"
+        }
+
+        model Product {
+          id   String       @id @db.Uuid
+          tags ProductTag[] @relation("ProductTags")
+        }
+
+        model ProductTag {
+          id       String    @id @db.Uuid
+          products Product[] @relation("ProductTags")
+        }
+
+        model ProductTags {
+          id String @id @db.Uuid
+        }
+      `,
+    });
+    const options: GeneratorOptions = {
+      generator: { output: { value: outputDir } },
+      dmmf,
+    } as GeneratorOptions;
+
+    await rm(outputDir, { recursive: true, force: true });
+    await new GeneratorOrchestrator(options).generate(options);
+
+    const typesPath = join(outputDir, 'types.ts');
+    const generated = await readFile(typesPath, 'utf8');
+    expect(generated).toContain('export const ProductTags =');
+    expect(generated).toContain('export const ProductTagsJoin =');
+    expect(generated).toContain('"_ProductTags": ProductTagsJoinTable;');
+
+    const tsconfigPath = join(outputDir, 'tsconfig.json');
+    await writeFile(
+      tsconfigPath,
+      `${JSON.stringify(
+        {
+          extends: relative(outputDir, join(import.meta.dirname, '../../tsconfig.json')),
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+          },
+          include: ['types.ts'],
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    await runFile('./node_modules/.bin/tsc', ['--noEmit', '-p', tsconfigPath]);
   });
 });

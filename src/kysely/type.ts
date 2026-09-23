@@ -33,7 +33,7 @@ ${fields}
 }
 
 function generateJoinTableInterface(joinTable: JoinTableInfo) {
-  const name = toPascalCase(joinTable.relationName);
+  const name = joinTable.generatedName;
   const fields = (['A', 'B'] as const)
     .map(
       (columnName) => `  ${JSON.stringify(columnName)}: ColumnType<
@@ -79,8 +79,7 @@ export function generateDBInterface(
         `  ${JSON.stringify(getModelTableKey(model, tableNameCounts))}: ${toPascalCase(model.name)}Table;`
     ),
     ...joinTables.map(
-      (joinTable) =>
-        `  ${JSON.stringify(joinTable.tableName)}: ${toPascalCase(joinTable.relationName)}Table;`
+      (joinTable) => `  ${JSON.stringify(joinTable.tableName)}: ${joinTable.generatedName}Table;`
     ),
   ].join('\n');
 
