@@ -36,7 +36,6 @@ export function extractEffectTypeOverride(field: DMMF.Field) {
   }
 }
 
-
 function findClosingParenthesis(value: string, start: number): number {
   let depth = 1;
   let quote: "'" | '"' | '`' | '/' | null = null;
@@ -90,6 +89,7 @@ export function parseCustomTypeAnnotations(psl: string): Map<string, string> {
   let modelName: string | null = null;
   let enclosingNamespaceId: string | null = null;
   let modelNamespaceId: string | null = null;
+  let modelHasExplicitNamespace = false;
   let fields: Array<[name: string, customType: string]> = [];
   let docs: string[] = [];
   let namespaceDepth = 0;
@@ -137,6 +137,7 @@ export function parseCustomTypeAnnotations(psl: string): Map<string, string> {
     modelName = null;
     modelNamespaceId = null;
     fields = [];
+    modelHasExplicitNamespace = false;
     docs = [];
   };
 
@@ -157,7 +158,8 @@ export function parseCustomTypeAnnotations(psl: string): Map<string, string> {
           : null;
       if (model?.[1]) {
         modelName = model[1];
-        modelNamespaceId = enclosingNamespaceId;
+        modelNamespaceId = enclosingNamespaceId ?? 'public';
+        modelHasExplicitNamespace = false;
         continue;
       }
 
@@ -187,11 +189,12 @@ export function parseCustomTypeAnnotations(psl: string): Map<string, string> {
       if (!namespace?.[1]) {
         throw new Error(`Invalid @@namespace annotation for model ${modelName}`);
       }
-      if (modelNamespaceId !== null) {
+      if (enclosingNamespaceId !== null || modelHasExplicitNamespace) {
         throw new Error(`Duplicate @@namespace annotation for model ${modelName}`);
       }
       try {
         modelNamespaceId = JSON.parse(namespace[1]) as string;
+        modelHasExplicitNamespace = true;
       } catch (error) {
         throw new Error(`Invalid @@namespace annotation for model ${modelName}`, { cause: error });
       }

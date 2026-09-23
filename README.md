@@ -26,11 +26,14 @@ The schema path preserves `/// @customType(...)` expressions because Prisma 8 do
 
 The output directory contains `enums.ts`, `types.ts`, and `index.ts`.
 
-Pass `--multi-domain` to split generated output into one directory per Prisma namespace. It does not scaffold libraries or projects.
+Pass `--multi-domain` to write those three files for each Prisma namespace at
+`<output>/<namespace>/src/generated`. Every domain writes `enums.ts`, and each
+`types.ts` declares every ID brand it references. It does not scaffold libraries
+or projects.
 
 ## Generated output
 
-Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Kysely receives a separate native table interface with physical database keys and decoded semantic leaf types.
+Each model has select, insert, and update codecs backed by one private `VariantSchema` field definition. Codec `Type` values use Prisma's semantic field names with driver-native leaves; codec `Encoded` values use physical database keys with those same leaves. Kysely receives a separate native table interface using the encoded values.
 
 ```typescript
 import { Schema } from 'effect';
@@ -55,11 +58,6 @@ const UserFields = DatabaseSchema.Struct({
     insert: Schema.String,
     update: Schema.optionalKey(Schema.String),
   }),
-  createdAt: DatabaseSchema.Field({
-    select: Schema.Date,
-    insert: Schema.optionalKey(Schema.Date),
-    update: Schema.optionalKey(Schema.Date),
-  }),
 });
 
 export const User = DatabaseSchema.extract(UserFields, 'select');
@@ -70,16 +68,11 @@ export const UserUpdate = DatabaseSchema.extract(UserFields, 'update');
 export type UserUpdate = typeof UserUpdate.Type;
 
 export interface UserTable {
-  id: ColumnType<typeof User.Type['id'], typeof UserInsert.Type['id'], never>;
+  id: ColumnType<(typeof User.Encoded)['id'], (typeof UserInsert.Encoded)['id'], never>;
   email: ColumnType<
-    typeof User.Type['email'],
-    typeof UserInsert.Type['email'],
-    Exclude<typeof UserUpdate.Type['email'], undefined>
-  >;
-  createdAt: ColumnType<
-    typeof User.Type['createdAt'],
-    typeof UserInsert.Type['createdAt'],
-    Exclude<typeof UserUpdate.Type['createdAt'], undefined>
+    (typeof User.Encoded)['email'],
+    (typeof UserInsert.Encoded)['email'],
+    Exclude<(typeof UserUpdate.Encoded)['email'], undefined>
   >;
 }
 
@@ -88,7 +81,11 @@ export interface DB {
 }
 ```
 
-For `@map`, decoded codec values keep Prisma's semantic field name while encoded values and Kysely interfaces use the physical column name. `@@map` likewise controls the `DB` table key.
+For `@map`, codec `Type` values keep Prisma's semantic field name while codec `Encoded` values and Kysely interfaces use the physical column name. `@@map` likewise controls the `DB` table key.
+
+If multiple namespaces use the same physical table name, single-output mode
+qualifies only those colliding `DB` keys as `<namespace>.<table>`. Multi-domain
+output keeps bare table names because each namespace has its own `DB`.
 
 ## Consumer usage
 
@@ -107,7 +104,14 @@ const insert: NewUserRow = { email: 'user@example.com' };
 const update: UserPatch = { email: 'next@example.com' };
 ```
 
-Kysely rows retain physical database keys but use decoded semantic leaf values, including branded IDs and `bigint`. The database driver handles wire serialization; generated codecs are available for validation and semantic/physical key conversion, not required around every query.
+Kysely rows retain physical database keys and driver-native leaves. PostgreSQL
+`BigInt` is a string in Kysely and in generated codec `Type`/`Encoded` values.
+The generated codecs can validate values and map `@map` keys, but they do not
+coerce scalar values before or after a query.
+
+```typescript
+await db.insertInto('User').values(insert).execute();
+```
 
 ## Field and default ownership
 
@@ -121,21 +125,27 @@ Kysely rows retain physical database keys but use decoded semantic leaf values, 
 
 ## Type mappings
 
-| Prisma      | Effect 4 database codec                | Encoded database value |
-| ----------- | -------------------------------------- | ---------------------- |
-| String      | `Schema.String`                        | `string`               |
-| UUID string | `Schema.String.check(Schema.isUUID())` | `string`               |
-| Int         | `Schema.Int`                           | `number`               |
-| Float       | `Schema.Number`                        | `number`               |
-| BigInt      | `Schema.BigIntFromString`              | `string`               |
-| Decimal     | `Schema.String`                        | `string`               |
-| Boolean     | `Schema.Boolean`                       | `boolean`              |
-| DateTime    | `Schema.Date`                          | native `Date`          |
-| Json        | `Schema.Json`                          | JSON value             |
-| Bytes       | `Schema.Uint8Array`                    | `Uint8Array`           |
-| Enum        | native enum + `Schema.Enum`            | mapped enum value      |
+| Prisma / PostgreSQL codec | Generated codec and Kysely leaf                   |
+| ------------------------- | ------------------------------------------------- |
+| String                    | `Schema.String` / `string`                        |
+| UUID string               | `Schema.String.check(Schema.isUUID())` / `string` |
+| Int                       | `Schema.Int` / `number`                           |
+| Float                     | `Schema.Number` / `number`                        |
+| BigInt                    | `Schema.String` / `string`                        |
+| Decimal                   | `Schema.String` / `string`                        |
+| PostgreSQL date           | `Schema.String` / `string`                        |
+| PostgreSQL time           | `Schema.String` / `string`                        |
+| PostgreSQL timestamp      | native `Date`                                     |
+| PostgreSQL timestamptz    | native `Date`                                     |
+| PostgreSQL interval       | `{ months, days, micros }`                        |
+| Json                      | `Schema.Json` / JSON value                        |
+| Bytes                     | `Schema.Uint8Array` / `Uint8Array`                |
+| Enum                      | `Schema.Literals([...])` / stored enum literal    |
 
-Arrays use readonly `Schema.Array(type)`. Nullable values use `Schema.NullOr(type)`. Date codecs reject ISO strings at this database boundary.
+Incoming Prisma `*-temporal` contract identifiers map directly to PostgreSQL
+driver-native values: date/time are strings, timestamp/timestamptz are `Date`,
+and interval is `{ months, days, micros }`. Generated codecs do not perform
+value coercion.
 
 ## UUID detection
 
@@ -160,39 +170,12 @@ model User {
 
 For example, `String? @customType(Schema.String.pipe(Schema.brand('EmailAddress')))` emits `Schema.NullOr(Schema.String.pipe(Schema.brand('EmailAddress')))`, while `Int[] @customType(Schema.Number.pipe(Schema.brand('Coordinate')))` emits `Schema.Array(Schema.Number.pipe(Schema.brand('Coordinate')))`. Do not put `Schema.NullOr` or `Schema.Array` in the annotation.
 
-## Implicit many-to-many tables
+## Join models
 
-Prisma's physical `A`/`B` columns decode to semantic snake-case keys. Join tables expose select and insert codecs only; both insert fields are required and branded.
-
-```typescript
-const ProductTagsFields = DatabaseSchema.Struct({
-  product_id: DatabaseSchema.Field({ select: ProductId, insert: ProductId }),
-  product_tag_id: DatabaseSchema.Field({ select: ProductTagId, insert: ProductTagId }),
-});
-
-export const ProductTags = DatabaseSchema.extract(ProductTagsFields, 'select').pipe(
-  Schema.encodeKeys({ product_id: 'A', product_tag_id: 'B' })
-);
-export type ProductTags = typeof ProductTags.Type;
-
-export const ProductTagsInsert = DatabaseSchema.extract(ProductTagsFields, 'insert').pipe(
-  Schema.encodeKeys({ product_id: 'A', product_tag_id: 'B' })
-);
-export type ProductTagsInsert = typeof ProductTagsInsert.Type;
-
-export interface ProductTagsTable {
-  A: ColumnType<
-    typeof ProductTags.Type['product_id'],
-    typeof ProductTagsInsert.Type['product_id'],
-    never
-  >;
-  B: ColumnType<
-    typeof ProductTags.Type['product_tag_id'],
-    typeof ProductTagsInsert.Type['product_tag_id'],
-    never
-  >;
-}
-```
+Prisma 8 contract models are emitted as ordinary models, including explicit join
+models whose physical table names begin with `_`. They receive the standard
+select, insert, update, table-interface, and `DB` entries; table names alone
+never cause model removal or relation synthesis.
 
 ## Package exports
 

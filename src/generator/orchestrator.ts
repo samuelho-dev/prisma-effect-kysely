@@ -78,12 +78,10 @@ export class GeneratorOrchestrator {
 
     await domainFileManager.ensureDirectory();
 
-    // Generate enums (shared across all domains for now)
+    // Every generated barrel exports enums.ts, including enum-free domains.
     const enums = this.prismaGen.getEnums();
-    if (enums.length > 0) {
-      const enumsContent = this.effectGen.generateEnums(enums);
-      await domainFileManager.writeFile('enums.ts', enumsContent);
-    }
+    const enumsContent = this.effectGen.generateEnums(enums);
+    await domainFileManager.writeFile('enums.ts', enumsContent);
 
     // Generate types for this domain's models only
     const joinTables = this.prismaGen.getManyToManyJoinTables();
@@ -94,11 +92,11 @@ export class GeneratorOrchestrator {
       domain.models.some((m) => m.name === jt.modelA || m.name === jt.modelB)
     );
 
-    // Generate header with imports
     const header = this.effectGen.generateTypesHeader(hasEnums);
 
-    // Generate branded ID schemas before codecs that reference them.
-    const allBrandedIdSchemas = domain.models
+    // Cross-domain foreign keys reference brands owned by other domains.
+    const allBrandedIdSchemas = this.prismaGen
+      .getModels()
       .map((model) => {
         const fields = this.prismaGen.getModelFields(model);
         return this.effectGen.generateBrandedIdSchema(model, fields);

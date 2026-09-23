@@ -6,8 +6,8 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 ### Prerequisites
 
-- **Node.js**: >= 20.0.0
-- **Bun**: >= 1.0.0 (Bun is the only package manager for this repo)
+- **Node.js**: >= 22.18.0
+- **Bun**: >= 1.3.13 (Bun is the only package manager for this repo)
 
 ### Setup (< 5 minutes)
 

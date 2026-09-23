@@ -37,8 +37,8 @@ Schema.suspend(() => JsonValue); // recursive schemas
 ```
 
 Generated Prisma enums should use `Schema.Literals([...])`, not `Schema.Enum`.
-That keeps `Type` and `Encoded` as the same string literal union, which is the
-shape Kysely expects for enum columns.
+That keeps `Type` and `Encoded` as the same stored string or integer literal
+union, which is the shape Kysely expects for enum columns.
 
 ## Filters: `.check(Schema.is*)`
 
@@ -52,11 +52,13 @@ Schema.Number.check(Schema.isBetween({ minimum: 1, maximum: 5 })); // OBJECT arg
 Schema.String.check(Schema.isUUID()); // was Schema.UUID
 ```
 
-## Scalars (this generator's mappings)
+## Scalar notes
 
-`String`, `Number`, `Boolean`, `BigInt` (native bigint, no string coercion),
-`Date` (native Date both sides — was `DateFromSelf`; `DateFromString` if you want
-the string codec), `Uint8Array`. UUID = `Schema.String.check(Schema.isUUID())`.
+`String`, `Number`, `Boolean`, `Uint8Array`; UUID =
+`Schema.String.check(Schema.isUUID())`. Generated database code uses
+`Schema.String` for PostgreSQL `BigInt`, leaving it a `string`.
+`Schema.Date` uses native `Date` on both sides (`DateFromSelf` was removed; use
+`DateFromString` only when a string codec is wanted).
 
 ## Branding & key renaming
 
@@ -94,14 +96,30 @@ Schema.decodeUnknownOption(schema)(input); // returns Option
 - `Schema.propertySignature(...).pipe(Schema.fromKey(...))` → `Schema.encodeKeys`.
 - Per-field filters as pipeables (`Schema.int()`, `Schema.between()`) → `.check(Schema.is*)`.
 
-## This package's helpers (`src/kysely/helpers.ts`)
+## Generated database contract
 
-- `columnType(select, insert, update)` — different schemas per select/insert/update;
-  `Schema.Never` insert ⇒ read-only (omitted from Insertable). Carries Kysely's
-  `__select__/__insert__/__update__` phantom brand in the decoded `Type`.
-- `generated(schema)` — `@default`/`@updatedAt` columns; optional on insert.
-- `Selectable`/`Insertable`/`Updateable` — derive the variant struct from a model
-  schema by walking `Struct.fields` and reading the `columnType`/`generated`
-  markers (own-prop first, AST annotation via `SchemaAST.resolve` as fallback).
-- `JsonValue` — recursive JSON schema for Prisma `Json` (avoids the `NullOr(Unknown)`
-  depth-limit problem).
+Generated `types.ts` owns the operation schema and Kysely contract:
+
+```ts
+const DatabaseSchema = VariantSchema.make({
+  variants: ['select', 'insert', 'update'],
+  defaultVariant: 'select',
+});
+
+export interface UserTable {
+  created_at: ColumnType<
+    (typeof User.Encoded)['created_at'],
+    (typeof UserInsert.Encoded)['created_at'],
+    Exclude<(typeof UserUpdate.Encoded)['created_at'], undefined>
+  >;
+}
+```
+
+The codec `Type` is the semantic model shape with Prisma field names; its
+`Encoded` shape uses physical column names. Both expose PostgreSQL driver-native
+leaves. Kysely uses `Encoded`; generated codecs validate values and map keys but
+do not coerce scalar values.
+
+Prisma `*-temporal` contract identifiers are adapted to PostgreSQL driver-native
+leaves: date/time are strings, timestamp/timestamptz are `Date`, and interval
+is `{ months, days, micros }`.

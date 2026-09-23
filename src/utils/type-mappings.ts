@@ -6,19 +6,20 @@
  * Prisma scalar type mapping to Effect Schema types
  * Uses const assertion for type safety
  *
- * Database-boundary schemas preserve native dates, encode bigint as a string,
- * and use Effect's recursive JSON codec.
+ * Database-boundary schemas preserve native dates, bigint strings, and
+ * Effect's recursive JSON representation.
  */
 export const PRISMA_TO_EFFECT_SCHEMA = {
   String: 'Schema.String',
   Int: 'Schema.Int',
   Float: 'Schema.Number',
-  BigInt: 'Schema.BigIntFromString',
+  BigInt: 'Schema.String',
   Decimal: 'Schema.String',
   Boolean: 'Schema.Boolean',
   DateTime: 'Schema.Date',
   Json: 'Schema.Json',
   Bytes: 'Schema.Uint8Array',
+  Interval: 'Schema.Struct({ months: Schema.Int, days: Schema.Int, micros: Schema.BigInt })',
 } as const;
 
 /**

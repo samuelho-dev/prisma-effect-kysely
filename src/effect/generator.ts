@@ -4,7 +4,7 @@ import {
   getModelIdBrandModel,
   type JoinTableInfo,
 } from '../prisma/relation.js';
-import { getFieldOperationConfig, getFieldDbName, isUuidField } from '../prisma/type.js';
+import { getFieldOperationConfig, getFieldDbName } from '../prisma/type.js';
 import { generateFileHeader } from '../utils/codegen.js';
 import { toPascalCase } from '../utils/naming.js';
 import { generateEnumsFile } from './enum.js';
@@ -36,21 +36,10 @@ export class EffectGenerator {
     }
 
     const name = toPascalCase(model.name);
-    const baseType = this.getIdBaseType(idField);
+    const baseType = buildFieldType(idField, this.dmmf);
 
     return `export const ${name}Id = ${baseType}.pipe(Schema.brand("${name}Id"));
 export type ${name}Id = typeof ${name}Id.Type;`;
-  }
-
-  /**
-   * UUID strings are validated, integers use Schema.Int, bigints decode from
-   * database strings, and all other IDs remain strings.
-   */
-  private getIdBaseType(field: DMMF.Field) {
-    if (isUuidField(field)) return 'Schema.String.check(Schema.isUUID())';
-    if (field.type === 'Int') return 'Schema.Int';
-    if (field.type === 'BigInt') return 'Schema.BigIntFromString';
-    return 'Schema.String';
   }
 
   /**

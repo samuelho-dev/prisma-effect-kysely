@@ -40,13 +40,11 @@ Generators:
 
 - `src/contract/adapter.ts` — Prisma 8 PostgreSQL contract → explicit DMMF subset
 - `src/effect/generator.ts` — branded IDs and select/insert/update codecs
-- `src/effect/enum.ts` — native TypeScript enums wrapped by `Schema.Enum`
-- `src/effect/join-table.ts` — implicit M:N select/insert codecs
+- `src/effect/enum.ts` — stored-value `Schema.Literals` enum codecs
 - `src/kysely/type.ts` — named native `ColumnType` table interfaces and `DB`
 - `src/kysely/generator.ts` — output assembly facade
 
-Support: `src/utils/file-manager.ts` handles transactional generated-file
-installation, `src/utils/templates.ts` formats generated TypeScript, and
+Support: `src/utils/templates.ts` formats generated TypeScript, and
 `src/prisma/` owns DMMF parsing, field ownership, relation detection, and
 deterministic sorting. The contract adapter rejects unsupported targets/codecs
 instead of widening them.
@@ -62,11 +60,15 @@ instead of widening them.
 
 Three files per output directory:
 
-- `enums.ts` — mapped native enum values plus `Schema.Enum` codecs
-- `types.ts` — branded IDs, operation codecs, join codecs, named table interfaces, and `DB`
+- `enums.ts` — stored-value enum unions generated with `Schema.Literals`
+- `types.ts` — branded IDs, operation codecs, named table interfaces, and `DB`
 - `index.ts` — re-exports
 
-Generation order is fixed: imports/toolkit, branded IDs, model codecs, join codecs, table interfaces, then `DB`.
+In multi-domain mode, every namespace writes all three files beneath
+`<output>/<namespace>/src/generated`, including `enums.ts`. Each domain's
+`types.ts` declares every ID brand referenced by its emitted fields.
+
+Generation order is fixed: imports/toolkit, branded IDs, model codecs, table interfaces, then `DB`.
 
 For each model, a private `<Model>Fields = DatabaseSchema.Struct(...)` is extracted into:
 
@@ -74,9 +76,13 @@ For each model, a private `<Model>Fields = DatabaseSchema.Struct(...)` is extrac
 - `<Model>Insert` — insert codec
 - `<Model>Update` — update codec
 
-Each export has a decoded alias using `typeof <Codec>.Type`. Do not export field containers, attach variants as properties, or introduce `Model.Class`.
+Each export has a `typeof <Codec>.Type` alias. Do not export field containers,
+attach variants as properties, or introduce `Model.Class`.
 
-`Schema.encodeKeys` is applied after extraction. Decoded codec values use Prisma semantic field names; encoded values use physical `@map` column names. Update mappings exclude omitted primary-key fields.
+`Schema.encodeKeys` is applied after extraction. Codec `Type` values use Prisma
+semantic field names with driver-native leaves; codec `Encoded` values use
+physical `@map` column names with those same leaves. Update mappings exclude
+omitted primary-key fields.
 
 ## Native Kysely contract
 
@@ -84,15 +90,21 @@ Each model emits `<Model>Table` with physical column keys and native:
 
 ```typescript
 ColumnType<
-  typeof Model.Type['semanticField'],
-  typeof ModelInsert.Type['semanticField'],
-  Exclude<typeof ModelUpdate.Type['semanticField'], undefined>
+  (typeof Model.Encoded)['physical_column'],
+  (typeof ModelInsert.Encoded)['physical_column'],
+  Exclude<(typeof ModelUpdate.Encoded)['physical_column'], undefined>
 >;
 ```
 
 Primary-key updates are `never` and never index the update codec. `DB` uses physical `@@map` table names and points to named table interfaces.
 
-Kysely interfaces retain physical table and column keys while their leaf values use decoded semantic types. Database drivers serialize native inputs such as `bigint`; generated codecs remain available for validation and semantic/physical key conversion, not routine query wrapping.
+Single-output generation schema-qualifies only duplicate physical table keys as
+`<namespace>.<table>`; unique and multi-domain table keys remain bare.
+
+Kysely interfaces retain physical table and column keys with driver-native
+leaves. PostgreSQL `BigInt` is `string` in Kysely and in generated codec
+`Type`/`Encoded` values. Generated codecs validate values and map keys but do
+not coerce scalar values before or after a query.
 
 ## Field ownership
 
@@ -108,25 +120,38 @@ Never duplicate these conditions inside an emitter.
 
 ## Type mappings
 
-| Prisma      | Effect 4                               |
-| ----------- | -------------------------------------- |
-| String      | `Schema.String`                        |
-| UUID string | `Schema.String.check(Schema.isUUID())` |
-| Int         | `Schema.Int`                           |
-| Float       | `Schema.Number`                        |
-| BigInt      | `Schema.BigIntFromString`              |
-| Decimal     | `Schema.String`                        |
-| Boolean     | `Schema.Boolean`                       |
-| DateTime    | `Schema.Date`                          |
-| Json        | `Schema.Json`                          |
-| Bytes       | `Schema.Uint8Array`                    |
-| Enum        | imported `Schema.Enum` codec           |
+| Prisma / PostgreSQL codec | Generated codec and Kysely leaf                   |
+| ------------------------- | ------------------------------------------------- |
+| String                    | `Schema.String` / `string`                        |
+| UUID string               | `Schema.String.check(Schema.isUUID())` / `string` |
+| Int                       | `Schema.Int` / `number`                           |
+| Float                     | `Schema.Number` / `number`                        |
+| BigInt                    | `Schema.String` / `string`                        |
+| Decimal                   | `Schema.String` / `string`                        |
+| Boolean                   | `Schema.Boolean` / `boolean`                      |
+| PostgreSQL date           | `Schema.String` / `string`                        |
+| PostgreSQL time           | `Schema.String` / `string`                        |
+| PostgreSQL timestamp      | native `Date`                                     |
+| PostgreSQL timestamptz    | native `Date`                                     |
+| PostgreSQL interval       | `{ months, days, micros }`                        |
+| Json                      | `Schema.Json` / JSON value                        |
+| Bytes                     | `Schema.Uint8Array` / `Uint8Array`                |
+| Enum                      | `Schema.Literals([...])` / stored enum literal    |
 
-Arrays use readonly `Schema.Array`. Nullable values use `Schema.NullOr`. `@customType(...)` defines only the scalar refinement; the generator applies `isList` and `isRequired` cardinality around it.
+Incoming Prisma `*-temporal` contract identifiers map directly to PostgreSQL
+driver-native values: date/time are strings, timestamp/timestamptz are `Date`,
+and interval is `{ months, days, micros }`. Generated codecs do not coerce
+values.
 
-## Implicit M:N join tables
+Arrays use readonly `Schema.Array`. Nullable values use `Schema.NullOr`.
+`@customType(...)` defines only the scalar refinement; the generator applies
+`isList` and `isRequired` cardinality around it.
 
-Join tables emit only `<Relation>` and `<Relation>Insert` codecs. Semantic `<model>_id` fields map through `Schema.encodeKeys` to physical `A`/`B`. Both inserts are required and branded. `<Relation>Table` exposes only `A` and `B`, both with update type `never`.
+## Join models
+
+Prisma 8 contract models remain ordinary models, including explicit join models
+whose physical table names begin with `_`. A table name never removes a model or
+creates synthetic relations.
 
 ## UUID detection
 

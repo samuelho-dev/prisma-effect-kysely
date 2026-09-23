@@ -28,6 +28,7 @@ describe('DB interface SQL contract', () => {
     model Account {
       id          String    @id @db.Uuid
       displayName String    @map("display_name")
+      sequence    BigInt    @map("sequence_value")
       projects    Project[]
 
       @@map("account_records")
@@ -48,6 +49,14 @@ describe('DB interface SQL contract', () => {
 
       @@map("label_records")
     }
+
+    model PublicUser {
+      id String @id @db.Uuid
+    }
+
+    model AuditUser {
+      id String @id @db.Uuid
+    }
   `;
   const outputDir = path.join(import.meta.dirname, 'test-db-interface-sql-contract');
   const consumerPath = path.join(outputDir, 'sql-contract.ts');
@@ -57,6 +66,14 @@ describe('DB interface SQL contract', () => {
     await fs.rm(outputDir, { recursive: true, force: true });
 
     const dmmf = await getDMMF({ datamodel: testSchema });
+    for (const [name, schema] of [
+      ['PublicUser', 'public'],
+      ['AuditUser', 'audit'],
+    ] as const) {
+      const model = dmmf.datamodel.models.find((candidate) => candidate.name === name);
+      if (!model) throw new Error(`Expected ${name} model`);
+      Object.assign(model, { dbName: 'user', schema });
+    }
     const options: GeneratorOptions = {
       generator: { output: { value: outputDir } },
       dmmf,
@@ -73,12 +90,29 @@ describe('DB interface SQL contract', () => {
   PostgresIntrospector,
   PostgresQueryCompiler,
 } from "kysely";
-import type { AccountTable, DB, ProjectLabelsTable } from "./types.ts";
+import type { ColumnType } from "kysely";
+import type {
+  AccountTable,
+  AuditUserTable,
+  DB,
+  ProjectLabelsTable,
+  PublicUserTable,
+} from "./types.ts";
 
 type Assert<T extends true> = T;
 type AccountTableIsMapped = Assert<DB["account_records"] extends AccountTable ? true : false>;
 type ProjectLabelsTableIsMapped = Assert<
   DB["_ProjectLabels"] extends ProjectLabelsTable ? true : false
+>;
+type PublicUserTableIsSchemaMapped = Assert<
+  DB["public.user"] extends PublicUserTable ? true : false
+>;
+type AuditUserTableIsSchemaMapped = Assert<
+  DB["audit.user"] extends AuditUserTable ? true : false
+>;
+type CollidingTablesAreQualified = Assert<"user" extends keyof DB ? false : true>;
+type AccountSequenceUsesPgEncoding = Assert<
+  DB["account_records"]["sequence_value"] extends ColumnType<string, string, string> ? true : false
 >;
 
 const db = new Kysely<DB>({
@@ -93,9 +127,19 @@ const db = new Kysely<DB>({
 export const sql = {
   account: db
     .selectFrom("account_records")
-    .select(["id", "display_name"])
+    .select(["id", "display_name", "sequence_value"])
     .whereRef("display_name", "=", "display_name")
     .compile().sql,
+  accountInsert: db
+    .insertInto("account_records")
+    .values({
+      id: "88064e82-8bee-4776-8e7f-1e993a2d3b5f",
+      display_name: "Alicia",
+      sequence_value: "1",
+    })
+    .compile().sql,
+  publicUser: db.selectFrom("public.user").select("id").compile().sql,
+  auditUser: db.selectFrom("audit.user").select("id").compile().sql,
   projectLabels: db
     .selectFrom("_ProjectLabels")
     .innerJoin("project_records", "project_records.id", "_ProjectLabels.B")
@@ -125,7 +169,7 @@ console.log(JSON.stringify(sql));
     await fs.rm(outputDir, { recursive: true, force: true });
   });
 
-  it('compiles mapped native tables and queries their physical columns', async () => {
+  it('compiles mapped native tables with encoded BigInt rows and inserts', async () => {
     try {
       await execFileAsync('./node_modules/.bin/tsc', ['--noEmit', '-p', tsconfigPath], {
         cwd: process.cwd(),
@@ -140,11 +184,23 @@ console.log(JSON.stringify(sql));
     }
 
     const { stdout } = await execFileAsync('bun', [consumerPath], { cwd: process.cwd() });
-    const sql: { account: string; projectLabels: string } = JSON.parse(stdout);
+    const sql: {
+      account: string;
+      accountInsert: string;
+      publicUser: string;
+      auditUser: string;
+      projectLabels: string;
+    } = JSON.parse(stdout);
 
     expect(sql.account).toContain('"account_records"');
     expect(sql.account).toContain('"display_name"');
     expect(sql.account).not.toMatch(/\bdisplayName\b/);
+
+    expect(sql.account).toContain('"sequence_value"');
+    expect(sql.accountInsert).toContain('"sequence_value"');
+
+    expect(sql.publicUser).toContain('"public"."user"');
+    expect(sql.auditUser).toContain('"audit"."user"');
 
     expect(sql.projectLabels).toContain('"_ProjectLabels"');
     expect(sql.projectLabels).toContain('"A"');

@@ -118,9 +118,10 @@ describe('generated consumer contract', () => {
   Effect4ContractInsert,
   Effect4ContractUpdate,
   Role,
+  Status,
   type CompositeIdModelUpdate,
   type DB,
-  type UserId,
+  type Effect4ContractId,
 } from "./index.ts";
 import type { Insertable, Kysely, Selectable, Updateable } from "kysely";
 
@@ -128,6 +129,9 @@ const selectCodec = Effect4Contract;
 const insertCodec = Effect4ContractInsert;
 const updateCodec = Effect4ContractUpdate;
 const roleCodec = Role;
+const rawStatus: Status = "active";
+const storedStatus: "active" | "inactive" | "pending" = rawStatus;
+void storedStatus;
 void selectCodec;
 void insertCodec;
 void updateCodec;
@@ -136,29 +140,32 @@ void roleCodec;
 declare const db: Kysely<DB>;
 declare const selected: Selectable<DB["effect4_contract"]>;
 declare const decoded: Effect4Contract;
-const selectedId: Effect4Contract["id"] = selected.id;
-const selectedAmount: bigint = selected.amount;
+const selectedId: string = selected.id;
+const selectedAmount: string = selected.amount;
+const decodedId: Effect4ContractId = decoded.id;
+const decodedAmount: string = decoded.amount;
 void selectedId;
 void selectedAmount;
+void decodedId;
+void decodedAmount;
 declare const sharedProfile: Selectable<DB["SharedProfile"]>;
-const sharedProfileUserId: UserId = sharedProfile.user_id;
+const sharedProfileUserId: string = sharedProfile.user_id;
 void sharedProfileUserId;
 declare const sharedProfileAudit: Selectable<DB["SharedProfileAudit"]>;
-const auditUserId: UserId = sharedProfileAudit.user_id;
+const auditUserId: string = sharedProfileAudit.user_id;
 void auditUserId;
-void decoded;
 
 const databaseInsert: Insertable<DB["effect4_contract"]> = {
   prisma_id: "prisma-default-required",
   db_name: "required name",
   count: 7,
-  amount: 42n,
+  amount: "42",
   metadata: { nested: ["json", true, null] },
   updated_at: new Date("2025-01-02T03:04:05.000Z"),
 };
 const databaseUpdate: Updateable<DB["effect4_contract"]> = {
   db_name: "renamed",
-  amount: 1n,
+  amount: "1",
 };
 
 const insertQuery = db.insertInto("effect4_contract").values(databaseInsert).returningAll();
@@ -172,7 +179,7 @@ void selectQuery;
 const missingPrismaId: Effect4ContractInsert = {
   name: "required name",
   count: 7,
-  amount: 42n,
+  amount: "42",
   metadata: {},
   updatedAt: new Date("2025-01-02T03:04:05.000Z"),
 };
@@ -182,7 +189,7 @@ const missingUpdatedAt: Effect4ContractInsert = {
   prismaId: "prisma-default-required",
   name: "required name",
   count: 7,
-  amount: 42n,
+  amount: "42",
   metadata: {},
 };
 
@@ -223,7 +230,7 @@ void explicitUndefined;
       smokePath,
       `import { deepStrictEqual, equal, throws } from "node:assert/strict";
 import { Schema } from "effect";
-import { Effect4Contract, Effect4ContractInsert, Effect4ContractUpdate } from "./index.ts";
+import { Effect4Contract, Effect4ContractInsert, Effect4ContractUpdate, Status } from "./index.ts";
 
 const id = "123e4567-e89b-12d3-a456-426614174000";
 const createdAt = new Date("2025-01-02T03:04:05.000Z");
@@ -248,7 +255,7 @@ deepStrictEqual(decoded, {
   name: "required name",
   nickname: null,
   count: 7,
-  amount: 42n,
+  amount: "42",
   metadata,
   createdAt,
   updatedAt,
@@ -260,7 +267,7 @@ const encoded = Schema.encodeSync(Effect4ContractInsert)({
   prismaId: "prisma-default-required",
   name: "required name",
   count: 7,
-  amount: 42n,
+  amount: "42",
   metadata,
   updatedAt,
 });
@@ -273,6 +280,9 @@ deepStrictEqual(encoded, {
   updated_at: updatedAt,
 });
 equal(encoded.updated_at, updatedAt);
+equal(Schema.decodeUnknownSync(Status)("active"), "active");
+throws(() => Schema.decodeUnknownSync(Status)("ACTIVE"));
+
 
 throws(() =>
   Schema.decodeUnknownSync(Effect4Contract)({ ...physical, id: "not-a-uuid" })

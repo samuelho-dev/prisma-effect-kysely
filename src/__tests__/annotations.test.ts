@@ -50,7 +50,7 @@ describe('parseCustomTypeAnnotations', () => {
       }
     `;
 
-    expect(parseCustomTypeAnnotations(source).get('Nested.value')).toBe(expression);
+    expect(parseCustomTypeAnnotations(source).get('public.Nested.value')).toBe(expression);
   });
 
   it('tracks namespaces and ignores annotation syntax inside literals', () => {
@@ -82,9 +82,9 @@ describe('parseCustomTypeAnnotations', () => {
 
     expect(Object.fromEntries(parseCustomTypeAnnotations(source))).toEqual({
       'audit.AuditEntry.value': 'Schema.Literal(")")',
-      'PublicEntry.literal': 'Schema.Literal("@customType")',
-      'PublicEntry.pattern': 'Schema.declare((input) => /[(]/.test(String(input)))',
-      'PublicEntry.spaced': 'Schema.String',
+      'public.PublicEntry.literal': 'Schema.Literal("@customType")',
+      'public.PublicEntry.pattern': 'Schema.declare((input) => /[(]/.test(String(input)))',
+      'public.PublicEntry.spaced': 'Schema.String',
     });
   });
 

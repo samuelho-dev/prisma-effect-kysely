@@ -1,374 +1,110 @@
-import type { DMMF } from '@prisma/generator-helper';
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { generateEnumSchema, generateEnumsFile } from '../effect/enum';
+import { EffectGenerator } from '../effect/generator';
 import { buildFieldType } from '../effect/type';
-import { createMockDMMF, createMockEnum, createMockField } from './helpers/dmmf-mocks';
+import type { PrismaEnumDefinition } from '../prisma/enum';
+import { createMockDMMF, createMockField, createMockModel } from './helpers/dmmf-mocks';
 
-/**
- * Enum Generation - Functional Behavior Tests
- *
- * Tests verify BEHAVIOR not IMPLEMENTATION:
- * - Can generated enums validate values correctly?
- * - Do enum fields map to correct Schema types?
- * - Does generated code execute without errors?
- * - Do enums integrate with Effect Schema properly?
- *
- * NO string matching on implementation details.
- * NO type coercions (as any, as unknown).
- */
-describe('Enum Generation - Functional Tests', () => {
-  describe('Enum Schema Runtime Behavior', () => {
-    // Use actual enum for behavioral tests
-    enum ProductStatus {
-      ARCHIVED = 'ARCHIVED',
-      DRAFT = 'DRAFT',
-      ACTIVE = 'ACTIVE',
-    }
+describe('enum generation', () => {
+  it('validates and encodes raw stored literals', () => {
+    const status = Schema.Literals(['active', 'inactive'] as const);
 
-    const ProductStatusSchema = Schema.Enum(ProductStatus);
-
-    it('should allow property access on generated enum', () => {
-      expect(ProductStatus.ACTIVE).toBe('ACTIVE');
-      expect(ProductStatus.DRAFT).toBe('DRAFT');
-      expect(ProductStatus.ARCHIVED).toBe('ARCHIVED');
-    });
-
-    it('should validate valid enum values', () => {
-      const decodeSync = Schema.decodeUnknownSync(ProductStatusSchema);
-
-      // Test string values
-      expect(decodeSync('ACTIVE')).toBe('ACTIVE');
-      expect(decodeSync('DRAFT')).toBe('DRAFT');
-      expect(decodeSync('ARCHIVED')).toBe('ARCHIVED');
-
-      // Test enum member values
-      expect(decodeSync(ProductStatus.ACTIVE)).toBe('ACTIVE');
-      expect(decodeSync(ProductStatus.DRAFT)).toBe('DRAFT');
-    });
-
-    it('should reject invalid enum values', () => {
-      const decodeSync = Schema.decodeUnknownSync(ProductStatusSchema);
-
-      expect(() => decodeSync('INVALID')).toThrow();
-      expect(() => decodeSync('invalid')).toThrow();
-      expect(() => decodeSync(123)).toThrow();
-      expect(() => decodeSync(null)).toThrow();
-    });
-
-    it('should encode enum values correctly', () => {
-      const encodeSync = Schema.encodeSync(ProductStatusSchema);
-
-      expect(encodeSync(ProductStatus.ACTIVE)).toBe('ACTIVE');
-      expect(encodeSync(ProductStatus.DRAFT)).toBe('DRAFT');
-    });
-
-    it('should provide correct type inference', () => {
-      type ExtractedType = Schema.Schema.Type<typeof ProductStatusSchema>;
-
-      // Type inference should allow enum members
-      const status1: ExtractedType = ProductStatus.ACTIVE;
-      const status2: ExtractedType = ProductStatus.DRAFT;
-
-      expect(status1).toBe('ACTIVE');
-      expect(status2).toBe('DRAFT');
-    });
-
-    it('should be compatible with Kysely string literal types', () => {
-      // Simulate Kysely's expected type
-      type RoleDB = 'ADMIN' | 'USER';
-
-      enum Role {
-        ADMIN = 'ADMIN',
-        USER = 'USER',
-      }
-
-      // Enum values should be assignable to string literal union
-      const dbValue: RoleDB = Role.ADMIN;
-
-      expect(dbValue).toBe('ADMIN');
-    });
+    expect(Schema.decodeUnknownSync(status)('active')).toBe('active');
+    expect(Schema.encodeSync(status)('inactive')).toBe('inactive');
+    expect(() => Schema.decodeUnknownSync(status)('ACTIVE')).toThrow();
   });
 
-  describe('Enum Schema in Struct Integration', () => {
-    it('should work correctly in Schema.Struct', () => {
-      enum Status {
-        PENDING = 'PENDING',
-        COMPLETED = 'COMPLETED',
-      }
-
-      const StatusSchema = Schema.Enum(Status);
-
-      const TaskSchema = Schema.Struct({
-        id: Schema.Number,
-        name: Schema.String,
-        status: StatusSchema,
-      });
-
-      // Valid task with enum
-      const validTask = {
-        id: 1,
-        name: 'Test Task',
-        status: Status.PENDING,
-      };
-
-      const result = Schema.decodeUnknownSync(TaskSchema)(validTask);
-      expect(result).toEqual(validTask);
-      expect(result.status).toBe('PENDING');
-
-      // Invalid task with wrong status
-      const invalidTask = {
-        id: 1,
-        name: 'Test Task',
-        status: 'INVALID_STATUS',
-      };
-
-      expect(() => Schema.decodeUnknownSync(TaskSchema)(invalidTask)).toThrow();
-    });
-
-    it('should work with optional enum fields', () => {
-      enum Priority {
-        LOW = 'LOW',
-        HIGH = 'HIGH',
-      }
-
-      const PrioritySchema = Schema.Enum(Priority);
-
-      const TaskSchema = Schema.Struct({
-        name: Schema.String,
-        priority: Schema.NullOr(PrioritySchema),
-      });
-
-      // With priority
-      const withPriority = {
-        name: 'Task 1',
-        priority: Priority.HIGH,
-      };
-
-      const result1 = Schema.decodeUnknownSync(TaskSchema)(withPriority);
-      expect(result1.priority).toBe('HIGH');
-
-      // With null priority
-      const withNullPriority = {
-        name: 'Task 2',
-        priority: null,
-      };
-
-      const result2 = Schema.decodeUnknownSync(TaskSchema)(withNullPriority);
-      expect(result2.priority).toBeNull();
-    });
-
-    it('should work with array of enum values', () => {
-      enum Tag {
-        URGENT = 'URGENT',
-        REVIEW = 'REVIEW',
-        BUG = 'BUG',
-      }
-
-      const TagSchema = Schema.Enum(Tag);
-
-      const ItemSchema = Schema.Struct({
-        tags: Schema.Array(TagSchema),
-      });
-
-      const validItem = {
-        tags: [Tag.URGENT, Tag.BUG],
-      };
-
-      const result = Schema.decodeUnknownSync(ItemSchema)(validItem);
-      expect(result.tags).toEqual(['URGENT', 'BUG']);
-
-      // Invalid array element
-      const invalidItem = {
-        tags: [Tag.URGENT, 'INVALID'],
-      };
-
-      expect(() => Schema.decodeUnknownSync(ItemSchema)(invalidItem)).toThrow();
-    });
-  });
-
-  describe('Field Type Mapping Behavior', () => {
-    const mockDMMF = createMockDMMF({
-      enums: [createMockEnum('PRODUCT_STATUS', ['ACTIVE', 'DRAFT'])],
-      models: [],
-    });
-
-    it('should map enum field to Schema wrapper', () => {
-      const mockEnumField = createMockField({
-        name: 'status',
-        kind: 'enum',
-        type: 'PRODUCT_STATUS',
-        isList: false,
-        isRequired: true,
-        isUnique: false,
-        isId: false,
-        isReadOnly: false,
-        hasDefaultValue: false,
-        isGenerated: false,
-        isUpdatedAt: false,
-      });
-
-      const result = buildFieldType(mockEnumField, mockDMMF);
-
-      // Should return PascalCase (which IS the Schema now)
-      expect(result).toBe('ProductStatus');
-    });
-
-    it('should map array enum field to Array wrapper', () => {
-      const mockArrayEnumField = createMockField({
-        name: 'statuses',
-        kind: 'enum',
-        type: 'PRODUCT_STATUS',
-        isList: true,
-        isRequired: true,
-        isUnique: false,
-        isId: false,
-        isReadOnly: false,
-        hasDefaultValue: false,
-        isGenerated: false,
-        isUpdatedAt: false,
-      });
-
-      const result = buildFieldType(mockArrayEnumField, mockDMMF);
-
-      // Should wrap in Array
-      expect(result).toBe('Schema.Array(ProductStatus)');
-    });
-
-    it('should map optional enum field to NullOr wrapper', () => {
-      const mockOptionalEnumField = createMockField({
-        name: 'status',
-        kind: 'enum',
-        type: 'PRODUCT_STATUS',
-        isList: false,
-        isRequired: false,
-        isUnique: false,
-        isId: false,
-        isReadOnly: false,
-        hasDefaultValue: false,
-        isGenerated: false,
-        isUpdatedAt: false,
-      });
-
-      const result = buildFieldType(mockOptionalEnumField, mockDMMF);
-
-      // Should wrap in NullOr
-      expect(result).toBe('Schema.NullOr(ProductStatus)');
-    });
-  });
-
-  describe('Code Generation E2E', () => {
-    const mockEnum: DMMF.DatamodelEnum = {
-      name: 'USER_ROLE',
+  it('emits stored string and integer literals without TypeScript enum wrappers', () => {
+    const status = {
+      name: 'TaskStatus',
       values: [
-        { name: 'ADMIN', dbName: null },
-        { name: 'USER', dbName: null },
-        { name: 'GUEST', dbName: null },
+        { name: 'TODO', dbName: 'todo_db' },
+        { name: 'DONE', dbName: 'done_db' },
       ],
-      dbName: null,
-    };
+    } satisfies PrismaEnumDefinition;
+    const priority = {
+      name: 'Priority',
+      values: [
+        { name: 'LOW', dbName: 1 },
+        { name: 'HIGH', dbName: 2 },
+      ],
+    } satisfies PrismaEnumDefinition;
 
-    it('should generate executable enum code', () => {
-      const generatedCode = generateEnumSchema(mockEnum);
-
-      // Verify generated code contains expected structures (minimal checks)
-      expect(generatedCode).toContain('export enum USER_ROLE');
-      expect(generatedCode).toContain('Schema.Enum');
-      expect(generatedCode).toContain('export const UserRole = Schema.Enum(USER_ROLE)');
-      expect(generatedCode).toContain('export type UserRole = typeof UserRole.Type');
-    });
-
-    it('should generate valid TypeScript that can be executed', () => {
-      const generatedCode = generateEnumSchema(mockEnum);
-
-      // Verify it's valid TypeScript (would compile without errors)
-      expect(generatedCode).toMatch(/export enum USER_ROLE/);
-      expect(generatedCode).toMatch(/ADMIN = "ADMIN"/);
-      expect(generatedCode).toMatch(/USER = "USER"/);
-      expect(generatedCode).toMatch(/GUEST = "GUEST"/);
-    });
-
-    it('should use Schema.Enum not Schema.Literal', () => {
-      const generatedCode = generateEnumSchema(mockEnum);
-
-      expect(generatedCode).toContain('Schema.Enum(USER_ROLE)');
-      expect(generatedCode).not.toContain('Schema.Literal');
-    });
-
-    it('should preserve enum name but use PascalCase for Schema/Type', () => {
-      const generatedCode = generateEnumSchema(mockEnum);
-
-      // Original SCREAMING_SNAKE_CASE preserved for raw enum
-      expect(generatedCode).toContain('enum USER_ROLE');
-
-      // PascalCase for Schema wrapper (no Schema suffix - the PascalCase name IS the Schema)
-      expect(generatedCode).toContain('export const UserRole = Schema.Enum(USER_ROLE)');
-      expect(generatedCode).toContain('export type UserRole = typeof UserRole.Type');
-
-      // Should NOT use snake_case for schema/type
-      expect(generatedCode).not.toContain('user_role_schema');
-    });
-
-    it('should generate complete enums file with imports', () => {
-      const mockEnums: DMMF.DatamodelEnum[] = [
-        {
-          name: 'STATUS',
-          values: [{ name: 'ACTIVE', dbName: null }],
-          dbName: null,
-        },
-      ];
-
-      const generatedFile = generateEnumsFile(mockEnums);
-
-      // Verify file structure
-      expect(generatedFile).toContain('import { Schema } from "effect"');
-      expect(generatedFile).toContain('export enum STATUSValues');
-      expect(generatedFile).toContain('export const STATUS = Schema.Enum(STATUSValues)');
-    });
+    expect(generateEnumSchema(status)).toBe(
+      `export const TaskStatus = Schema.Literals(["todo_db", "done_db"]);
+export type TaskStatus = typeof TaskStatus.Type;`
+    );
+    expect(generateEnumSchema(priority)).toBe(
+      `export const Priority = Schema.Literals([1, 2]);
+export type Priority = typeof Priority.Type;`
+    );
   });
 
-  describe('Enum with @map directive', () => {
-    it('should handle enums with mapped database values', () => {
-      const mockMappedEnum: DMMF.DatamodelEnum = {
-        name: 'TaskStatus',
+  it('writes schemas, not enum wrappers', () => {
+    const generated = generateEnumsFile([
+      {
+        name: 'STATUS',
+        values: [{ name: 'ACTIVE', dbName: null }],
+        dbName: null,
+      },
+    ]);
+
+    expect(generated).toContain('export const STATUS = Schema.Literals(["ACTIVE"])');
+    expect(generated).not.toContain('export enum');
+  });
+});
+
+describe('Effect field generation', () => {
+  const dmmf = createMockDMMF({
+    enums: [
+      {
+        name: 'PRODUCT_STATUS',
         values: [
-          { name: 'TODO', dbName: 'todo_db' },
-          { name: 'IN_PROGRESS', dbName: 'in_progress_db' },
-          { name: 'DONE', dbName: 'done_db' },
+          { name: 'ACTIVE', dbName: null },
+          { name: 'DRAFT', dbName: null },
         ],
-        dbName: 'task_status_db',
-      };
-
-      const generatedCode = generateEnumSchema(mockMappedEnum);
-
-      expect(generatedCode).toContain('export enum TaskStatusValues');
-      expect(generatedCode).toContain('Schema.Enum(TaskStatusValues)');
-    });
+        dbName: null,
+      },
+    ],
   });
 
-  describe('Multiple enums integration', () => {
-    it('should handle multiple enums in one file', () => {
-      const mockEnums: DMMF.DatamodelEnum[] = [
-        {
-          name: 'ROLE',
-          values: [{ name: 'ADMIN', dbName: null }],
-          dbName: null,
-        },
-        {
-          name: 'STATUS',
-          values: [{ name: 'ACTIVE', dbName: null }],
-          dbName: null,
-        },
-      ];
-
-      const generatedFile = generateEnumsFile(mockEnums);
-
-      // Both enums should be present (raw enum + toPascalCase Schema)
-      // Note: toPascalCase('ROLE') = 'ROLE' (all-caps single words stay as-is)
-      expect(generatedFile).toContain('export enum ROLEValues');
-      expect(generatedFile).toContain('export enum STATUSValues');
-      expect(generatedFile).toContain('export const ROLE = Schema.Enum(ROLEValues)');
-      expect(generatedFile).toContain('export const STATUS = Schema.Enum(STATUSValues)');
+  it('maps enum fields to their generated schema', () => {
+    const field = createMockField({
+      name: 'status',
+      kind: 'enum',
+      type: 'PRODUCT_STATUS',
     });
+
+    expect(buildFieldType(field, dmmf)).toBe('ProductStatus');
+  });
+
+  it('keeps a custom primary-key refinement before branding', () => {
+    const id = createMockField({
+      name: 'id',
+      type: 'Int',
+      isId: true,
+      documentation: '/// @customType(Schema.Int.check(Schema.isGreaterThan(0)))',
+    });
+    const model = createMockModel({ name: 'Sequence', fields: [id] });
+    const source = new EffectGenerator(createMockDMMF({ models: [model] })).generateBrandedIdSchema(
+      model,
+      model.fields
+    );
+    if (!source) throw new Error('expected a branded primary-key schema');
+
+    const SequenceId = new Function(
+      'Schema',
+      `${source.replace('export const', 'const').replace(/\nexport type.*;/, '')}; return SequenceId;`
+    )(Schema);
+
+    expect(Schema.decodeUnknownSync(SequenceId)(1)).toBe(1);
+    expect(() => Schema.decodeUnknownSync(SequenceId)(0)).toThrow();
+  });
+
+  it('maps intervals to the PostgreSQL driver identity struct', () => {
+    expect(buildFieldType(createMockField({ name: 'duration', type: 'Interval' }), dmmf)).toBe(
+      'Schema.Struct({ months: Schema.Int, days: Schema.Int, micros: Schema.BigInt })'
+    );
   });
 });

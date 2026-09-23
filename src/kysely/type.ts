@@ -7,22 +7,21 @@ import {
   getModelDbName,
   sortFields,
 } from '../prisma/type.js';
-import { toPascalCase, toSnakeCase } from '../utils/naming.js';
+import { toPascalCase } from '../utils/naming.js';
 
 function generateModelTableInterface(model: DMMF.Model) {
   const modelName = toPascalCase(model.name);
   const fields = sortFields(filterSchemaFields(model.fields))
     .map((field) => {
       const columnName = JSON.stringify(getFieldDbName(field));
-      const fieldName = JSON.stringify(field.name);
       const operation = getFieldOperationConfig(model, field);
       const updateType = operation.update
-        ? `Exclude<typeof ${modelName}Update.Type[${fieldName}], undefined>`
+        ? `Exclude<typeof ${modelName}Update.Encoded[${columnName}], undefined>`
         : 'never';
 
       return `  ${columnName}: ColumnType<
-    typeof ${modelName}.Type[${fieldName}],
-    typeof ${modelName}Insert.Type[${fieldName}],
+    typeof ${modelName}.Encoded[${columnName}],
+    typeof ${modelName}Insert.Encoded[${columnName}],
     ${updateType}
   >;`;
     })
@@ -35,16 +34,11 @@ ${fields}
 
 function generateJoinTableInterface(joinTable: JoinTableInfo) {
   const name = toPascalCase(joinTable.relationName);
-  const fields = (
-    [
-      ['A', `${toSnakeCase(joinTable.modelA)}_id`],
-      ['B', `${toSnakeCase(joinTable.modelB)}_id`],
-    ] as const
-  )
+  const fields = (['A', 'B'] as const)
     .map(
-      ([columnName, fieldName]) => `  ${JSON.stringify(columnName)}: ColumnType<
-    typeof ${name}.Type[${JSON.stringify(fieldName)}],
-    typeof ${name}Insert.Type[${JSON.stringify(fieldName)}],
+      (columnName) => `  ${JSON.stringify(columnName)}: ColumnType<
+    typeof ${name}.Encoded[${JSON.stringify(columnName)}],
+    typeof ${name}Insert.Encoded[${JSON.stringify(columnName)}],
     never
   >;`
     )
@@ -55,6 +49,13 @@ ${fields}
 }`;
 }
 
+function getModelTableKey(model: DMMF.Model, tableNameCounts: ReadonlyMap<string, number>) {
+  const tableName = getModelDbName(model);
+  return tableNameCounts.get(tableName)! > 1 && model.schema
+    ? `${model.schema}.${tableName}`
+    : tableName;
+}
+
 /**
  * Generate named native Kysely table interfaces followed by the DB map.
  */
@@ -62,6 +63,11 @@ export function generateDBInterface(
   models: readonly DMMF.Model[],
   joinTables: JoinTableInfo[] = []
 ) {
+  const tableNameCounts = new Map<string, number>();
+  for (const model of models) {
+    const tableName = getModelDbName(model);
+    tableNameCounts.set(tableName, (tableNameCounts.get(tableName) ?? 0) + 1);
+  }
   const tableInterfaces = [
     ...Array.from(models, generateModelTableInterface),
     ...joinTables.map(generateJoinTableInterface),
@@ -69,7 +75,8 @@ export function generateDBInterface(
   const dbEntries = [
     ...Array.from(
       models,
-      (model) => `  ${JSON.stringify(getModelDbName(model))}: ${toPascalCase(model.name)}Table;`
+      (model) =>
+        `  ${JSON.stringify(getModelTableKey(model, tableNameCounts))}: ${toPascalCase(model.name)}Table;`
     ),
     ...joinTables.map(
       (joinTable) =>

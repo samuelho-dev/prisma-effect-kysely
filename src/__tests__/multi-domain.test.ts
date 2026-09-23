@@ -6,13 +6,17 @@
  * 2. Generates schemas in separate namespace directories
  */
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DMMF, GeneratorOptions } from '@prisma/generator-helper';
+import prismaInternals from '@prisma/internals';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { isMultiDomainEnabled, parseGeneratorConfig } from '../generator/config';
 import { detectDomains } from '../generator/domain-detector';
 import { GeneratorOrchestrator } from '../generator/orchestrator';
+
+const { getDMMF } = prismaInternals;
 
 describe('Multi-Domain Generation', () => {
   const testOutputDir = path.join(import.meta.dirname, 'test-output-multi-domain');
@@ -302,6 +306,151 @@ describe('Multi-Domain Generation', () => {
         expect(domainTypesContent).not.toContain(`export const ${otherModel}Update =`);
         expect(domainTypesContent).not.toContain(`export interface ${otherModel}Table`);
       }
+    });
+    it('compiles enum-free domain barrels with cross-domain foreign keys', async () => {
+      const dmmf = await getDMMF({
+        datamodel: `
+          datasource db {
+            provider = "postgresql"
+          }
+
+          model User {
+            id    String @id @db.Uuid
+            posts Post[]
+          }
+
+          model Post {
+            id      String @id @db.Uuid
+            ownerId String @db.Uuid @map("owner_id")
+            owner   User   @relation(fields: [ownerId], references: [id])
+          }
+        `,
+      });
+      const user = dmmf.datamodel.models.find((model) => model.name === 'User');
+      const post = dmmf.datamodel.models.find((model) => model.name === 'Post');
+      if (!user || !post) {
+        throw new Error('Expected User and Post models');
+      }
+      Object.assign(user, { schema: 'identity' });
+      Object.assign(post, { schema: 'content' });
+
+      const options = {
+        generator: {
+          output: { value: testOutputDir },
+          config: { multiFileDomains: 'true' },
+        },
+        dmmf,
+      } as GeneratorOptions;
+      await new GeneratorOrchestrator(options).generate(options);
+
+      const consumerPath = path.join(testOutputDir, 'domain-contract.ts');
+      const tsconfigPath = path.join(testOutputDir, 'tsconfig.json');
+      fs.writeFileSync(
+        consumerPath,
+        `import type { Post, UserId } from "./content/src/generated/index.ts";
+
+type Assert<T extends true> = T;
+type PostOwnerUsesGlobalBrand = Assert<Post["ownerId"] extends UserId ? true : false>;
+`
+      );
+      fs.writeFileSync(
+        tsconfigPath,
+        JSON.stringify({
+          extends: path.join(process.cwd(), 'tsconfig.json'),
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+            types: ['node'],
+          },
+          include: [
+            './content/src/generated/**/*.ts',
+            './identity/src/generated/**/*.ts',
+            './domain-contract.ts',
+          ],
+        })
+      );
+
+      expect(fs.existsSync(path.join(testOutputDir, 'content/src/generated/enums.ts'))).toBe(true);
+      execFileSync('./node_modules/.bin/tsc', ['--noEmit', '-p', tsconfigPath], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+      });
+    });
+
+    it('keeps colliding physical table keys bare inside separate domains', async () => {
+      const dmmf = await getDMMF({
+        datamodel: `
+          datasource db {
+            provider = "postgresql"
+          }
+
+          model PublicUser {
+            id String @id @db.Uuid
+          }
+
+          model AuditUser {
+            id String @id @db.Uuid
+          }
+        `,
+      });
+      for (const [name, schema] of [
+        ['PublicUser', 'public'],
+        ['AuditUser', 'audit'],
+      ] as const) {
+        const model = dmmf.datamodel.models.find((candidate) => candidate.name === name);
+        if (!model) throw new Error(`Expected ${name} model`);
+        Object.assign(model, { dbName: 'user', schema });
+      }
+
+      const options = {
+        generator: {
+          output: { value: testOutputDir },
+          config: { multiFileDomains: 'true' },
+        },
+        dmmf,
+      } as GeneratorOptions;
+      await new GeneratorOrchestrator(options).generate(options);
+
+      const consumerPath = path.join(testOutputDir, 'domain-table-contract.ts');
+      const tsconfigPath = path.join(testOutputDir, 'tsconfig.json');
+      fs.writeFileSync(
+        consumerPath,
+        `import type { DB as AuditDB } from "./audit/src/generated/index.ts";
+import type { DB as PublicDB } from "./public/src/generated/index.ts";
+
+type Assert<T extends true> = T;
+type AuditTableIsBare = Assert<"user" extends keyof AuditDB ? true : false>;
+type PublicTableIsBare = Assert<"user" extends keyof PublicDB ? true : false>;
+type AuditTableIsNotQualified = Assert<"audit.user" extends keyof AuditDB ? false : true>;
+type PublicTableIsNotQualified = Assert<"public.user" extends keyof PublicDB ? false : true>;
+`
+      );
+      fs.writeFileSync(
+        tsconfigPath,
+        JSON.stringify({
+          extends: path.join(process.cwd(), 'tsconfig.json'),
+          compilerOptions: {
+            noEmit: true,
+            allowImportingTsExtensions: true,
+            types: ['node'],
+          },
+          include: [
+            './audit/src/generated/**/*.ts',
+            './public/src/generated/**/*.ts',
+            './domain-table-contract.ts',
+          ],
+        })
+      );
+
+      const compilerOutput = execFileSync(
+        './node_modules/.bin/tsc',
+        ['--noEmit', '-p', tsconfigPath],
+        {
+          cwd: process.cwd(),
+          encoding: 'utf8',
+        }
+      );
+      expect(compilerOutput).toBe('');
     });
   });
 });
