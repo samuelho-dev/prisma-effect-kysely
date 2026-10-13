@@ -120,7 +120,7 @@ export type ${codecName} = typeof ${codecName}.Type;`;
     const header = generateFileHeader();
     const imports = [
       `import { Schema } from "effect";`,
-      `import { VariantSchema } from "effect/unstable/schema";`,
+      `import { VariantSchema } from "effect/schema";`,
       `import type { ColumnType } from "kysely";`,
     ];
 

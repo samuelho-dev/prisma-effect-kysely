@@ -10,35 +10,33 @@ This project vendors external source under `repos/` as **read-only reference
 material** (via `git subtree`, not a submodule — no init needed).
 
 - Use vendored source to learn idiomatic usage; never import from it or edit it.
-- Prefer patterns from the vendored source over documentation or web search —
-  the published Effect docs are for Effect 3 and are **wrong** for the Effect 4
-  beta this project targets. The vendored source is the source of truth.
+- Published declarations/source for the pinned stable `effect@4.0.3` are the
+  source of truth (`node_modules/effect/dist` and `node_modules/effect/src`).
+  Vendored prerelease source and Effect 3 documentation may have stale APIs.
 - `repos/` is excluded from TypeScript compilation, ESLint, Prettier, and the
   npm package (`files` allowlist). Do not add it to any `include`/`files` list.
 
 For Schema work, start with the distilled cheat-sheet **`agent-patterns/effect-schema.md`**
 (v4 constructors, filters, branding/`encodeKeys`, the v3→v4 traps, and this
-package's `columnType`/`generated`/`Selectable` helpers), then drill into
-`repos/effect` for exact signatures.
+package's operation codecs and native Kysely contracts), then consult the
+installed stable package for exact signatures.
 
-### `repos/effect/` — Effect v4 source (vendored from `Effect-TS/effect-smol`, branch `main`)
+### `repos/effect/` — historical Effect v4 prerelease source
 
-`effect@4.0.0-beta.x` is built from the `effect-smol` monorepo. When writing or
-reviewing Effect code, inspect `repos/effect/packages/effect/src` (and
-`.../test`) for real v4 API shapes, signatures, and idioms — do not infer them
-from memory or v3 docs.
+The vendored `Effect-TS/effect-smol` snapshot is historical reference only.
+For current API shapes and signatures, inspect the installed stable Effect
+package instead; never let this snapshot override published declarations.
 
 High-value files for this generator:
 
-- `repos/effect/packages/effect/src/Schema.ts` — `Top`, `Bottom`, `Codec`,
-  `Struct`, `brand`, `check`, `encodeKeys`, `Literals`, `Enum`, the `is*` filters. This is
-  the file to consult for any `Schema.*` question. (`Top` is the structural base
-  every schema must satisfy; `Bottom<...>` is its 15-param shape.)
-- `repos/effect/packages/effect/src/SchemaAST.ts` — AST node types (`Objects`,
+- `node_modules/effect/src/Schema.ts` — `Top`, `Bottom`, `Codec`,
+  `Struct`, `brand`, `check`, `encodeKeys`, `Literals`, `Enum`, and `is*` filters.
+  `Top` is the structural base every schema must satisfy.
+- `node_modules/effect/src/SchemaAST.ts` — AST node types (`Objects`,
   `PropertySignature`, `resolve`, the `is*` guards). v4 reworked this heavily
   from v3.
 
-### Effect 3 → 4 quick map (verified against the vendored source)
+### Effect 3 → 4 quick map
 
 - `Schema.Schema<T,E,R>` → `Schema.Codec<T,E,RD,RE>`; `Schema.Schema.All` →
   `Schema.Top`; `Schema.Schema.Type<S>` → `Schema.Schema.Type<S>` (kept);
@@ -63,4 +61,4 @@ High-value files for this generator:
 git subtree pull --prefix=repos/effect https://github.com/Effect-TS/effect-smol.git main --squash
 ```
 
-Keep it roughly in sync with the `effect` beta the project pins (`devDependencies.effect`).
+The snapshot may lag the stable `effect` development pin; do not use it as an API contract.

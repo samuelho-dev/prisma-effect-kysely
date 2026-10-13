@@ -1,6 +1,6 @@
 ---
 scope: project
-updated: 2026-09-22
+updated: 2026-10-13
 relates_to:
   - src/prisma/type.ts
   - src/effect/generator.ts
@@ -14,7 +14,7 @@ Guidance for Claude Code when working in this repo.
 
 ## Overview
 
-Effect 4-only Prisma generator. Generated files own their Effect database codecs and native Kysely table contracts; the package publishes no application runtime helpers.
+Stable Effect 4-only Prisma 8 PostgreSQL contract generator. Generated files own their Effect database codecs and native Kysely table contracts; the package publishes no application runtime helpers.
 
 ## Commands
 
@@ -51,10 +51,10 @@ instead of widening them.
 
 ## Package boundary
 
-- Required peers: exact `effect@4.0.0-rc.117` and `kysely@^0.29.6`.
+- Required peers: `effect@^4.0.3` and `kysely@^0.29.6`; development pins Effect `4.0.3`.
 - Published API: `prisma-effect-kysely` contract generator executable only.
 - Prisma 8 emits the PostgreSQL contract; `@prisma/generator-helper` remains development-only for the normalized internal model types and tests.
-- Generated files import `effect`, `effect/unstable/schema`, and `kysely` directly. They never import `prisma-effect-kysely`.
+- Generated files import `effect`, `effect/schema`, and `kysely` directly. They never import `prisma-effect-kysely`.
 
 ## Generated output
 
