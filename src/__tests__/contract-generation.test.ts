@@ -322,30 +322,46 @@ describe('Prisma 8 contract generation', () => {
     expect(existsSync(join(generated, 'index.ts'))).toBe(true);
   });
 
-  it('compiles and imports stable Effect codecs with native operation semantics', async () => {
+  it('compiles a NodeNext index consumer and imports stable Effect codecs', async () => {
     await generateFromContract({ contractPath, schemaPath, outputPath });
 
     expect(existsSync(join(outputPath, 'enums.ts'))).toBe(true);
     expect(existsSync(join(outputPath, 'types.ts'))).toBe(true);
     expect(existsSync(join(outputPath, 'index.ts'))).toBe(true);
 
+    await writeFile(
+      join(outputPath, 'consumer.ts'),
+      `import { Schema } from "effect";
+import type { Selectable } from "kysely";
+import { ROLE, ROLEEnum, User } from "./index.js";
+import type { DB, UserTable } from "./index.js";
+
+export const role = Schema.decodeUnknownSync(ROLE)(ROLEEnum.USER);
+export function decodeUser(row: Selectable<DB["user"]>): User {
+  const tableRow: Selectable<UserTable> = row;
+  return Schema.decodeUnknownSync(User)(tableRow);
+}
+`
+    );
     const tsconfigPath = join(outputPath, 'tsconfig.json');
     await writeFile(
       tsconfigPath,
       JSON.stringify({
         extends: join(process.cwd(), 'tsconfig.json'),
         compilerOptions: {
-          noEmit: true,
-          allowImportingTsExtensions: true,
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          rootDir: outputPath,
+          outDir: join(outputPath, 'dist'),
           types: ['node'],
         },
-        include: ['./index.ts', './types.ts', './enums.ts'],
+        include: ['./index.ts', './types.ts', './enums.ts', './consumer.ts'],
       })
     );
     try {
       await execFileAsync(
         './node_modules/@typescript/native/bin/tsc',
-        ['--noEmit', '-p', tsconfigPath],
+        ['-p', tsconfigPath],
         { cwd: process.cwd() }
       );
     } catch (error) {
@@ -357,6 +373,32 @@ describe('Prisma 8 contract generation', () => {
       throw error;
     }
 
+    await execFileAsync(
+      'node',
+      [
+        '--input-type=module',
+        '--eval',
+        `import { strictEqual } from "node:assert";
+// Exercise native Node loading of the freshly generated and compiled entrypoint.
+const { role, decodeUser } = await import(${JSON.stringify(pathToFileURL(join(outputPath, 'dist/consumer.js')).href)});
+strictEqual(role, "USER");
+const createdAt = new Date("2026-09-22T00:00:00.000Z");
+const user = decodeUser({
+  id: "00000000-0000-4000-8000-000000000001",
+  display_name: "Sam",
+  display_alias: null,
+  amount: 42n,
+  metadata: { source: "contract" },
+  role,
+  seller_api_key_status: "ACTIVE",
+  created_at: createdAt,
+});
+strictEqual(user.displayName, "Sam");
+strictEqual(user.amount, 42n);
+strictEqual(user.createdAt, createdAt);`,
+      ],
+      { cwd: process.cwd() }
+    );
     const generated = await import(`${pathToFileURL(join(outputPath, 'index.ts')).href}?contract`);
     const id = '00000000-0000-4000-8000-000000000001';
     const productId = '00000000-0000-4000-8000-000000000002';
