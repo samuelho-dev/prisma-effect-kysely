@@ -24,7 +24,12 @@ bunx prisma-effect-kysely contract \
 
 The schema path preserves `/// @customType(...)` expressions because Prisma 8 does not include documentation comments in `contract.json`.
 
-The output directory contains `enums.ts`, `types.ts`, and `index.ts`.
+The output directory contains `enums.ts`, `types.ts`, and `index.ts`. Generated
+relative imports and re-exports use `.js` specifiers so TypeScript can resolve
+the sources with `module` and `moduleResolution` set to `NodeNext`, and Node can
+load the compiled ESM without a bundler. In an ESM package (`"type": "module"`),
+import the public entrypoint as `./generated/effect/index.js`; it exports the
+model codecs, enums, and Kysely `DB` and table types.
 
 Pass `--multi-domain` to write those three files for each Prisma namespace at
 `<output>/<namespace>/src/generated`. Every domain writes `enums.ts`, and each
@@ -95,7 +100,7 @@ output keeps bare table names because each namespace has its own `DB`.
 
 ```typescript
 import { Kysely, type Insertable, type Selectable, type Updateable } from 'kysely';
-import type { DB } from './generated/effect';
+import type { DB } from './generated/effect/index.js';
 
 const db = new Kysely<DB>({ dialect });
 

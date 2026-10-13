@@ -126,7 +126,7 @@ export type ${codecName} = typeof ${codecName}.Type;`;
 
     if (hasEnums) {
       const enumImports = this.dmmf.datamodel.enums.map((e) => toPascalCase(e.name)).join(', ');
-      imports.push(`import { ${enumImports} } from "./enums";`);
+      imports.push(`import { ${enumImports} } from "./enums.js";`);
     }
 
     return `${header}

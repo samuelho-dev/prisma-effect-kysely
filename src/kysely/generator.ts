@@ -17,6 +17,6 @@ export class KyselyGenerator {
    * Generate index.ts re-export file
    */
   generateIndexFile() {
-    return `export * from "./enums";\nexport * from "./types";`;
+    return `export * from "./enums.js";\nexport * from "./types.js";`;
   }
 }
