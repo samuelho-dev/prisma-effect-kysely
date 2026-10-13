@@ -1,12 +1,12 @@
 # Effect Schema patterns (v4)
 
 Distilled reference for writing Effect `Schema` code in this project. The source
-of truth is the vendored `repos/effect/packages/effect/src/Schema.ts` and
-`SchemaAST.ts` — consult them for exact signatures. This file captures the
-patterns this generator relies on and the v3→v4 traps that bit us.
+of truth is the installed stable `effect@4.0.3` declarations/source under
+`node_modules/effect/dist` and `node_modules/effect/src`. The vendored prerelease
+snapshot and Effect 3 documentation may have stale APIs.
 
-**This project targets Effect 4 (beta). The published Effect docs are v3 and are
-wrong here — always verify against `repos/effect`, not the website.**
+Generated operation codecs import `VariantSchema` from `effect/schema`.
+The stable package still marks this module's API as unstable.
 
 ## Core types
 
@@ -20,12 +20,12 @@ wrong here — always verify against `repos/effect`, not the website.**
   `Top`'s members under strict checkers — declare it `extends Schema.Bottom<...all
 15 params...>` like Effect's own `brand<S,B>` if you need a named schema interface,
   and hardcode the `TypeParameters` slot to `readonly []` (forwarding `S['~type.parameters']`
-  breaks when `S` is itself branded). See `repos/effect/.../Schema.ts` `brand`/`refine`.
+  breaks when `S` is itself branded). Consult installed `Schema.ts` `brand`/`refine`.
 
 ## Constructors & combinators
 
 ```ts
-Schema.Struct({ a: Schema.String, b: Schema.optional(Schema.Number) });
+Schema.Struct({ a: Schema.String, b: Schema.optionalKey(Schema.Number) });
 Schema.Array(Schema.String); // readonly; Schema.mutable(...) for mutable (arrays only!)
 Schema.NullOr(Schema.String); // T | null
 Schema.Union([A, B]); // ARRAY in v4 (was variadic Union(A, B))
@@ -36,9 +36,9 @@ Schema.Enum(NativeTsEnum); // was Schema.Enums; only for existing TS enum/const 
 Schema.suspend(() => JsonValue); // recursive schemas
 ```
 
-Generated Prisma enums should use `Schema.Literals([...])`, not `Schema.Enum`.
-That keeps `Type` and `Encoded` as the same stored string or integer literal
-union, which is the shape Kysely expects for enum columns.
+Generated Prisma enums use named TypeScript enums with `Schema.Enum` codecs.
+Their values are stored strings or integers, preserving the native leaf values
+Kysely expects.
 
 ## Filters: `.check(Schema.is*)`
 

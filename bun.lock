@@ -18,7 +18,7 @@
         "@typescript/native": "npm:typescript@^7.0.2",
         "@vitest/coverage-v8": "^5.0.1",
         "@vitest/eslint-plugin": "^1.6.27",
-        "effect": "4.0.0-rc.117",
+        "effect": "4.0.3",
         "eslint": "^10.11.0",
         "eslint-import-resolver-typescript": "^4.4.5",
         "eslint-plugin-import": "^2.32.0",
@@ -31,7 +31,7 @@
         "vitest": "^5.0.1",
       },
       "peerDependencies": {
-        "effect": "4.0.0-rc.117",
+        "effect": "^4.0.3",
         "kysely": "^0.29.6",
       },
     },
@@ -929,7 +929,7 @@
 
     "dunder-proto": ["dunder-proto@1.0.1", "", { "dependencies": { "call-bind-apply-helpers": "1.0.2", "es-errors": "1.3.0", "gopd": "1.2.0" } }, "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A=="],
 
-    "effect": ["effect@4.0.0-rc.117", "", {}, "sha512-UUyi9QiOW4nySFIBM3KnYbNMd9EZliOdKfBcyLD0mPMPheO2fkuXS5y0opjWc9oqzlJxPQICEGm8gGw3kh9j/w=="],
+    "effect": ["effect@4.0.3", "", {}, "sha512-LoWn/Uwwx0JjHSDmBAAahx8sB+klzM6vsZovnbYowBNw6B4QScJLRLBByO61plvNiycx7HPN8FnsWUCu0eXW5w=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 

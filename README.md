@@ -1,13 +1,13 @@
 # prisma-effect-kysely
 
-Prisma generator for Effect 4 database codecs and native Kysely table contracts.
+Prisma 8 PostgreSQL contract generator for stable Effect 4 database codecs and native Kysely table contracts.
 
 ## Install
 
-Generated files import both peers directly:
+Generated files import both required peers directly: `effect@^4.0.3` and `kysely@^0.29.6`.
 
 ```bash
-bun add prisma-effect-kysely effect@4.0.0-rc.117 kysely@^0.29.6
+bun add prisma-effect-kysely effect@^4.0.3 kysely@^0.29.6
 ```
 
 ## Setup
@@ -41,7 +41,7 @@ Each model has select, insert, and update codecs backed by one private `VariantS
 
 ```typescript
 import { Schema } from 'effect';
-import { VariantSchema } from 'effect/unstable/schema';
+import { VariantSchema } from 'effect/schema';
 import type { ColumnType } from 'kysely';
 
 const DatabaseSchema = VariantSchema.make({

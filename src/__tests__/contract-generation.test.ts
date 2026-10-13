@@ -1,12 +1,16 @@
+import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 import { Schema } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractToDmmf } from '../contract/adapter';
 import { generateFromContract } from '../contract/generator';
 import { buildForeignKeyMap } from '../prisma/relation';
+
+const execFileAsync = promisify(execFile);
 
 vi.mock('../utils/templates', () => ({
   formatCode: vi.fn((code: string) => Promise.resolve(code)),
@@ -318,12 +322,40 @@ describe('Prisma 8 contract generation', () => {
     expect(existsSync(join(generated, 'index.ts'))).toBe(true);
   });
 
-  it('generates driver-native codecs and physical Kysely tables without value coercion', async () => {
+  it('compiles and imports stable Effect codecs with native operation semantics', async () => {
     await generateFromContract({ contractPath, schemaPath, outputPath });
 
     expect(existsSync(join(outputPath, 'enums.ts'))).toBe(true);
     expect(existsSync(join(outputPath, 'types.ts'))).toBe(true);
     expect(existsSync(join(outputPath, 'index.ts'))).toBe(true);
+
+    const tsconfigPath = join(outputPath, 'tsconfig.json');
+    await writeFile(
+      tsconfigPath,
+      JSON.stringify({
+        extends: join(process.cwd(), 'tsconfig.json'),
+        compilerOptions: {
+          noEmit: true,
+          allowImportingTsExtensions: true,
+          types: ['node'],
+        },
+        include: ['./index.ts', './types.ts', './enums.ts'],
+      })
+    );
+    try {
+      await execFileAsync(
+        './node_modules/@typescript/native/bin/tsc',
+        ['--noEmit', '-p', tsconfigPath],
+        { cwd: process.cwd() }
+      );
+    } catch (error) {
+      if (error && typeof error === 'object') {
+        const stdout = 'stdout' in error ? String(error.stdout) : '';
+        const stderr = 'stderr' in error ? String(error.stderr) : '';
+        throw new Error(stdout || stderr, { cause: error });
+      }
+      throw error;
+    }
 
     const generated = await import(`${pathToFileURL(join(outputPath, 'index.ts')).href}?contract`);
     const id = '00000000-0000-4000-8000-000000000001';
@@ -369,6 +401,13 @@ describe('Prisma 8 contract generation', () => {
       role: 'ADMIN',
       seller_api_key_status: 'REVOKED',
     });
+    expect(Schema.encodeUnknownSync(generated.UserUpdate)({ displayName: 'Next' })).toEqual({
+      display_name: 'Next',
+    });
+    expect(Schema.encodeUnknownSync(generated.UserUpdate)({})).toEqual({});
+    expect(() =>
+      Schema.encodeUnknownSync(generated.UserInsert)({ amount: 42n, role: 'USER' })
+    ).toThrow();
     expect(() => Schema.decodeUnknownSync(generated.User)({ ...physical, amount: '42' })).toThrow();
     expect(Schema.decodeUnknownSync(generated.UserProducts)({ A: productId, B: id })).toEqual({
       a: productId,
