@@ -111,8 +111,8 @@ if (!dryRun && (await metadata())) {
       console.log(`Checked ${pkg.name}@${pkg.version}: ${integrity}`);
     } else {
       let published = await metadata();
-      for (let attempt = 0; !published && attempt < 5; attempt++) {
-        await delay(2000);
+      for (let attempt = 0; !published && attempt < 120; attempt++) {
+        await delay(10000);
         published = await metadata();
       }
       if (
