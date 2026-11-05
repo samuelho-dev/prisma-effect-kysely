@@ -2,11 +2,7 @@ name: Release
 
 on:
   push:
-    # `main` ships stable releases to the `latest` dist-tag.
-    # `release/next` ships pre-releases — it carries `.changeset/pre.json`
-    # (changesets pre mode, tag `next`), so `changeset publish` auto-routes
-    # those versions (e.g. 6.0.0-next.0) to the `next` dist-tag instead of
-    # `latest`. Stable 5.x patches can keep flowing from `main` independently.
+    # main publishes stable releases; release/next uses Changesets pre mode.
     branches: [main, release/next]
   workflow_dispatch:
 
@@ -14,49 +10,44 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write # required for npm provenance
+permissions: {}
 
 jobs:
   release:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/next'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24.x
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Pin npm
+        run: npm install --global npm@11.21.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # The changesets action handles both phases:
-      # - When changesets exist: opens/updates the "Version Packages" PR
-      #   (running `changeset version`). On `release/next` (pre mode) this yields
-      #   `X.Y.Z-next.N`; on `main` it yields normal versions.
-      # - When the version PR is merged (no changesets remain): runs the `publish`
-      #   command. `changeset publish` auto-routes the npm dist-tag — pre-release
-      #   versions go to the pre tag (`next`), stable versions go to `latest` —
-      #   and pushes the matching git tags. `prepublishOnly` runs the lint/
-      #   typecheck/test/build gate on the underlying `npm publish`.
+      # Changesets still creates the version PR. The publish script runs the
+      # prepublish gate, packs once, publishes that tarball and verifies npm
+      # before reporting the git tag to the action.
       - name: Version or Publish
-        uses: changesets/action@v2
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version-script: bun run changeset:version
           publish-script: bun run release
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: 'true'

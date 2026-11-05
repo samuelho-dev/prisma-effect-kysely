@@ -52,8 +52,7 @@
     "format:check": "prettier --check .",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "changeset:publish": "changeset publish",
-    "release": "bun run build && changeset publish",
+    "release": "node scripts/release.mjs",
     "prepublishOnly": "bun run lint && bun run typecheck && bun run test && bun run build"
   },
   "lint-staged": {

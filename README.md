@@ -212,7 +212,9 @@ git add .changeset/ && git commit -m "docs: changeset"
 git push
 ```
 
-CI opens a Version Packages PR. Merging it publishes to npm, creates the git tag, and creates a GitHub release.
+CI opens a Version Packages PR. Merging it runs `prepublishOnly`, packs once, and publishes the checked tarball with npm trusted publishing and provenance. CI compares the published version and integrity with that tarball before creating the git tag and GitHub release. Stable releases use `latest`; Changesets pre mode uses its configured tag.
+
+Configure npm's trusted publisher for this repository and `.github/workflows/release.yml` (and the environment, if one is configured). The workflow requires no npm token. A publish that succeeds but fails the registry verification needs manual investigation before retrying or creating its tag.
 
 ## License
 
