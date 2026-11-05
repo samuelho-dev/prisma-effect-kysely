@@ -216,6 +216,8 @@ CI opens a Version Packages PR. Merging it runs `prepublishOnly`, packs once, an
 
 Configure npm's trusted publisher for this repository and `.github/workflows/release.yml` (and the environment, if one is configured). The workflow requires no npm token. A publish that succeeds but fails the registry verification needs manual investigation before retrying or creating its tag.
 
+Registry verification allows up to 120 checks, ten seconds apart, for npm processing. Publishing is not retried; an integrity mismatch still fails the release.
+
 ## License
 
 MIT
